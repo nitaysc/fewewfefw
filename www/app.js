@@ -163,8 +163,8 @@ const sfx = {
   click() { beep(1400, 0.04, 'triangle', 0.12); },
   star(i) { beep(880 + i * 220, 0.16, 'triangle', 0.22); },
 };
-// a soft click on every button press, like a real game UI
-document.addEventListener('pointerdown', (e) => {
+// a soft click on every button press, like a real game UI (on click, so starting a scroll stays silent)
+document.addEventListener('click', (e) => {
   if (e.target.closest('.btn, .icon-btn, .tab, .deck-card, .seg button, .lvl, .hat-banner, .toggle')) sfx.click();
 });
 function buzz(ms = 60) {
@@ -206,6 +206,18 @@ const tilt = {
   stop() { this.on = false; window.removeEventListener('devicemotion', this.handler); },
 };
 
+// ---------- smooth scrolling ----------
+// cards animate only while on screen, and everything decorative holds still mid-scroll
+const cardWatcher = 'IntersectionObserver' in window
+  ? new IntersectionObserver((entries) => entries.forEach((e) => e.target.classList.toggle('live', e.isIntersecting)), { rootMargin: '40px' })
+  : null;
+let scrollIdle;
+document.addEventListener('scroll', () => {
+  if (!document.body.classList.contains('scrolling')) document.body.classList.add('scrolling');
+  clearTimeout(scrollIdle);
+  scrollIdle = setTimeout(() => document.body.classList.remove('scrolling'), 150);
+}, { capture: true, passive: true });
+
 // ---------- home ----------
 let mode = 'forehead';
 let currentDeck = 'mix';
@@ -228,6 +240,8 @@ function renderHome() {
   $('#deckGrid').innerHTML = [MIX, ...allDecks()].map(cardHTML).join('')
     + `<button class="deck-card add" id="addDeckCard" style="--i:${allDecks().length + 1}"><b>＋</b>חפיסה משלכם</button>`;
   $$('#home .deck-card[data-id]').forEach((el) => el.addEventListener('click', () => openSheet(el.dataset.id)));
+  if (cardWatcher) { cardWatcher.disconnect(); $$('#home .deck-card').forEach((el) => cardWatcher.observe(el)); }
+  else $$('#home .deck-card').forEach((el) => el.classList.add('live'));
   $('#addDeckCard').addEventListener('click', () => { renderMyDecks(); openEditor(null); });
 }
 $$('[data-go]').forEach((b) => b.addEventListener('click', () => {

@@ -43,9 +43,9 @@ button, input, textarea { font-family: inherit; }
 .bg-fx::before {
   content: ""; position: absolute; inset: -50%;
   background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.035) 0 10deg, transparent 10deg 20deg);
-  animation: spin 120s linear infinite;
+  animation: spin 120s linear infinite; will-change: transform;
 }
-.bg-fx i { position: absolute; border-radius: 50%; opacity: .55; animation: drift 18s ease-in-out infinite alternate; }
+.bg-fx i { position: absolute; border-radius: 50%; opacity: .55; animation: drift 18s ease-in-out infinite alternate; will-change: transform; }
 .bg-fx i:nth-child(1) { width: 60vmax; height: 60vmax; top: -25vmax; right: -20vmax; background: radial-gradient(circle, rgba(255, 92, 138, .45), transparent 65%); }
 .bg-fx i:nth-child(2) { width: 55vmax; height: 55vmax; bottom: -20vmax; left: -20vmax; background: radial-gradient(circle, rgba(79, 195, 255, .35), transparent 65%); animation-delay: -6s; }
 .bg-fx i:nth-child(3) { width: 40vmax; height: 40vmax; top: 35%; left: 40%; background: radial-gradient(circle, rgba(255, 204, 51, .22), transparent 65%); animation-delay: -12s; }
@@ -58,7 +58,7 @@ button, input, textarea { font-family: inherit; }
   padding: calc(12px + var(--safe-top)) 16px calc(12px + var(--safe-bottom));
 }
 .screen.active { display: flex; animation: screenIn .3s cubic-bezier(.2, .9, .3, 1.2); }
-@keyframes screenIn { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes screenIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -110,7 +110,7 @@ button, input, textarea { font-family: inherit; }
 .bar h2 { margin: 0; font-size: 24px; font-weight: 900; text-align: center; -webkit-text-stroke: 5px var(--edge); paint-order: stroke fill; text-shadow: 0 3px 0 var(--edge); }
 .pill { background: linear-gradient(180deg, #5b35a8, #3f1f80); border: 3px solid var(--edge); border-radius: 14px; padding: 5px 10px; font-size: 14px; font-weight: 700; color: var(--text); min-width: 46px; text-align: center; }
 .big-pill { font-size: 20px; font-weight: 900; color: var(--primary); }
-.scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; scrollbar-width: none; }
+.scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: 8px; scrollbar-width: none; }
 .scroll::-webkit-scrollbar { display: none; }
 .actions { display: flex; gap: 12px; padding-top: 14px; }
 .actions .btn { flex: 1; }
@@ -131,7 +131,7 @@ button, input, textarea { font-family: inherit; }
   background: radial-gradient(circle at 50% 40%, #5a23a8, #1c0b3d 70%);
   transition: opacity .45s ease, visibility 0s linear .45s;
 }
-#splash::before { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(rgba(255,255,255,.06) 0 9deg, transparent 9deg 18deg); animation: spin 30s linear infinite; }
+#splash::before { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(rgba(255,255,255,.06) 0 9deg, transparent 9deg 18deg); animation: spin 30s linear infinite; will-change: transform; }
 #splash.done { opacity: 0; visibility: hidden; }
 .splash-logo { position: relative; text-align: center; animation: titleIn .8s cubic-bezier(.2, .9, .3, 1.6) both; }
 .splash-badge { font-size: 84px; animation: bob 2s ease-in-out infinite; }
@@ -176,7 +176,7 @@ button, input, textarea { font-family: inherit; }
   animation: cardIn .5s cubic-bezier(.2, .9, .3, 1.2) both; transition: transform .08s, box-shadow .08s;
 }
 .hat-banner:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--edge); }
-.hb-burst { position: absolute; inset: -100%; background: repeating-conic-gradient(rgba(255,255,255,.1) 0 8deg, transparent 8deg 16deg); animation: spin 40s linear infinite; }
+.hb-burst { position: absolute; inset: -100%; background: repeating-conic-gradient(rgba(255,255,255,.1) 0 8deg, transparent 8deg 16deg); animation: spin 40s linear infinite; will-change: transform; }
 .hb-emoji { position: relative; font-size: 46px; animation: bob 2.4s ease-in-out infinite; }
 .hb-text { position: relative; flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .hb-text b { font-size: 24px; font-weight: 900; -webkit-text-stroke: 5px var(--edge); paint-order: stroke fill; }
@@ -184,7 +184,7 @@ button, input, textarea { font-family: inherit; }
 .hb-go { position: relative; font-size: 22px; font-weight: 900; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(180deg, #ffe46b, #ffb800); color: var(--primary-ink); border: 3px solid var(--edge); box-shadow: 0 3px 0 var(--edge); }
 
 .deck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-.deck-row { display: flex; gap: 14px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 14px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.deck-row { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; margin: 0 -16px; padding: 4px 16px 14px; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .deck-row::-webkit-scrollbar { display: none; }
 .deck-row .deck-card { flex: 0 0 148px; scroll-snap-align: start; }
 
@@ -196,19 +196,21 @@ button, input, textarea { font-family: inherit; }
   border: 3px solid var(--edge);
   box-shadow: 0 6px 0 var(--edge), 0 12px 20px rgba(0, 0, 0, .3), inset 0 0 0 3px rgba(255, 255, 255, .35);
   animation: cardIn .5s cubic-bezier(.2, .9, .3, 1.2) both;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation-delay: calc(min(var(--i, 0), 10) * 45ms);
   transition: transform .1s, box-shadow .1s;
+  contain: layout paint;
 }
 .deck-card:active { transform: translateY(5px) scale(.98); box-shadow: 0 1px 0 var(--edge), inset 0 0 0 3px rgba(255, 255, 255, .35); }
 /* glossy sweep that passes over each card now and then */
 .deck-card::after {
-  content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%; z-index: 3; pointer-events: none;
-  background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: skewX(-15deg);
+  content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: 0; z-index: 3; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: translateX(-150%) skewX(-15deg);
   animation: sweep 6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 400ms);
 }
-@keyframes sweep { 0%, 75% { left: -60%; } 100% { left: 130%; } }
+@keyframes sweep { 0%, 75% { transform: translateX(-150%) skewX(-15deg); } 100% { transform: translateX(325%) skewX(-15deg); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(24px) scale(.9); } to { opacity: 1; transform: none; } }
-.sunburst { position: absolute; inset: -60%; background: repeating-conic-gradient(rgba(255,255,255,.13) 0 9deg, transparent 9deg 18deg); animation: spin 50s linear infinite; }
+.sunburst { position: absolute; inset: -60%; background: repeating-conic-gradient(rgba(255,255,255,.13) 0 9deg, transparent 9deg 18deg); }
+.sheet-head .sunburst { animation: spin 50s linear infinite; will-change: transform; }
 .deck-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 58%, rgba(255,255,255,.35), transparent 55%); }
 .cover { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .cover g.f1, .cover g.f2, .cover g.f3, .cover .flame, .cover .tw { transform-box: fill-box; transform-origin: center; }
@@ -221,6 +223,10 @@ button, input, textarea { font-family: inherit; }
 @keyframes coverFloat { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-9px) rotate(8deg); } }
 @keyframes flicker { from { transform: scale(1, 1); } to { transform: scale(.85, 1.15); } }
 @keyframes twinkle { 0%, 100% { opacity: .3; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.1); } }
+/* only cards on screen animate, and they hold still while the list is scrolling */
+.deck-card:not(.live)::after, .deck-card:not(.live) .cover *,
+body.scrolling .deck-card::after, body.scrolling .deck-card .cover *,
+body.sheet-open #home .deck-card .cover * { animation-play-state: paused; }
 @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); } 50% { transform: translateY(-8px) rotate(4deg) scale(1.05); } }
 .deck-title {
   position: absolute; top: 9px; right: 9px; left: 9px; z-index: 2; text-align: center;
@@ -320,7 +326,7 @@ textarea { min-height: 220px; resize: vertical; margin-top: 10px; line-height: 1
 
 /* ---------- play ---------- */
 .play { padding: calc(10px + var(--safe-top)) 20px calc(14px + var(--safe-bottom)); background: radial-gradient(circle at 50% 40%, #6a2bc4, #2a1257 75%); transition: background .12s; }
-.play::before { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(rgba(255,255,255,.08) 0 9deg, transparent 9deg 18deg); animation: spin 60s linear infinite; pointer-events: none; }
+.play::before { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(rgba(255,255,255,.08) 0 9deg, transparent 9deg 18deg); animation: spin 60s linear infinite; pointer-events: none; will-change: transform; }
 .play.good { background: var(--good); }
 .play.bad { background: var(--bad); }
 .play-top { position: relative; display: flex; justify-content: space-between; align-items: center; }
@@ -340,6 +346,7 @@ textarea { min-height: 220px; resize: vertical; margin-top: 10px; line-height: 1
   width: min(92%, 760px); min-height: 52%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
   padding: 18px 22px; border-radius: 30px; background: #fffaf0; color: var(--edge);
   border: 4px solid var(--edge); box-shadow: 0 10px 0 var(--edge), 0 20px 40px rgba(0,0,0,.35), inset 0 -10px 0 rgba(0,0,0,.06);
+  will-change: transform, opacity;
 }
 .word-deck { color: #8a74b8; font-size: 18px; font-weight: 900; margin-bottom: 6px; }
 .word { font-size: clamp(40px, 10vw, 96px); font-weight: 900; line-height: 1.1; word-break: break-word; }
@@ -353,7 +360,7 @@ textarea { min-height: 220px; resize: vertical; margin-top: 10px; line-height: 1
 .play-buttons .btn { flex: 1; font-size: 30px; padding: 10px; }
 .countdown { position: absolute; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center; flex-direction: column; background: radial-gradient(circle, #5a23a8, #1c0b3d 70%); color: var(--primary); }
 .countdown.show { display: flex; }
-.countdown b { font-size: 160px; font-weight: 900; line-height: 1; -webkit-text-stroke: 12px var(--edge); paint-order: stroke fill; text-shadow: 0 10px 0 var(--edge); animation: countPop .9s ease-out; }
+.countdown b { font-size: 160px; font-weight: 900; line-height: 1; -webkit-text-stroke: 12px var(--edge); paint-order: stroke fill; text-shadow: 0 10px 0 var(--edge); animation: countPop .9s ease-out; will-change: transform, opacity; }
 .countdown small { font-size: 24px; font-weight: 900; color: #fff; margin-top: 10px; }
 @keyframes countPop { 0% { transform: scale(2.4); opacity: 0; } 30% { transform: scale(1); opacity: 1; } 100% { transform: scale(.85); opacity: .75; } }
 .times-up { position: absolute; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center; background: radial-gradient(circle, #ff5c8a, #b0174a); font-size: 64px; font-weight: 900; color: #fff; text-align: center; -webkit-text-stroke: 9px var(--edge); paint-order: stroke fill; text-shadow: 0 6px 0 var(--edge); }
