@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#2a0f57">
+  <title>Putt Party</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <div id="splash"><div class="logo">Putt<br>Party</div><div class="spin"></div></div>
+
+  <!-- menu -->
+  <section class="layer" id="menu">
+    <div class="menu-card">
+      <div class="menu-col brand">
+        <h1 class="logo">Putt<br>Party</h1>
+        <p class="tag">מיני גולף מטורף נגד בוטים</p>
+        <button class="btn big" id="play">יאללה לשחק! ⛳</button>
+      </div>
+      <div class="menu-col opts">
+        <h3>מסלול</h3>
+        <div class="courses" id="courseList"></div>
+        <h3>יריבים</h3>
+        <div class="seg" id="botSeg">
+          <button data-v="0">לבד</button><button data-v="1">בוט 1</button><button data-v="2">2 בוטים</button><button data-v="3">3 בוטים</button>
+        </div>
+        <div id="skillRow">
+          <h3>רמת הבוטים</h3>
+          <div class="seg" id="skillSeg"><button data-v="easy">קל 😊</button><button data-v="medium">בינוני 😎</button><button data-v="hard">קשה 🤖</button></div>
+        </div>
+        <h3>הכדור שלך</h3>
+        <div class="row"><input id="nameInput" maxlength="12" placeholder="השם שלך"><div class="hats" id="hats"></div></div>
+        <div class="colors" id="colors"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- in-game HUD -->
+  <section class="layer" id="hud">
+    <div class="top">
+      <div class="hole-info" id="holeInfo"></div>
+      <div class="chips" id="chips"></div>
+      <div class="top-btns">
+        <button class="ic" id="overviewBtn" aria-label="מבט על">🗺️</button>
+        <button class="ic" id="pauseBtn" aria-label="השהיה">⏸</button>
+      </div>
+    </div>
+    <div class="bottom-left">
+      <button class="pill" id="resetBtn" hidden>↺ החזר כדור (+1)</button>
+      <button class="pill" id="fastBtn" hidden>⏩ הרץ מהר</button>
+      <p class="hint">גוררים על המסך כדי לכוון · מושכים את הכפתור למטה כדי לחבוט</p>
+    </div>
+    <div class="pad-wrap">
+      <div class="power"><i id="powerFill"></i></div>
+      <button id="pad"><span class="club">⛳</span><span id="padLabel">משוך ⬇</span></button>
+    </div>
+  </section>
+
+  <div id="banner"></div>
+  <div id="toast"></div>
+
+  <!-- end of hole -->
+  <section class="layer dim" id="holeEnd">
+    <div class="panel">
+      <h2 id="holeEndTitle"></h2>
+      <div id="holeEndTable" class="table-wrap"></div>
+      <button class="btn" id="nextHole"></button>
+    </div>
+  </section>
+
+  <!-- final results -->
+  <section class="layer dim" id="final">
+    <div class="panel">
+      <h2 id="finalTitle"></h2>
+      <p class="sub" id="finalSub"></p>
+      <div class="podium" id="podium"></div>
+      <div id="finalTable" class="table-wrap"></div>
+      <div class="row-btns"><button class="btn" id="again">שוב! 🔁</button><button class="btn ghost" id="toMenu">לתפריט</button></div>
+    </div>
+  </section>
+
+  <!-- pause -->
+  <section class="layer dim" id="pause">
+    <div class="panel small">
+      <h2>הפסקה</h2>
+      <button class="btn" id="resume">המשך ▶</button>
+      <button class="btn ghost" id="soundToggle"></button>
+      <button class="btn ghost" id="restart">מהתחלה 🔁</button>
+      <button class="btn ghost" id="quit">יציאה לתפריט</button>
+    </div>
+  </section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

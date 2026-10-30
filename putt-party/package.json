@@ -1,0 +1,21 @@
+{
+  "name": "putt-party",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Putt Party — 3D minigolf party game",
+  "scripts": {
+    "sync": "cap sync android",
+    "test": "node test/holes.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.10"
+  },
+  "type": "module"
+}

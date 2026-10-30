@@ -2,6 +2,9 @@ name: Build APK
 
 on:
   push:
+    paths-ignore:
+      - 'putt-party/**'
+      - '.github/workflows/build-putt-party.yml'
   workflow_dispatch:
 
 permissions:

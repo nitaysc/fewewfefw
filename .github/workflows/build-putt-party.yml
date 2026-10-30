@@ -1,0 +1,61 @@
+name: Build Putt Party APK
+
+on:
+  push:
+    paths:
+      - 'putt-party/**'
+      - '.github/workflows/build-putt-party.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: putt-party
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: putt-party/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and sync web code into Android
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Check every hole can be finished
+        run: npm test
+
+      - name: Build APK
+        working-directory: putt-party/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../putt-party.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: putt-party-apk
+          path: putt-party/putt-party.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "putt-party-v1.0.${{ github.run_number }}" putt-party.apk \
+            --target "${{ github.sha }}" \
+            --title "Putt Party v1.0.${{ github.run_number }}" \
+            --notes "Download: tap putt-party.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false
