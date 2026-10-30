@@ -134,7 +134,7 @@ button, input, textarea { font-family: inherit; }
 #splash::before { content: ""; position: absolute; inset: -50%; background: repeating-conic-gradient(rgba(255,255,255,.06) 0 9deg, transparent 9deg 18deg); animation: spin 30s linear infinite; will-change: transform; }
 #splash.done { opacity: 0; visibility: hidden; }
 .splash-logo { position: relative; text-align: center; animation: titleIn .8s cubic-bezier(.2, .9, .3, 1.6) both; }
-.splash-badge { font-size: 84px; animation: bob 2s ease-in-out infinite; }
+.splash-badge { display: block; width: 132px; height: 132px; margin: 0 auto 6px; filter: drop-shadow(0 8px 0 var(--edge)); animation: bob 2s ease-in-out infinite; }
 .splash-logo .game-title { font-size: 52px; }
 .splash-logo p { margin: 10px 0 0; color: var(--muted); font-size: 18px; font-weight: 700; }
 .splash-bar { position: relative; width: min(260px, 70vw); height: 18px; border-radius: 10px; background: var(--edge); border: 3px solid var(--edge); overflow: hidden; }
