@@ -3,93 +3,110 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#2a0f57">
+  <meta name="theme-color" content="#0b1a3c">
   <title>Putt Party</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="view"></canvas>
 
-  <div id="splash"><div class="logo">Putt<br>Party</div><div class="spin"></div></div>
+  <div id="splash">
+    <div class="brand big"><span class="b1">PUTT</span><span class="b2">PARTY</span></div>
+    <div class="loader"><i></i></div>
+  </div>
 
   <!-- menu -->
   <section class="layer" id="menu">
-    <div class="menu-card">
-      <div class="menu-col brand">
-        <h1 class="logo">Putt<br>Party</h1>
-        <p class="tag">מיני גולף מטורף נגד בוטים</p>
-        <button class="btn big" id="play">יאללה לשחק! ⛳</button>
-      </div>
-      <div class="menu-col opts">
+    <div class="brand"><span class="b1">PUTT</span><span class="b2">PARTY</span></div>
+    <button class="round soundBtn menu-sound" aria-label="צלילים">🔊</button>
+    <div class="m-panel">
+      <div class="m-sec">
         <h3>מסלול</h3>
         <div class="courses" id="courseList"></div>
-        <h3>יריבים</h3>
-        <div class="seg" id="botSeg">
-          <button data-v="0">לבד</button><button data-v="1">בוט 1</button><button data-v="2">2 בוטים</button><button data-v="3">3 בוטים</button>
+      </div>
+      <div class="m-sec two">
+        <div>
+          <h3>יריבים</h3>
+          <div class="stepper"><button id="botsPlus">+</button><b id="botsVal">2</b><button id="botsMinus">−</button></div>
         </div>
-        <div id="skillRow">
-          <h3>רמת הבוטים</h3>
-          <div class="seg" id="skillSeg"><button data-v="easy">קל 😊</button><button data-v="medium">בינוני 😎</button><button data-v="hard">קשה 🤖</button></div>
+        <div>
+          <h3>רמת בוטים</h3>
+          <div class="seg" id="skillSeg"><button data-v="easy">קל</button><button data-v="medium">בינוני</button><button data-v="hard">קשה</button></div>
         </div>
+      </div>
+      <div class="m-sec">
         <h3>הכדור שלך</h3>
-        <div class="row"><input id="nameInput" maxlength="12" placeholder="השם שלך"><div class="hats" id="hats"></div></div>
+        <input id="nameInput" maxlength="12" placeholder="השם שלך">
         <div class="colors" id="colors"></div>
+        <div class="hats" id="hats"></div>
       </div>
     </div>
+    <button class="play" id="play"><span>שחק</span><i>▶</i></button>
   </section>
 
   <!-- in-game HUD -->
   <section class="layer" id="hud">
-    <div class="top">
-      <div class="hole-info" id="holeInfo"></div>
-      <div class="chips" id="chips"></div>
-      <div class="top-btns">
-        <button class="ic" id="overviewBtn" aria-label="מבט על">🗺️</button>
-        <button class="ic" id="pauseBtn" aria-label="השהיה">⏸</button>
-      </div>
+    <div class="hole-badge">
+      <div class="num"><small>גומה</small><b id="holeNum">1</b></div>
+      <div class="info"><b id="holeName"></b><span id="holePar"></span></div>
+      <div class="strokes" id="strokes"></div>
     </div>
-    <div class="bottom-left">
-      <button class="pill" id="resetBtn" hidden>↺ החזר כדור (+1)</button>
+    <ul class="players" id="players"></ul>
+    <div class="top-btns">
+      <button class="round" id="pauseBtn" aria-label="השהיה">❚❚</button>
+      <button class="round" id="overviewBtn" aria-label="מבט על">🗺️</button>
+    </div>
+    <div class="cam-btns">
+      <button class="round big" id="rotL" aria-label="סובב שמאלה">⟲</button>
+      <button class="round big" id="rotR" aria-label="סובב ימינה">⟳</button>
+    </div>
+    <div class="side-btns">
+      <button class="pill" id="resetBtn" hidden>↺ החזר כדור +1</button>
       <button class="pill" id="fastBtn" hidden>⏩ הרץ מהר</button>
-      <p class="hint">גוררים על המסך כדי לכוון · מושכים את הכפתור למטה כדי לחבוט</p>
     </div>
-    <div class="pad-wrap">
-      <div class="power"><i id="powerFill"></i></div>
-      <button id="pad"><span class="club">⛳</span><span id="padLabel">משוך ⬇</span></button>
+    <div id="power"><div class="bar"><i id="powerFill"></i></div><b id="powerPct">0%</b></div>
+    <div id="teach" hidden>
+      <div class="hand">👆</div>
+      <p><b>גוררים אחורה</b> מכל מקום במסך<br>ומשחררים כדי לחבוט</p>
     </div>
   </section>
 
+  <div id="holeCard"></div>
   <div id="banner"></div>
   <div id="toast"></div>
 
   <!-- end of hole -->
   <section class="layer dim" id="holeEnd">
-    <div class="panel">
+    <div class="sheet">
       <h2 id="holeEndTitle"></h2>
-      <div id="holeEndTable" class="table-wrap"></div>
-      <button class="btn" id="nextHole"></button>
+      <div id="holeEndTable" class="card-wrap"></div>
+      <button class="cta" id="nextHole"></button>
     </div>
   </section>
 
   <!-- final results -->
   <section class="layer dim" id="final">
-    <div class="panel">
-      <h2 id="finalTitle"></h2>
-      <p class="sub" id="finalSub"></p>
-      <div class="podium" id="podium"></div>
-      <div id="finalTable" class="table-wrap"></div>
-      <div class="row-btns"><button class="btn" id="again">שוב! 🔁</button><button class="btn ghost" id="toMenu">לתפריט</button></div>
+    <div class="sheet wide">
+      <div class="final-top">
+        <div>
+          <h2 id="finalTitle"></h2>
+          <p class="sub" id="finalSub"></p>
+        </div>
+        <div class="podium" id="podium"></div>
+      </div>
+      <div id="finalTable" class="card-wrap"></div>
+      <div class="row-btns"><button class="cta" id="again">שוב! 🔁</button><button class="cta ghost" id="toMenu">תפריט</button></div>
     </div>
   </section>
 
   <!-- pause -->
   <section class="layer dim" id="pause">
-    <div class="panel small">
+    <div class="sheet narrow">
       <h2>הפסקה</h2>
-      <button class="btn" id="resume">המשך ▶</button>
-      <button class="btn ghost" id="soundToggle"></button>
-      <button class="btn ghost" id="restart">מהתחלה 🔁</button>
-      <button class="btn ghost" id="quit">יציאה לתפריט</button>
+      <button class="cta" id="resume">המשך ▶</button>
+      <button class="cta ghost" id="restart">מהתחלה 🔁</button>
+      <button class="cta ghost" id="quit">יציאה לתפריט</button>
+      <button class="round soundBtn" aria-label="צלילים">🔊</button>
     </div>
   </section>
 

@@ -5,10 +5,10 @@ import * as CANNON from '../vendor/cannon-es.js';
 
 export const CELL = 2;          // world units per grid cell
 export const LEVEL = 0.5;       // height of one floor level
-export const BALL_R = 0.14;
+export const BALL_R = 0.18;
 export const WALL_H = 0.42;     // wall height above the floor it guards
 export const WALL_T = 0.24;
-export const CUP_R = 0.24;
+export const CUP_R = 0.3;
 export const MAX_SPEED = 11;    // putt speed at full power
 export const STEP = 1 / 120;
 const BOTTOM = -1;              // underside of every floor column
