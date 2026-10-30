@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1b1033">
+  <title>שיחקת אותה!</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- רקע חי -->
+  <div class="bg-fx" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+  <!-- מסך פתיחה -->
+  <div id="splash">
+    <div class="splash-logo">
+      <div class="splash-badge">🎭</div>
+      <h1 class="game-title">שיחקת אותה!</h1>
+      <p>משחק הניחושים של החבר'ה</p>
+    </div>
+    <div class="splash-bar"><i></i></div>
+  </div>
+
+  <!-- בית -->
+  <section class="screen active" id="home">
+    <header class="hud">
+      <button class="lvl" data-go="settings" aria-label="הפרופיל שלי">
+        <span class="lvl-star"><b id="lvlNum">1</b></span>
+        <span class="lvl-info"><span id="lvlName">רמה 1</span><span class="xp"><i id="xpFill"></i></span></span>
+      </button>
+      <button class="icon-btn gear" data-go="settings" aria-label="הגדרות">⚙️</button>
+    </header>
+    <div class="scroll home-scroll">
+      <h1 class="game-title home-title">שיחקת אותה!</h1>
+      <button class="hat-banner" data-go="hat">
+        <span class="hb-burst"></span>
+        <span class="hb-emoji">🎩</span>
+        <span class="hb-text"><b>משחק הכובע</b><small>כולם כותבים מילים · 3 שלבים · הכי מצחיק בקבוצה גדולה</small></span>
+        <span class="hb-go">←</span>
+      </button>
+
+      <h2 class="section-title"><span>✨ חדשות</span></h2>
+      <div class="deck-row" id="newRow"></div>
+
+      <h2 class="section-title"><span>🔥 הכי משחקים</span></h2>
+      <div class="deck-row" id="popularRow"></div>
+
+      <h2 class="section-title"><span>📚 כל החפיסות</span></h2>
+      <div class="deck-grid" id="deckGrid"></div>
+
+      <p class="free-note">הכל חינם. כל החפיסות פתוחות. בלי פרסומות. 💛</p>
+    </div>
+    <nav class="tabbar">
+      <button class="tab on"><span class="tab-ic">🏠</span><span>בית</span></button>
+      <button class="tab" data-go="hat"><span class="tab-ic">🎩</span><span>כובע</span></button>
+      <button class="tab" data-go="mydecks"><span class="tab-ic">✏️</span><span>החפיסות שלי</span></button>
+      <button class="tab" data-go="howto"><span class="tab-ic">❓</span><span>איך משחקים</span></button>
+    </nav>
+  </section>
+
+  <!-- הגדרות ופרופיל -->
+  <section class="screen" id="settings">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>הפרופיל שלי</h2>
+      <span></span>
+    </header>
+    <div class="scroll">
+      <div class="card profile">
+        <span class="lvl-star big"><b id="pLvl">1</b></span>
+        <div class="profile-info">
+          <b id="pName">רמה 1</b>
+          <span class="xp big"><i id="pXp"></i></span>
+          <small id="pXpText"></small>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><b id="stGames">0</b><span>משחקים</span></div>
+        <div class="stat"><b id="stCorrect">0</b><span>ניחושים נכונים</span></div>
+        <div class="stat"><b id="stBest">0</b><span>השיא הכי גבוה</span></div>
+      </div>
+      <div class="card">
+        <h3>הגדרות</h3>
+        <label class="toggle"><span>🔊 צלילים</span><input type="checkbox" id="optSound"><i></i></label>
+        <label class="toggle"><span>📳 רטט</span><input type="checkbox" id="optVibe"><i></i></label>
+      </div>
+      <button class="btn danger wide" id="resetStats">איפוס התקדמות</button>
+    </div>
+  </section>
+
+  <!-- קבוצות והגדרות -->
+  <section class="screen" id="setup">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>קבוצות והגדרות</h2>
+      <span></span>
+    </header>
+    <div class="scroll">
+      <div class="card">
+        <h3>קבוצות</h3>
+        <div id="teamList"></div>
+        <button class="btn ghost small" id="addTeam">＋ הוסף קבוצה</button>
+      </div>
+      <div class="card">
+        <h3>זמן לסיבוב</h3>
+        <div class="seg" data-key="time">
+          <button data-v="30">30 שנ׳</button><button data-v="60">60 שנ׳</button><button data-v="90">90 שנ׳</button><button data-v="120">2 דק׳</button>
+        </div>
+      </div>
+      <div class="card" id="roundsCard">
+        <h3>סיבובים לכל קבוצה</h3>
+        <div class="seg" data-key="rounds">
+          <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button>
+        </div>
+      </div>
+    </div>
+    <footer class="actions">
+      <button class="btn primary wide" id="startGame">יאללה, מתחילים! 🚀</button>
+    </footer>
+  </section>
+
+  <!-- הכנה לתור -->
+  <section class="screen" id="turn">
+    <div class="center">
+      <p class="small-cap" id="turnRound"></p>
+      <div class="turn-phone">📱</div>
+      <h2 class="turn-team" id="turnTeam"></h2>
+      <p class="turn-msg" id="turnMsg"></p>
+      <button class="btn big primary pulse-btn" id="turnGo">מוכנים!</button>
+      <button class="btn ghost small" id="turnQuit">יציאה לתפריט</button>
+    </div>
+  </section>
+
+  <!-- משחק -->
+  <section class="screen play" id="play">
+    <div class="play-top">
+      <button class="icon-btn quit-btn" id="btnQuit" aria-label="הפסקה">✕</button>
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 100 100"><circle class="ring-bg" cx="50" cy="50" r="44"/><circle class="ring-fg" id="ringFg" cx="50" cy="50" r="44"/></svg>
+        <span class="timer" id="timer">60</span>
+      </div>
+      <span class="play-score" id="playScore">0</span>
+    </div>
+    <div class="word-box">
+      <div class="word-card" id="wordCard">
+        <div class="word-deck" id="wordDeck"></div>
+        <div class="word" id="word"></div>
+      </div>
+    </div>
+    <div class="play-buttons" id="playButtons">
+      <button class="btn pass" id="btnPass" aria-label="דלג">✕</button>
+      <button class="btn correct" id="btnCorrect" aria-label="ניחשו">✓</button>
+    </div>
+    <div class="countdown" id="countdown"></div>
+    <div class="times-up" id="timesUp"></div>
+  </section>
+
+  <!-- סיכום תור -->
+  <section class="screen" id="summary">
+    <header class="bar">
+      <span></span>
+      <h2 id="sumTitle"></h2>
+      <span class="pill big-pill" id="sumScore"></span>
+    </header>
+    <p class="hint center-text">לחצו על מילה כדי לתקן</p>
+    <div class="scroll"><ul class="word-list" id="sumList"></ul></div>
+    <footer class="actions">
+      <button class="btn primary wide" id="sumNext">המשך ←</button>
+    </footer>
+  </section>
+
+  <!-- לוח תוצאות -->
+  <section class="screen" id="scores">
+    <canvas id="confetti"></canvas>
+    <div class="center">
+      <p class="small-cap" id="scoresSub"></p>
+      <div class="trophy" id="trophy">🏆</div>
+      <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
+      <h2 class="game-title results-title" id="scoresTitle">טבלת ניקוד</h2>
+      <ol class="scoreboard" id="scoreboard"></ol>
+      <div class="xp-gain" id="xpGain"></div>
+      <button class="btn big primary" id="scoresNext">המשך</button>
+      <button class="btn ghost small" id="scoresHome">לתפריט הראשי</button>
+    </div>
+  </section>
+
+  <!-- משחק הכובע: הכנסת מילים -->
+  <section class="screen" id="hatWords">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>ממלאים את הכובע</h2>
+      <span class="pill" id="hatCount">0</span>
+    </header>
+    <div class="scroll">
+      <div class="hat-visual"><span class="hat-big">🎩</span><span class="hat-paper" id="hatPaper">📝</span></div>
+      <div class="card">
+        <p class="hint">כל שחקן מוסיף כמה מילים בסתר ומעביר הלאה. אפשר שמות, דמויות, חפצים, מה שבא.</p>
+        <form class="add-row" id="hatForm">
+          <input id="hatInput" type="text" placeholder="מילה או ביטוי..." autocomplete="off" maxlength="40">
+          <button class="btn primary small" type="submit">הוסף</button>
+        </form>
+        <p class="hat-last" id="hatLast"></p>
+        <div class="row-btns">
+          <button class="btn ghost small" id="hatRandom">🎲 הוסף 10 אקראיות</button>
+          <button class="btn ghost small" id="hatUndo">↺ בטל אחרונה</button>
+        </div>
+      </div>
+    </div>
+    <footer class="actions">
+      <button class="btn primary wide" id="hatNext">לבחירת קבוצות ←</button>
+    </footer>
+  </section>
+
+  <!-- משחק הכובע: הסבר שלב -->
+  <section class="screen" id="hatStage">
+    <div class="center">
+      <p class="small-cap" id="stageNum"></p>
+      <div class="stage-emoji" id="stageEmoji"></div>
+      <h2 id="stageName"></h2>
+      <p class="turn-msg" id="stageRule"></p>
+      <button class="btn big primary pulse-btn" id="stageGo">הבנו!</button>
+    </div>
+  </section>
+
+  <!-- החפיסות שלי -->
+  <section class="screen" id="mydecks">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>החפיסות שלי</h2>
+      <span></span>
+    </header>
+    <div class="scroll">
+      <div id="myDeckList"></div>
+      <p class="hint center-text" id="myDeckEmpty">עוד אין חפיסות משלכם. צרו אחת עם בדיחות פנימיות של החבר'ה!</p>
+    </div>
+    <footer class="actions">
+      <button class="btn primary wide" id="newDeck">＋ חפיסה חדשה</button>
+    </footer>
+  </section>
+
+  <!-- עורך חפיסה -->
+  <section class="screen" id="editor">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>עריכת חפיסה</h2>
+      <span class="pill" id="edCount">0</span>
+    </header>
+    <div class="scroll">
+      <div class="card">
+        <input id="edName" type="text" placeholder="שם החפיסה" maxlength="30">
+        <div class="emoji-row" id="edEmoji"></div>
+        <textarea id="edWords" placeholder="מילה אחת בכל שורה"></textarea>
+      </div>
+    </div>
+    <footer class="actions">
+      <button class="btn danger" id="edDelete">מחק</button>
+      <button class="btn primary" id="edSave">שמור</button>
+    </footer>
+  </section>
+
+  <!-- איך משחקים -->
+  <section class="screen" id="howto">
+    <header class="bar">
+      <button class="icon-btn" data-back>→</button>
+      <h2>איך משחקים</h2>
+      <span></span>
+    </header>
+    <div class="scroll prose">
+      <div class="card">
+        <h3>📱 על המצח</h3>
+        <p>בוחרים חפיסה. אחד שם את הטלפון על המצח, מסך כלפי החבר'ה. הם רואים את המילה ומסבירים, מחקים, שרים או רוקדים. אתם מנחשים.</p>
+        <p><b>ניחשתם?</b> הטו את הטלפון למטה: המסך נצבע בירוק.<br><b>רוצים לדלג?</b> הטו למעלה: המסך נצבע באדום.</p>
+        <p>"התחל" = משחק מהיר לבד או עם חברים. "שחקו בקבוצות" = כמה קבוצות עם טבלת ניקוד.</p>
+      </div>
+      <div class="card">
+        <h3>🎩 משחק הכובע</h3>
+        <p>כולם מכניסים מילים לכובע, ומתחלקים לקבוצות. יש שלושה שלבים על אותן המילים:</p>
+        <p>1️⃣ <b>הסבר חופשי</b>: מותר להגיד הכל חוץ מהמילה עצמה.<br>2️⃣ <b>מילה אחת</b>: רק מילה אחת כרמז.<br>3️⃣ <b>פנטומימה</b>: בלי מילים בכלל!</p>
+        <p>המסביר מחזיק את הטלפון ולוחץ ✓ או ✕. שלב נגמר כשהכובע מתרוקן.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- גיליון חפיסה -->
+  <div class="sheet-wrap" id="sheetWrap">
+    <div class="sheet" id="sheet">
+      <div class="sheet-head" id="sheetHead">
+        <span class="sunburst"></span>
+        <div class="sheet-art" id="sheetArt"></div>
+        <button class="icon-btn sheet-x" id="sheetClose" aria-label="סגור">✕</button>
+      </div>
+      <div class="sheet-body">
+        <h2 id="sheetTitle"></h2>
+        <p class="sheet-desc" id="sheetDesc"></p>
+        <div class="tags" id="sheetTags"></div>
+        <div class="sheet-row">
+          <span>⏱️ זמן</span>
+          <div class="seg" data-key="time">
+            <button data-v="30">30</button><button data-v="60">60</button><button data-v="90">90</button><button data-v="120">120</button>
+          </div>
+        </div>
+        <p class="tilt-hint">📱⬇️ הטו למטה = ניחשתם &nbsp;·&nbsp; 📱⬆️ הטו למעלה = דלג</p>
+        <p class="best" id="sheetBest"></p>
+        <button class="btn big primary sheet-btn" id="sheetPlay">▶ התחל</button>
+        <button class="btn big dark sheet-btn" id="sheetTeams">👥 שחקו בקבוצות</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- חלון שאלה -->
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <p id="modalText"></p>
+      <div class="modal-btns">
+        <button class="btn ghost" id="modalNo"></button>
+        <button class="btn primary" id="modalYes"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="decks.js"></script>
+  <script src="covers.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

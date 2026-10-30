@@ -1,0 +1,51 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and sync web code into Android
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../shichakta-ota.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shichakta-ota-apk
+          path: shichakta-ota.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" shichakta-ota.apk \
+            --target "${{ github.sha }}" \
+            --title "שיחקת אותה! v1.0.${{ github.run_number }}" \
+            --notes "להורדה: לחצו על shichakta-ota.apk למטה. Built from ${{ github.ref_name }}." \
+            --latest
