@@ -150,7 +150,10 @@ def render(scene, size=(96, 96), ppu=48, center=(0, 0.45, 0), pitch=38, yaw=0.0,
     shade = 0.1 + 0.72 * wrap * sh + 0.14 * sky
     shade = shade * (0.45 + 0.55 * ao)
     lo, mid_, hi_ = np.percentile(shade, [6, 55, 97])
-    shade = np.where(shade < mid_, 0.5 - 0.42 * (mid_ - shade) / max(mid_ - lo, 1e-6), 0.5 + 0.4 * (shade - mid_) / max(hi_ - mid_, 1e-6))
+    if hi_ - lo < 0.08:   # a flat scene (one plane): don't blow tiny differences up into bands
+        shade = 0.5 + (shade - mid_)
+    else:
+        shade = np.where(shade < mid_, 0.5 - 0.42 * (mid_ - shade) / max(mid_ - lo, 1e-6), 0.5 + 0.4 * (shade - mid_) / max(hi_ - mid_, 1e-6))
     # bayer dither so ramps blend softly
     bay = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16 - 0.5
     bx, by = xs.ravel()[hi] % 4, ys.ravel()[hi] % 4

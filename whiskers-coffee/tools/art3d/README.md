@@ -27,6 +27,7 @@ render (eyes 2x5 px with a white catch-light, blush, a 2 px mouth).
 | `cats.py` | `cat(coat, pose, ...)`, `COATS` colours, `render_cat(...)` with painted eyes and nose. |
 | `room.py` | Floors (`FLOORS`), wall styles (`WALLS`), wall features (`feature(kind, length)`). |
 | `food3d.py` | `drink(id, vessel, extra)` and `food(id)`: cups, glasses, layers, latte art, toppings, plates. |
+| `station3d.py` | The barista station and kitchen screens: bar background, props, cups front/top, kitchen table, bases, ingredients. Run it directly (`python3 station3d.py [bar|props|ves|kitchen]`); it also writes `www/js/art/st3layout.js`. |
 | `build.py` | Renders everything into `www/img/r3/*.png` and writes `www/js/art/r3manifest.js`. |
 | `catalog.json` | Sizes and rotations of the catalog items (exported from `www/js/game/catalog.js`). |
 
@@ -111,6 +112,14 @@ Frames: `c_<coat>_<sit0-2 | walk0-3 | sleep0-1 | groom0-1 | happy0>`.
    `build.py`. Toppings (latte art, dust, drizzle, cream, ice, fruit) are drawn in `drink()`.
    Dishes: add a branch to `food()` built on `plate()` or `bowl()`, and the id to `FOOD_IDS`.
 3. `python3 build.py food`. Pictures: `d_<id>[_<extra>]_<s|m|b>` and `f_<id>_<s|m|b>`.
+
+### A new station tool or kitchen ingredient
+Station prop: a builder in `PROPS` in `station3d.py` (anchored at its base centre, bar camera
+pitch 20, 12 scene px per unit), then show it in `drawBar3`/`drawTop3` in `brew/station.js` and
+its shelf icon in `TOOL_PICS`. Kitchen ingredient: a branch in `ing()` and the key in `ING`
+(kitchen camera pitch 55, the plate is 1 unit across its radius); the game uses `k_i_<key>`.
+New base: `BASES` in `station3d.py` (`k_<key>`). Then `python3 station3d.py props` or `kitchen`.
+Liquids, latte art, sauces and dust are painted by `www/js/art/st3.js`, not rendered.
 
 ### A new wallpaper, floor or wall feature
 Wallpaper: `WALLS` in `room.py` (base colour, pattern, accent, wainscot colour) plus the

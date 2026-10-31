@@ -624,8 +624,35 @@ look maps to one of the baristas. HUD buttons were restyled (cream, rounded, col
   `itemURL` (menu data URLs) and `orderBubble3` (rounded order bubbles).
 - Old-style effects replaced when the art is loaded: soft floor shadows, round steam puffs,
   smooth gold tip coins, vector hearts, smooth lamp light pools, no hanging pendant drawings.
-- Still old art: the barista station and kitchen minigame screens (the cup/plate being built,
-  tools and shelves) are drawn by `art/drinks.js` / `art/foodart.js` / `brew/*.js`. The next
-  job is to give them the same rendered look (e.g. pre-rendered vessels and a shaded liquid
-  map tinted per layer at run time), as the owner wants every drink and dish to match.
+- (The station and kitchen screens were moved to the same art in 11c below.)
 - Full how-to for adding art: `tools/art3d/README.md`.
+
+### 11c. The barista station and the kitchen in the same style
+
+- `tools/art3d/station3d.py` models the bar (tiled wall, counter, tall espresso machine with
+  gauges and a group head over the drip tray, steam wand, red grinder, wall shelf), every prop
+  that comes and goes (portafilter empty/full, tamper, crank knob, jug with/without milk,
+  carton, pitcher, ice bucket, bottles, fruit, tub, tea box, cream can, shakers, whisk, spoon,
+  marshmallow jar, rag...), all five cups and glasses from the front and from above, the
+  overhead counter, and the kitchen (wood table with plate, napkin, fork and knife; every base:
+  cake slices, salad bowl, toast, pancakes, croissant; 25 ingredients + 4 macaron colours;
+  sauce bottles and shakers for the shelf icons). `python3 station3d.py` (about 3 minutes;
+  `bar`, `props`, `ves`, `kitchen` for one group; `ONLY=<text>` to rebuild matching jobs).
+  Pictures: `st_*` (bar), `sv_<cup>[_top]` (vessels), `k_*` (kitchen), in the shared r3 manifest.
+- It also writes `www/js/art/st3layout.js` (`ST3`): where the cup, spout, crank, hopper,
+  wand, jug and prop slot are in scene px, each vessel's inner size, rim and bottom, and the
+  kitchen plate centre. The station and kitchen move their hit points (`CUP`, `SPOUT`,
+  `CRANK`, `PL`...) to these when the art is loaded; `TOP.r` becomes 29 so the saucer fits.
+- `www/js/art/st3.js` draws at run time on top of the pictures: the drink in the cup (layers
+  seen through glass with roundness shading, the surface clipped into the cup's opening), the
+  surface from above (`surfaceCanvas`: foam bubbles, smooth latte-art/drizzle strokes, dust,
+  mint leaves, whipped-cream swirl, marshmallow pictures), liquid streams, ice, straw, cream,
+  scoop, tea bag, drips; `iconURL` builds the shelf icons from the pictures.
+- `brew/station.js` `draw3/drawBar3/drawTop3` and `brew/kitchen.js` `draw3` use them; the old
+  pixel drawing stays only as a fallback while the pictures load. Meters, guide dots, rings and
+  sparkles are still the small pixel UI drawn on top.
+- `sdf.render` no longer blows up tiny shading differences on a single flat plane (that made
+  bands on plain table tops).
+- The owner said the first fork "looked weird": it is now a proper fork (head, neck, four
+  tines, tapered handle) with a knife on a napkin. Look at small props up close before shipping.
+

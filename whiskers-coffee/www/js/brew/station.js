@@ -6,6 +6,7 @@
 // the recipe (amounts, cup, toppings) for a star rating that decides the tip.
 import { Pix, shade, mix, hash } from '../art/pix.js';
 import { DRINKS, EXTRAS, C, INK, VESSELS, VESSEL_ORDER, COMPONENT_NAMES, COUNTED, TOPPINGS, newBuild, pour, fillOf, drawDrink, surfaceMap, guideShape, needFor, starsFor, judge, orderName, MAP_SIZE } from '../art/drinks.js';
+import { st3Ready, ST3, spr, sprSize, drawDrink3, surfaceCanvas, stream, iconURL, tone } from '../art/st3.js';
 import { t } from '../i18n.js';
 
 const SW = 150, SH = 100;
@@ -253,6 +254,7 @@ export class Station {
   }
 
   icon(k) {
+    if (st3Ready()) { const u = iconURL(TOOL_PICS[k] || []); if (u) return u; }
     if (!this.icons.has(k)) this.icons.set(k, toolIcon(k).toCanvas(3).toDataURL());
     return this.icons.get(k);
   }
@@ -492,6 +494,7 @@ export class Station {
   }
 
   draw(now) {
+    if (st3Ready()) return this.draw3(now);
     const view = this.cur && !this.result ? this.cur.cfg.view : 'bar';
     const top = view === 'top';
     if (top && this.topVessel !== this.b.vessel) { this.topBg = paintTop(this.b.vessel || 'cup'); this.topVessel = this.b.vessel; }
@@ -515,6 +518,181 @@ export class Station {
       g.fillStyle = this.popup.stars === 3 ? '#ffd27a' : '#fbf6ea'; g.fillText(this.popup.text, x, y);
       g.globalAlpha = 1;
     }
+  }
+
+  // ---------- the rendered station (tools/art3d) ----------
+  draw3(now) {
+    if (!this.l3) {
+      const L = ST3.bar;
+      CUP.x = L.cup[0]; CUP.by = L.cup[1]; SPOUT.x = L.spout[0]; SPOUT.y = L.spout[1];
+      CRANK.x = L.crank[0]; CRANK.y = L.crank[1]; JUG_HOME.x = L.jug_home[0]; JUG_HOME.by = L.jug_home[1];
+      SLOT.x = L.slot[0]; SLOT.by = L.slot[1];
+      TOP.r = 29;                       // leaves room for the saucer in the view from above
+      this.l3 = true;
+      if (this.open) this.renderTools();
+    }
+    const view = this.cur && !this.result ? this.cur.cfg.view : 'bar';
+    const g = this.g, s = this.scale;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#1d130d'; g.fillRect(0, 0, this.el.canvas.width, this.el.canvas.height);
+    g.setTransform(s, 0, 0, s, this.ox, this.oy);
+    g.save(); g.beginPath(); g.rect(0, 0, SW, SH); g.clip();
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    const p = new Pix(SW, SH);
+    if (view === 'top') this.drawTop3(g, p, now); else this.drawBar3(g, p, now);
+    // the game's markers and meters on top
+    const img = this.sg.createImageData(SW, SH);
+    new Uint32Array(img.data.buffer).set(p.data);
+    this.sg.putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(this.small, 0, 0, SW, SH);
+    g.restore();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    this.drawPopup(g, s);
+  }
+
+  drawPopup(g, s) {
+    if (!this.popup) return;
+    const k = this.popup.t, a = k < 0.15 ? k / 0.15 : k > 0.8 ? (1.1 - k) / 0.3 : 1;
+    g.globalAlpha = Math.max(0, a);
+    const size = Math.round(s * 8);
+    g.font = `700 ${size}px "Pixelify Sans", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const x = this.ox + SW * s / 2, y = this.oy + (18 - k * 6) * s;
+    g.fillStyle = INK; g.fillText(this.popup.text, x + s, y + s);
+    g.fillStyle = this.popup.stars === 3 ? '#ffd27a' : '#fbf6ea'; g.fillText(this.popup.text, x, y);
+    g.globalAlpha = 1;
+  }
+
+  drawBar3(g, p, now) {
+    const c = this.cur, b = this.b, key = c?.key, L = ST3.bar;
+    spr(g, 'st_bar', 0, 0);
+    // beans in the hopper run low as you grind
+    const [hx, hb] = L.hopper_bot, ht = L.hopper_top[1];
+    g.save(); g.beginPath(); g.rect(0, hb - (hb - ht) * Math.max(0, this.beans) - 1, SW, SH); g.clip();
+    spr(g, 'st_hopper_beans', hx, hb); g.restore();
+    spr(g, 'st_hopper_glass', hx, hb);
+    // crank
+    const ca = this.crank, kx = CRANK.x + Math.cos(ca) * CRANK.r, ky = CRANK.y + Math.sin(ca) * CRANK.r;
+    g.lineCap = 'round';
+    g.strokeStyle = '#4a4f52'; g.lineWidth = 1.9; g.beginPath(); g.moveTo(CRANK.x, CRANK.y); g.lineTo(kx, ky); g.stroke();
+    g.strokeStyle = '#c9cfd1'; g.lineWidth = 1.0; g.beginPath(); g.moveTo(CRANK.x, CRANK.y - 0.3); g.lineTo(kx, ky - 0.3); g.stroke();
+    spr(g, 'st_knob', kx, ky + 1);
+    // portafilter: under the grinder, then locked into the machine
+    const pfAt = this.pf.at === 'machine' ? L.pf_machine : L.pf_grinder;
+    spr(g, this.pf.grounds > 0.05 ? 'st_pf_full' : 'st_pf_empty', pfAt[0], pfAt[1]);
+    if (key === 'tamp') {
+      const press = c.anim ? Math.sin(Math.min(1, c.anim.t / c.anim.dur) * Math.PI) * 3 : 0;
+      spr(g, 'st_tamper', pfAt[0], pfAt[1] - 6 + press);
+    }
+    // spills on the counter
+    if (this.puddle > 0.005 || b.messy) {
+      const r = Math.min(26, 6 + this.puddle * 60), col = b.cream > 1.2 && !this.puddle ? C.cream : (b.layers[b.layers.length - 1]?.c || C.milk);
+      g.fillStyle = tone(col, 0.9, 0.9); g.beginPath(); g.ellipse(CUP.x - 4, CUP.by + 2, r, Math.max(2, r / 5), 0, 0, 6.283); g.fill();
+      g.fillStyle = tone(col, 1.15, 0.8); g.beginPath(); g.ellipse(CUP.x - 7, CUP.by + 1.2, r * 0.4, 0.8, 0, 0, 6.283); g.fill();
+    }
+    const V = b.vessel ? ST3.ves[b.vessel] : null;
+    const cupTop = V ? CUP.by - V.h : CUP.by - 10;
+    const fill = Math.min(1, fillOf(b));
+    const surfaceY = V ? CUP.by - V.bot - fill * (V.h - V.bot - 0.4) : CUP.by;
+    const steaming = c && c.cfg.heat;
+    const pouringMilk = key === 'pourmilk' && c.held;
+    const coldPour = c && c.held && (key === 'coldmilk' || key === 'coldwater');
+    const jugMilk = key === 'coldwater' ? '#d6ecf0' : key === 'coldmilk' ? C.coldmilk : C.milk;
+    const puff = (x, y, r, a) => { g.fillStyle = `rgba(255,255,255,${a})`; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill(); };
+    if (steaming) {
+      spr(g, 'st_jug_milk', L.jug_steam[0], L.jug_steam[1]);
+      if (c.held) for (let i = 0; i < 6; i++) { const k = (now * 1.2 + i / 6) % 1; puff(L.wand_tip[0] + Math.sin((now + i) * 3) * 3, L.wand_tip[1] - 10 - k * 18, 1.5 + k * 3, (1 - k) * 0.55); }
+      if (this.jug.temp > 1.15) for (let i = 0; i < 4; i++) puff(L.jug_steam[0] - 4 + i * 2.5, L.jug_steam[1] - 13 + Math.sin(now * 20 + i), 0.9, 0.9);
+    }
+    if (pouringMilk || coldPour) {
+      const name = key === 'coldwater' ? 'st_pitcher' : key === 'coldmilk' ? 'st_carton' : 'st_jug_milk';
+      const [w, h] = sprSize(name), a = -0.9;
+      const lx = -w * 0.42, ly = -h * 0.9;                       // the lip, before tipping
+      const tx = lx * Math.cos(a) - ly * Math.sin(a), ty = lx * Math.sin(a) + ly * Math.cos(a);
+      const jx = CUP.x + 1 - tx, jy = cupTop - 5 - ty;
+      stream(g, CUP.x + 1, cupTop - 5, surfaceY, jugMilk, 0.9, now);
+      spr(g, name, jx, jy, 1, { rot: a, flip: true });
+    } else if (!steaming) spr(g, this.jug?.ready ? 'st_jug_milk' : 'st_jug', JUG_HOME.x, JUG_HOME.by);
+    if (this.jug?.ready && !steaming && !pouringMilk) for (let i = 0; i < 3; i++) { const k = (now * 0.8 + i / 3) % 1; puff(JUG_HOME.x - 2 + i * 2, JUG_HOME.by - 16 - k * 12, 1 + k * 2, (1 - k) * 0.5); }
+    // pouring streams from the machine
+    if (key === 'shot' && c.held) { stream(g, SPOUT.x - 0.9, SPOUT.y, surfaceY, C.espresso, 0.45, now); stream(g, SPOUT.x + 0.9, SPOUT.y, surfaceY, C.espresso, 0.45, now + 0.3); }
+    if (key === 'water' && c.held) stream(g, SPOUT.x + 2.5, SPOUT.y, surfaceY, '#cfe8ee', 0.8, now);
+    // the drink, or an empty spot waiting for a cup
+    if (b.vessel) drawDrink3(g, CUP.x, CUP.by, b);
+    else if (Math.floor(now * 2) % 2) ring(p, Math.round(CUP.x), Math.round(CUP.by - 8), 6, '#ffd27a');
+    // tools for the current step
+    if (key === 'ice' || this.fx.some((f) => f.kind === 'ice')) spr(g, 'st_bucket', SLOT.x, SLOT.by);
+    if (key === 'berry') spr(g, 'st_berries', SLOT.x, SLOT.by);
+    if (key === 'lemon' || key === 'orange') spr(g, key === 'lemon' ? 'st_lemons' : 'st_oranges', SLOT.x, SLOT.by);
+    if (key === 'icecream') spr(g, 'st_tub', SLOT.x, SLOT.by);
+    if (key === 'teabag') spr(g, 'st_teabox', SLOT.x, SLOT.by);
+    if (c?.cfg.each && key !== 'berry' && key !== 'lemon' && key !== 'orange') spr(g, { vanilla: 'st_bottle_vanilla', caramelsyrup: 'st_bottle_caramel', chocsyrup: 'st_bottle_choc', chai: 'st_bottle_chai' }[key] || 'st_bottle_vanilla', SLOT.x, SLOT.by);
+    if (key === 'cream') spr(g, 'st_creamcan', CUP.x + 1, cupTop - 24 - Math.min(1.3, b.cream) * 7, 1, { rot: Math.PI });
+    for (const f of this.fx) {
+      if (f.kind === 'ice' && f.t < 0.4) {
+        const k = Math.min(1, f.t / 0.4);
+        spr(g, 'st_ice', SLOT.x + (CUP.x - SLOT.x) * k, SLOT.by - 14 - Math.sin(k * Math.PI) * 14 + (cupTop + 4 - SLOT.by + 14) * k, 1.2, { rot: k * 3 });
+      }
+      if (f.kind === 'mash') {
+        const k = f.t, y = cupTop - 12 + Math.sin(k * Math.PI) * 6;
+        g.fillStyle = '#8a5a36'; g.beginPath(); g.roundRect(CUP.x - 1.2, y, 2.4, 14, 1); g.fill();
+        g.fillStyle = '#c08a55'; g.beginPath(); g.roundRect(CUP.x - 0.9, y, 1.2, 14, 0.6); g.fill();
+      }
+      if (f.kind === 'drip' && f.t < 0.5) stream(g, CUP.x + 2, cupTop - 8, Math.min(surfaceY, cupTop - 8 + f.t * 30), f.c, 0.5, now);
+      if (f.kind === 'ground' && f.t < 0.4) { g.fillStyle = '#3b2014'; g.beginPath(); g.arc(f.x, f.y + f.t * 20, 0.6, 0, 6.283); g.fill(); }
+    }
+    if (this.result && this.result.q >= REFUSE_BELOW) {
+      for (let i = 0; i < 6; i++) {
+        const a = now * 1.2 + i * 1.05, r = 22 + Math.sin(now * 2 + i) * 2;
+        sparkle(p, Math.round(CUP.x + Math.cos(a) * r), Math.round(CUP.by - 16 + Math.sin(a) * r * 0.55), (i + Math.floor(now * 3)) % 2);
+      }
+    }
+    // meters
+    if (c && c.cfg.mech === 'hold') {
+      if (c.cfg.heat) drawMeter(p, 142, 14, 46, this.jug.temp, HEAT_BAND, true);
+      else if (c.cfg.cream) drawMeter(p, 142, 14, 46, b.cream / 1.25, [0.6 / 1.25, 1.1 / 1.25]);
+      else drawMeter(p, 142, 14, 46, Math.min(1.15, fillOf(b) + Math.min(0.15, this.puddle)), this.band() || [2, 2]);
+    }
+    if (c && c.cfg.mech === 'timing') drawTimingBar(p, 30, 7, 84, c.frozen ?? (Math.sin(c.t * 2.6 - Math.PI / 2) + 1) / 2);
+    if (key === 'grind') {
+      drawProgress(p, 4, 92, 34, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2)));
+      if (!c.acc) { const a = now * 3; p.set(CRANK.x + Math.cos(a) * 10, CRANK.y + Math.sin(a) * 10, '#ffd27a'); p.set(CRANK.x + Math.cos(a - 0.3) * 10, CRANK.y + Math.sin(a - 0.3) * 10, '#ffd27a88'); }
+    }
+    if (key === 'wipe') {
+      drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
+      if (this.pointer && this.down) spr(g, 'st_rag', this.pointer[0], this.pointer[1] + 2, 1, { rot: Math.sin(now * 12) * 0.15 });
+    }
+  }
+
+  drawTop3(g, p, now) {
+    const c = this.cur, b = this.b, key = c.key, v = b.vessel || 'cup';
+    spr(g, 'st_topbg', 0, 0);
+    g.fillStyle = 'rgba(60,35,20,0.18)'; g.beginPath(); g.ellipse(TOP.x + 3, TOP.y + 4, TOP.r * 1.45, TOP.r * 1.42, 0, 0, 6.283); g.fill();
+    spr(g, 'sv_' + v + '_top', TOP.x, TOP.y, TOP.r / ST3.top_r);
+    if (fillOf(b) > 0.02 || b.cream) g.drawImage(surfaceCanvas(b), TOP.x - TOP.r, TOP.y - TOP.r, TOP.r * 2, TOP.r * 2);
+    if (c.cfg.mech === 'trace' && c.guide) {
+      g.strokeStyle = 'rgba(251,246,234,0.45)'; g.lineWidth = 0.8; g.setLineDash([1.5, 2]); g.beginPath();
+      c.guide.forEach(([gx, gy], i) => (i ? g.lineTo(TOP.x + gx * TOP.r, TOP.y + gy * TOP.r) : g.moveTo(TOP.x + gx * TOP.r, TOP.y + gy * TOP.r)));
+      g.stroke(); g.setLineDash([]);
+      c.guide.forEach(([gx, gy], i) => {
+        if (c.covered.has(i)) return;
+        const x = Math.round(TOP.x + gx * TOP.r), y = Math.round(TOP.y + gy * TOP.r);
+        p.rect(x - 1, y - 1, 3, 3, INK); p.set(x, y, (i + Math.floor(now * 4)) % 8 === 0 ? '#ffffff' : '#ffd27a');
+      });
+      const nextI = c.guide.findIndex((_, i) => !c.covered.has(i));
+      if (nextI >= 0 && !c.stroke) { const [gx, gy] = c.guide[nextI]; ring(p, Math.round(TOP.x + gx * TOP.r), Math.round(TOP.y + gy * TOP.r), 3 + (Math.floor(now * 3) % 2), '#ffd27a'); }
+      drawProgress(p, 120, 92, 26, c.covered.size / c.guide.length);
+    }
+    const ptr = this.pointer;
+    if (c.cfg.mech === 'trace' && this.down && ptr) {
+      if (key === 'art') spr(g, 'st_jug_milk', ptr[0] + 9, ptr[1] + 10, 0.9, { rot: -0.7, flip: true });
+      else spr(g, key === 'drizzle' ? 'k_s_caramel' : 'k_s_chocsauce', ptr[0], ptr[1] + 1, 0.85, { rot: Math.PI * 0.85 });
+    }
+    if (c.cfg.mech === 'shake' && ptr) { if (key === 'matcha') spr(g, 'st_whisk', ptr[0], ptr[1] + 2); else spr(g, key === 'cocoa' ? 'st_shaker_cocoa' : 'st_shaker_cinnamon', ptr[0], ptr[1] + 2, 1, { rot: Math.PI * 0.8 }); }
+    if (c.cfg.mech === 'shake') drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
+    if (key === 'choc') { if (this.spoon) spr(g, 'st_spoon', this.spoon[0], this.spoon[1]); drawProgress(p, 120, 92, 26, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2))); if (!c.acc) { const a = now * 3; ring(p, Math.round(TOP.x + Math.cos(a) * 22), Math.round(TOP.y + Math.sin(a) * 22), 2, '#ffd27a'); } }
+    if (key === 'marsh') spr(g, 'st_jar', 22, 86, 1.3);
+    if (key === 'mint') spr(g, 'st_mint', 22, 74, 3);
   }
 
   drawBar(p, now) {
@@ -641,6 +819,15 @@ export class Station {
 }
 
 // ---------- tool icons for the shelves ----------
+// pictures from tools/art3d for each tool (stacked on one anchor)
+const TOOL_PICS = {
+  demi: ['sv_demi'], cup: ['sv_cup'], mug: ['sv_mug'], glass: ['sv_glass'], tall: ['sv_tall'],
+  grind: ['st_hopper_beans', 'st_hopper_glass'], tamp: ['st_tamper'], shot: ['st_pf_full'], water: ['st_kettle'], teabag: ['st_teabag'],
+  steam: ['st_jug'], froth: ['st_jug_milk'], pourmilk: ['st_jug_milk'], art: ['sv_cup_top'], ice: ['st_bucket'], coldmilk: ['st_carton'], coldwater: ['st_pitcher'],
+  berry: ['st_berries'], lemon: ['st_lemons'], orange: ['st_oranges'], icecream: ['st_tub'], vanilla: ['st_bottle_vanilla'], caramelsyrup: ['st_bottle_caramel'],
+  chocsyrup: ['st_bottle_choc'], chai: ['st_bottle_chai'], choc: ['st_chocbar'], matcha: ['st_matchabowl'], cream: ['st_creamcan'], drizzle: ['k_s_caramel'],
+  chocdrizzle: ['k_s_chocsauce'], cocoa: ['st_shaker_cocoa'], cinnamon: ['st_shaker_cinnamon'], marsh: ['st_jar'], mint: ['st_mint'],
+};
 export function toolIcon(k) {
   const p = new Pix(16, 16), cfg = TOOLS[k];
   if (cfg.vessel) { const b = newBuild(null, '', cfg.vessel); drawDrink(p, 8, 13, b, 'small'); return p; }

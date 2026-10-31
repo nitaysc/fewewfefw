@@ -7,11 +7,13 @@ import { Pix, shade, hash } from '../art/pix.js';
 import { INGREDIENTS, SAUCES, SHAKERS, BASES, FOODS, newPlate, drawPlate, scorePlate, countOf, ingName, kindOf, foodNeed, wantsText } from '../art/foods.js';
 import { HD } from '../art/foodart.js';
 import { starsFor } from '../art/drinks.js';
+import { st3Ready, ST3, spr, iconURL, tone } from '../art/st3.js';
 import { t } from '../i18n.js';
 
 const SW = 240, SH = 160, INK = '#24160f';
 const PL = { x: 110, y: 84, r: 72 };
 const REFUSE_BELOW = 0.35;
+const BASE_SCALE = { vanilla: 1.35, chocolate: 1.35, cheesecake: 1.35, croissant: 1.3, toast: 1.15 };
 export const KTABS = [['plates', 'Plates'], ['fruit', 'Fruit'], ['sweet', 'Sweet'], ['veg', 'Savoury'], ['sauce', 'Sauces'], ['shake', 'Toppings']];
 const tabOf = (k) => (BASES[k] ? 'plates' : SAUCES[k] ? 'sauce' : SHAKERS[k] ? 'shake' : INGREDIENTS[k].cat);
 
@@ -216,9 +218,51 @@ export class Kitchen {
     this.el.tools.innerHTML = keys.map((k) => `<button class="tool${this.tool === k || this.pl.base === k ? ' on' : ''}${sug === k ? ' glow' : ''}" data-tool="${k}"><img src="${this.icon(k)}" alt=""><span>${t(ingName(k))}</span></button>`).join('');
     this.renderCard();
   }
-  icon(k) { if (!this.icons.has(k)) this.icons.set(k, ingIcon(k).toCanvas(2).toDataURL()); return this.icons.get(k); }
+  icon(k) {
+    if (st3Ready()) { const u = iconURL(BASES[k] ? (k === 'plate' ? ['k_plate'] : ['k_plate', 'k_' + k]) : INGREDIENTS[k] ? [k === 'macaron' ? 'k_i_macaron0' : 'k_i_' + k] : SAUCES[k] ? ['k_s_' + k] : ['k_h_' + k]); if (u) return u; }
+    if (!this.icons.has(k)) this.icons.set(k, ingIcon(k).toCanvas(2).toDataURL()); return this.icons.get(k); }
+
+  // ---------- the rendered kitchen (tools/art3d) ----------
+  draw3(now) {
+    if (!this.l3) { PL.x = ST3.kitchen.plate[0]; PL.y = ST3.kitchen.plate[1]; this.l3 = true; if (this.open) this.renderTools(); }
+    const g = this.g, s = this.scale, pl = this.pl;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#1d130d'; g.fillRect(0, 0, this.el.canvas.width, this.el.canvas.height);
+    g.setTransform(s, 0, 0, s, this.ox, this.oy);
+    g.save(); g.beginPath(); g.rect(0, 0, SW, SH); g.clip();
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    spr(g, 'k_bg', 0, 0);
+    if (pl.base && pl.base !== 'plate') spr(g, 'k_' + pl.base, PL.x, PL.y, BASE_SCALE[pl.base] || 1);
+    const P = (x, y) => [PL.x + x * PL.r * 0.8, PL.y + y * PL.r * 0.66];
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const st of pl.strokes) {
+      const c = SAUCES[st.k].c, path = () => { g.beginPath(); st.pts.forEach((q, i) => { const [x, y] = P(...q); i ? g.lineTo(x, y) : g.moveTo(x, y); }); };
+      g.save(); g.translate(0, 0.5); path(); g.strokeStyle = tone(c, 0.7, 0.8); g.lineWidth = 2.4; g.stroke(); g.restore();
+      path(); g.strokeStyle = c; g.lineWidth = 2.1; g.stroke();
+      g.save(); g.translate(-0.3, -0.4); path(); g.strokeStyle = tone(c, 1.35, 0.7); g.lineWidth = 0.6; g.stroke(); g.restore();
+    }
+    const item = (k, x, y, r, a = 1) => {
+      g.fillStyle = `rgba(70,40,25,${0.2 * a})`; g.beginPath(); g.ellipse(x + 0.8, y + 1, 4, 2.2, 0, 0, 6.283); g.fill();
+      spr(g, k === 'macaron' ? 'k_i_macaron' + ((r || 0) % 4) : 'k_i_' + k, x, y, 1.15, { flip: (r || 0) % 2 === 1, alpha: a });
+    };
+    for (const it of [...pl.items].sort((a, b) => a.y - b.y)) { const [x, y] = P(it.x, it.y); item(it.k, x, y, it.r); }
+    for (const [x, y, c] of pl.dust) { const [px, py] = P(x, y); g.fillStyle = tone(c, 1, 0.9); g.beginPath(); g.arc(px, py, 0.55, 0, 6.283); g.fill(); }
+    if (!pl.base && Math.floor(now * 2) % 2) { g.strokeStyle = '#ffd27a'; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.ellipse(PL.x, PL.y, PL.r + 3, PL.r * 0.82 + 3, 0, 0, 6.283); g.stroke(); g.setLineDash([]); }
+    if (this.drag && this.pointer) { const [x, y] = this.pointer; g.strokeStyle = this.onPlate(x, y) ? '#ffd27a' : '#e46a5a'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, 10, 0, 6.283); g.stroke(); }
+    if (this.tool && kindOf(this.tool) === 'shake' && this.pointer && this.down) { const [x, y] = this.pointer; spr(g, 'k_h_' + this.tool, x, y - 8, 1.6, { rot: Math.PI * 0.85 + Math.sin(now * 20) * 0.1 }); }
+    this.fx = this.fx.filter((f) => now - (f.t0 ??= now) < 0.8);
+    for (const f of this.fx) { const k = now - f.t0; item(f.k, f.x, f.y + k * k * 120, 0, 1); }
+    if (this.result && this.result.q >= REFUSE_BELOW) for (let i = 0; i < 6; i++) {
+      const a = now * 1.2 + i * 1.05, x = PL.x + Math.cos(a) * 46, y = PL.y + Math.sin(a) * 36, r = 1.5 + Math.sin(now * 6 + i);
+      g.fillStyle = '#ffd27a'; g.beginPath(); g.moveTo(x, y - r * 2); g.lineTo(x + r * 0.6, y); g.lineTo(x, y + r * 2); g.lineTo(x - r * 0.6, y); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(x - r * 2, y); g.lineTo(x, y + r * 0.6); g.lineTo(x + r * 2, y); g.lineTo(x, y - r * 0.6); g.closePath(); g.fill();
+    }
+    g.restore();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
 
   draw(now) {
+    if (st3Ready()) return this.draw3(now);
     const p = new Pix(SW, SH);
     p.data.set(this.bg.data);
     drawPlate(p, PL.x, PL.y, this.pl, PL.r);
