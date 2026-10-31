@@ -29,7 +29,7 @@ func _ready() -> void:
 	add_child(player)
 	player.footstep.connect(func(): Sfx.play("step", -20.0))
 	cam = Camera3D.new()
-	cam.fov = 42.0
+	cam.fov = 46.0
 	cam.near = 0.2
 	cam.far = 60.0
 	add_child(cam)
@@ -66,7 +66,7 @@ func _lighting() -> void:
 	add_child(we)
 	var sun := DirectionalLight3D.new()
 	sun.light_color = Color("ffe2bd")
-	sun.light_energy = 1.6
+	sun.light_energy = 1.15
 	sun.rotation_degrees = Vector3(-48, -28, 0)
 	sun.shadow_enabled = true
 	sun.shadow_blur = 1.5
@@ -81,7 +81,7 @@ func _lighting() -> void:
 		add_child(o)
 
 func _room() -> void:
-	var floor_mat := Props.textured("wood_floor_worn", Color(0.92, 0.85, 0.78), 0.45)
+	var floor_mat := Props.textured("wood_floor_worn", Color(0.68, 0.6, 0.55), 0.45)
 	var fl := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(16, 12)
@@ -255,7 +255,7 @@ func _decor() -> void:
 	Props.place(self, "wall_clock", Vector3(0, 2.8, -4.97), 0)
 	var sh := Props.place(self, "Shelf_01", Vector3(-6.85, 0, 2.6 - 4.5), 90)
 	sh.position = Vector3(-6.85, 0, -1.9)
-	for p in [Vector3(-2.7, 2.15, -3.9), Vector3(0, 2.15, -0.8), Vector3(2.5, 2.15, -3.9)]:
+	for p in [Vector3(-2.7, 2.9, -4.3), Vector3(2.5, 2.9, -4.3)]:
 		Props.place(self, "hanging_industrial_lamp", p, 0)
 
 func _set_paint(c: String) -> void:
@@ -285,7 +285,7 @@ func _place_camera(k: float) -> void:
 	var focus := player.global_position + Vector3(0, 0.5, -0.6)
 	focus.x = clampf(focus.x, -3.6, 3.6)
 	focus.z = clampf(focus.z, -2.8, 1.8)
-	var goal := focus + Vector3(0, 6.6, 6.2) * zoom
+	var goal := focus + Vector3(0, 5.0, 5.4) * zoom
 	cam.position = cam.position.lerp(goal, k)
 	cam.look_at(cam.position + (focus - goal).normalized(), Vector3.UP)
 

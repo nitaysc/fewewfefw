@@ -56,7 +56,9 @@ A cozy **toymaker** game in **Godot 4.6.2** (GL Compatibility renderer, runs on 
   publishes release `tiny-toyworks-v0.1.<run>` → https://github.com/nitaysc/fewewfefw/releases
 
 ## State when this was written / next steps
-Version 2 runs (screenshot looked good: realistic room, characters, joystick, orders). To do next:
+Version 2 runs (realistic room, characters, joystick, orders, sawing with a % on the button).
+Done since: darker floor tint, lower camera, lamps raised to the back wall, carried item further forward, items on stations ×1.3.
+To do next:
 1. Floor looks too orange/bright: lower `wood_floor_worn` tint and the sun energy; check exposure.
 2. Camera is a bit high/top-down: try offset (0, 5.2, 5.6), fov 45, and let pinch zoom set `zoom`.
 3. Hanging lamps hang low and block the view of the back stations; raise to y≈2.6 or remove.

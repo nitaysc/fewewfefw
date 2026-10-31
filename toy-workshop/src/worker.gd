@@ -52,7 +52,7 @@ func hold(it: Dictionary) -> void:
 	if it.is_empty():
 		return
 	carry_node = Props.item(it)
-	carry_node.position = Vector3(0, 0.98, 0.34)
+	carry_node.position = Vector3(0, 1.0, 0.46)
 	carry_node.scale = Vector3.ONE * 0.4
 	add_child(carry_node)
 	create_tween().tween_property(carry_node, "scale", Vector3.ONE * 1.25, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -93,4 +93,4 @@ func _physics_process(dt: float) -> void:
 	else:
 		model.play("Idle" if carry.is_empty() else "Walk_Carry", 0.25, 1.0 if carry.is_empty() else 0.0)
 	if carry_node:
-		carry_node.position.y = 0.98 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)
+		carry_node.position.y = 1.0 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)

@@ -144,6 +144,7 @@ func _refresh(pop := false) -> void:
 		return
 	for i in items.size():
 		var n := Props.item(items[i])
+		n.set_meta("s", 1.3)
 		var s: Vector3 = slots[mini(i, slots.size() - 1)]
 		n.position = s + Vector3(0, 0.01 * maxi(0, i - slots.size() + 1), 0)
 		n.rotation.y = 0.25 * ((i * 37) % 7 - 3) * 0.1
@@ -151,7 +152,9 @@ func _refresh(pop := false) -> void:
 		item_nodes.append(n)
 		if pop or i == items.size() - 1:
 			n.scale = Vector3.ONE * 0.6
-			create_tween().tween_property(n, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		else:
+			n.scale = Vector3.ONE * 1.3
+			create_tween().tween_property(n, "scale", Vector3.ONE * 1.3, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _process(dt: float) -> void:
 	working = maxf(0.0, working - dt)
