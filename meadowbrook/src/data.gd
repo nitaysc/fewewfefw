@@ -1,74 +1,53 @@
 class_name Data
-## Everything the workshop knows about: parts, toys and their recipes, stations, colours,
-## upgrades and levels.
+## Everything the farm knows about: crops, fruit trees, prices, upgrades, levels.
 
-const COLORS := {
-	"wood": Color(1, 1, 1),
-	"red": Color("d8433b"),
-	"blue": Color("3f74c9"),
-	"yellow": Color("f2bd2e"),
-	"green": Color("4ea35b"),
-	"pink": Color("e57aa8"),
-	"purple": Color("7d5bc4"),
+# crops grown in soil plots: seed price, seconds to grow once watered, sell price per piece,
+# how many you harvest, the produce model, the plant model when grown, unlock level
+const CROPS := {
+	"onion": {"name": "Onions", "seed": 4, "grow": 40.0, "price": 9, "yield": 3, "model": "yellow_onion", "plant": "nettle_plant", "level": 1},
+	"potato": {"name": "Sweet potatoes", "seed": 7, "grow": 65.0, "price": 15, "yield": 3, "model": "sweet_potato", "plant": "periwinkle_plant", "level": 1},
+	"gazania": {"name": "Gazanias", "seed": 10, "grow": 80.0, "price": 26, "yield": 2, "model": "flower_gazania", "plant": "flower_gazania", "level": 2},
+	"ursinia": {"name": "Ursinias", "seed": 14, "grow": 100.0, "price": 38, "yield": 2, "model": "flower_ursinia", "plant": "flower_ursinia", "level": 3},
 }
-const PAINTS := ["red", "blue", "yellow", "green", "pink", "purple"]
+const CROP_ORDER := ["onion", "potato", "gazania", "ursinia"]
 
-const PARTS := {
-	"lumber": {"name": "Lumber"},
-	"block": {"name": "Block", "paint": true},
-	"wheel": {"name": "Wheel", "paint": true},
-	"peg": {"name": "Peg", "paint": true},
+# fruit from trees (picked by hand, regrow)
+const FRUIT := {
+	"apple": {"name": "Apples", "price": 7, "model": "food_apple_01", "regrow": 45.0},
+	"pear": {"name": "Pears", "price": 10, "model": "food_pears_asian_01", "regrow": 60.0},
 }
 
-# toys: what the bench needs, which part gives the colour, value, unlock level
-const TOYS := {
-	"car": {"name": "Toy Car", "needs": {"block": 1, "wheel": 2}, "body": "block", "value": 30, "level": 1},
-	"top": {"name": "Spinning Top", "needs": {"wheel": 1, "peg": 1}, "body": "wheel", "value": 26, "level": 2},
-	"plane": {"name": "Toy Plane", "needs": {"block": 1, "peg": 2}, "body": "block", "value": 38, "level": 3},
-	"train": {"name": "Toy Train", "needs": {"block": 2, "wheel": 2}, "body": "block", "value": 52, "level": 4},
-}
-const TOY_ORDER := ["car", "top", "plane", "train"]
+const WORK := {"dig": 1.2, "plant": 0.7, "water": 0.9, "harvest": 0.9, "chop": 2.2, "fill": 1.0, "pick": 1.0}
+const CAN_SIZE := 6
+const BASKET := 9                      # pieces you can carry at once
+const DAY_LENGTH := 240.0
 
-# how long hands-on work takes (seconds)
-const WORK := {"saw": 1.6, "lathe": 1.8, "paint": 1.1, "bench": 2.0}
+# plots come in fields; each extra field costs coins and wood
+const FIELDS := [
+	{"cost": 0, "wood": 0},
+	{"cost": 60, "wood": 4},
+	{"cost": 140, "wood": 8},
+	{"cost": 260, "wood": 12},
+]
 
-const DAY_LENGTH := 180.0
-const MAX_ORDERS := 4
-
-# things to buy between days
 const UPGRADES := {
-	"sawyer": {"name": "Apprentice sawyer", "desc": "Fetches lumber and saws blocks all day.", "cost": 220, "level": 1},
-	"turner": {"name": "Apprentice turner", "desc": "Fetches lumber and turns wheels or pegs.", "cost": 260, "level": 2},
-	"tools": {"name": "Sharper tools", "desc": "All hand work goes 35% faster.", "cost": 180, "level": 1},
-	"shoes": {"name": "Comfy shoes", "desc": "Walk 20% faster.", "cost": 120, "level": 1},
-	"patience": {"name": "Cozy waiting corner", "desc": "Customers wait 30% longer.", "cost": 200, "level": 2},
-	"painter": {"name": "Apprentice painter", "desc": "Paints blocks waiting at the saw in the paint table's colour.", "cost": 300, "level": 3},
+	"farmhand": {"name": "Farmhand Rosa", "desc": "Waters dry crops and harvests ripe ones into the crate.", "cost": 250, "level": 2},
+	"sprinkler": {"name": "Sprinklers", "desc": "Crops don't need watering any more.", "cost": 400, "level": 3},
+	"bigcan": {"name": "Big watering can", "desc": "Holds twice as much water.", "cost": 80, "level": 1},
+	"boots": {"name": "Field boots", "desc": "Walk 20% faster.", "cost": 90, "level": 1},
+	"compost": {"name": "Compost", "desc": "Crops grow 30% faster.", "cost": 220, "level": 2},
+	"axe": {"name": "Sharp axe", "desc": "Chop trees twice as fast.", "cost": 70, "level": 1},
 }
-const UPGRADE_ORDER := ["sawyer", "tools", "shoes", "turner", "patience", "painter"]
+const UPGRADE_ORDER := ["bigcan", "boots", "axe", "farmhand", "compost", "sprinkler"]
 
 static func xp_for(level: int) -> int:
-	return int(round(60.0 * pow(level, 1.4)))
+	return int(round(50.0 * pow(level, 1.45)))
 
-static func toys_at(level: int) -> Array:
-	return TOY_ORDER.filter(func(t): return TOYS[t].level <= level)
+static func crops_at(level: int) -> Array:
+	return CROP_ORDER.filter(func(c): return CROPS[c].level <= level)
 
-static func item_name(it: Dictionary) -> String:
-	var base: String = TOYS[it.t].name if TOYS.has(it.t) else PARTS[it.t].name
-	return base if it.get("c", "wood") == "wood" else "%s %s" % [String(it.c).capitalize(), base]
+static func price(t: String) -> int:
+	return CROPS[t].price if CROPS.has(t) else FRUIT[t].price
 
-## which toy (if any) a set of parts on the bench makes, among the unlocked ones
-static func recipe_for(parts: Array, level: int) -> String:
-	var have := {}
-	for p in parts:
-		have[p.t] = have.get(p.t, 0) + 1
-	for t in toys_at(level):
-		if TOYS[t].needs == have:
-			return t
-	return ""
-
-## the toy's colour comes from its body part
-static func toy_color(toy: String, parts: Array) -> String:
-	for p in parts:
-		if p.t == TOYS[toy].body and p.get("c", "wood") != "wood":
-			return p.c
-	return "wood"
+static func name_of(t: String) -> String:
+	return CROPS[t].name if CROPS.has(t) else FRUIT[t].name

@@ -57,3 +57,32 @@ if __name__ == '__main__':
         print('texture', t); texture(t, res)
     for h in w.get('hdris', []):
         print('hdri', h); hdri(h, w.get("hdri_res", "1k"))
+
+# heavy scans get simplified with gltfpack (meshoptimizer) so the game stays light on phones
+def simplify_all():
+    import subprocess, glob
+    w = json.load(open(os.path.join(ROOT, 'wanted.json')))
+    for mid, ratio in w.get('simplify', {}).items():
+        base = os.path.join(ROOT, 'models', mid)
+        mark = os.path.join(base, '.simplified')
+        src = os.path.join(base, mid + '_1k.gltf')
+        if not os.path.exists(src) or os.path.exists(mark):
+            continue
+        tmp = os.path.join(base, 'tmp_out.gltf')
+        print('simplify', mid, ratio)
+        subprocess.run(['npx', '-y', 'gltfpack@0.22.0', '-i', src, '-o', tmp, '-si', str(ratio), '-noq', '-kn', '-km'], check=True)
+        old = json.load(open(src))
+        for b in old.get('buffers', []):
+            if 'uri' in b and os.path.exists(os.path.join(base, b['uri'])):
+                os.remove(os.path.join(base, b['uri']))
+        new = json.load(open(tmp))
+        for b in new.get('buffers', []):
+            if 'uri' in b:
+                os.rename(os.path.join(base, b['uri']), os.path.join(base, mid + '_lite.bin'))
+                b['uri'] = mid + '_lite.bin'
+        json.dump(new, open(src, 'w'))
+        os.remove(tmp)
+        open(mark, 'w').write(str(ratio))
+
+if __name__ == '__main__':
+    simplify_all()

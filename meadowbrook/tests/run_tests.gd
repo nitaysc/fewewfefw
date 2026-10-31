@@ -1,80 +1,53 @@
 extends SceneTree
-## Headless checks: godot --headless --path toy-workshop --script res://tests/run_tests.gd
+## Headless checks: godot --headless --path meadowbrook --script res://tests/run_tests.gd
 
 var fails := 0
+var done := false
 
 func check(ok: bool, what: String) -> void:
 	print(("ok   " if ok else "FAIL ") + what)
 	if not ok:
 		fails += 1
 
-func work(s: Station) -> void:
-	for i in 200:
-		if s.do_work(0.05):
-			return
-
-var done := false
-
 func _process(_dt: float) -> bool:
 	if done:
 		return true
 	done = true
-	var Game = root.get_node("Game")
-	# lumber becomes two blocks at the saw
-	var saw := Station.new().setup("saw")
-	check(saw.can_put({"t": "lumber", "c": "wood"}), "the saw takes lumber")
-	saw.put({"t": "lumber", "c": "wood"})
-	check(not saw.can_put({"t": "lumber", "c": "wood"}), "one piece of lumber at a time")
-	check(saw.job() == "Saw", "there is sawing to do")
-	work(saw)
-	check(saw.items.size() == 2 and saw.items.all(func(i): return i.t == "block"), "sawing makes two blocks")
-	check(saw.take().t == "block", "you pick up a block")
-
-	# the drill press makes wheels or pegs
-	var lathe := Station.new().setup("lathe")
-	lathe.put({"t": "lumber", "c": "wood"})
-	work(lathe)
-	check(lathe.items.size() == 2 and lathe.items[0].t == "wheel", "drilling makes two wheels")
-	lathe.mode = "peg"
-	lathe.put({"t": "lumber", "c": "wood"})
-	work(lathe)
-	check(lathe.items.filter(func(i): return i.t == "peg").size() == 2, "peg mode makes pegs")
-
-	# painting
-	var paint := Station.new().setup("paint")
-	paint.color = "blue"
-	check(not paint.can_put({"t": "lumber", "c": "wood"}), "lumber can't be painted")
-	paint.put({"t": "block", "c": "wood"})
-	work(paint)
-	check(paint.items[0].c == "blue", "the block comes out blue")
-
-	# the bench builds a car from a block and two wheels, coloured by the block
-	var bench := Station.new().setup("bench")
-	bench.level = 1
-	bench.put({"t": "block", "c": "blue"})
-	bench.put({"t": "wheel", "c": "wood"})
-	check(bench.job() == "", "not enough parts yet")
-	bench.put({"t": "wheel", "c": "wood"})
-	check(bench.job() == "Assemble", "a car can be assembled")
-	work(bench)
-	check(bench.items.size() == 1 and bench.items[0].t == "car" and bench.items[0].c == "blue", "a blue toy car")
-	var b2 := Station.new().setup("bench")
-	b2.level = 1
-	for p in [{"t": "wheel", "c": "wood"}, {"t": "peg", "c": "wood"}]:
-		b2.put(p)
-	check(b2.job() == "", "spinning tops need level 2")
-	b2.level = 2
-	check(b2.job() == "Assemble", "at level 2 they can be made")
-
-	# orders pay more for colour and tip for speed
-	Game.level = 2
-	Game.start_day()
-	Game.orders = [{"id": 1, "toy": "car", "c": "blue", "left": 50.0, "total": 100.0, "who": "Mia"}]
-	var before: int = Game.coins
-	var o: Dictionary = Game.ship({"t": "car", "c": "blue"})
-	check(not o.is_empty() and Game.coins - before == int(30 * 1.25) + 9, "blue car pays %d" % (Game.coins - before))
-	check(Game.ship({"t": "car", "c": "red"}).is_empty(), "an unordered toy still sells, for less")
-	Game.playing = false
+	var G = root.get_node("Game")
+	G.coins = 40
+	G.seeds = {"onion": 2}
+	G.seed = "onion"
+	G.water = 0
+	G.owned = {}
+	var p := Spot.new().setup("plot")
+	check(p.action({}, G).work == "dig", "grass gets dug first")
+	p.finish("dig", {}, G)
+	check(p.action({}, G).work == "plant", "then planted")
+	p.finish("plant", {}, G)
+	check(G.seeds.onion == 1 and p.state == "planted", "planting uses a seed")
+	check(p.action({}, G).get("bad", false), "can't water with an empty can")
+	G.water = 2
+	check(p.action({}, G).work == "water", "watering with water in the can")
+	p.finish("water", {}, G)
+	p.tick(10.0, G)
+	check(p.state == "planted" and p.growth > 0.2, "watered crops grow")
+	p.tick(100.0, G)
+	check(p.state == "ripe", "and ripen")
+	var c: Dictionary = p.finish("harvest", {}, G)
+	check(c.t == "onion" and c.n == 3 and p.state == "tilled", "harvest gives 3 onions, soil stays tilled")
+	var before: int = G.coins
+	G.sell(c.t, c.n)
+	check(G.coins - before == 27, "onions sell for 9 each")
+	var dry := Spot.new().setup("plot")
+	dry.state = "planted"
+	dry.crop = "onion"
+	dry.tick(100.0, G)
+	check(dry.state == "planted" and dry.growth == 0.0, "dry crops don't grow")
+	check(G.buy_seeds("potato") and G.seeds.potato == 3, "buying seeds")
+	G.wood = 4
+	G.coins = 100
+	G.fields = 1
+	check(G.open_field() and G.fields == 2 and G.wood == 0, "a new field costs coins and wood")
 	print("%d failed" % fails)
 	quit(1 if fails else 0)
 	return true

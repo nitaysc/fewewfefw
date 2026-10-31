@@ -13,8 +13,8 @@ var shown_coins := 0.0
 var level_label: Label
 var xp_bar: ProgressBar
 var clock_label: Label
-var orders_box: VBoxContainer
-var cards := {}                    # order id -> card
+var inv_label: Label
+var seed_icon: TextureRect
 var act_btn: Button
 var act_label: Label
 var chips: HBoxContainer
@@ -45,15 +45,10 @@ func _ready() -> void:
 	add_child(root)
 	_joystick()
 	_top()
-	_orders()
 	_action()
 	_hint()
 	Game.changed.connect(_refresh)
-	Game.order_done.connect(_on_done)
-	Game.order_missed.connect(_on_missed)
-	Game.order_added.connect(func(_o): Sfx.play("pop", -4.0))
 	Game.leveled.connect(_on_level)
-	Game.day_over.connect(_on_day_over)
 	shown_coins = Game.coins
 	_refresh()
 
@@ -61,11 +56,9 @@ func bind(w: Node3D) -> void:
 	ws = w
 	ws.hud = self
 	ws.hint.connect(show_hint)
-	ws.shipped_toy.connect(func(text, _p, _t): show_hint(text))
+	ws.popped.connect(_float)
 	if not Game.seen_intro:
 		_intro()
-	else:
-		_day_card()
 
 # ---------------------------------------------------------------- look
 func sb(c: Color, r := 22, shadow := 8, border := 0, bc := Color.TRANSPARENT) -> StyleBoxFlat:
@@ -160,8 +153,8 @@ func button(text: String, col := ORANGE, size := 24) -> Button:
 	juice(b)
 	return b
 
-func toy_icon(t: String, c := "wood") -> Texture2D:
-	return icons.get_icon("i|%s|%s" % [t, c], func(): return Props.item({"t": t, "c": c}))
+func crop_icon(t: String) -> Texture2D:
+	return icons.get_icon("p|" + t, func(): return Props.produce(t))
 
 # ---------------------------------------------------------------- joystick
 class Stick extends Control:
@@ -229,133 +222,61 @@ func _top() -> void:
 	lp.add_child(lv)
 	bar.add_child(lp)
 	var dp := PanelContainer.new()
-	dp.add_theme_stylebox_override("panel", sb(Color(0.15, 0.1, 0.08, 0.8), 30, 0))
+	dp.add_theme_stylebox_override("panel", sb(Color(0.15, 0.1, 0.08, 0.75), 30, 0))
 	clock_label = label("Day 1", 24, CREAM)
 	dp.add_child(clock_label)
 	bar.add_child(dp)
-	var mute := button("Sound", TEAL, 18)
-	mute.custom_minimum_size = Vector2(0, 50)
+	# what you have: seeds of the chosen kind, water in the can, wood
+	var ip := PanelContainer.new()
+	ip.add_theme_stylebox_override("panel", sb(CREAM, 30))
+	var ih := HBoxContainer.new()
+	seed_icon = pic(crop_icon(Game.seed), 36)
+	ih.add_child(seed_icon)
+	inv_label = label("", 22)
+	ih.add_child(inv_label)
+	ip.add_child(ih)
+	bar.add_child(ip)
+	var right := HBoxContainer.new()
+	right.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	right.position = Vector2(-300, 18)
+	right.add_theme_constant_override("separation", 10)
+	root.add_child(right)
+	var shop := button("Shop", TEAL, 22)
+	shop.custom_minimum_size = Vector2(120, 54)
+	shop.pressed.connect(_shop)
+	right.add_child(shop)
+	var mute := button("Sound", Color("8a7a6c"), 18)
+	mute.custom_minimum_size = Vector2(110, 54)
 	mute.pressed.connect(func():
 		Sfx.set_muted(not Sfx.muted)
 		mute.text = "Muted" if Sfx.muted else "Sound")
-	bar.add_child(mute)
+	right.add_child(mute)
 
 func _refresh() -> void:
 	level_label.text = "Level %d" % Game.level
 	create_tween().tween_property(xp_bar, "value", 100.0 * Game.xp / Data.xp_for(Game.level), 0.35)
-	_sync_orders()
+	inv_label.text = "%d seeds   Water %d/%d   Wood %d" % [Game.seeds.get(Game.seed, 0), Game.water, Game.can_size(), Game.wood]
+	seed_icon.texture = crop_icon(Game.seed)
 
 func _process(dt: float) -> void:
 	var target := float(Game.coins)
 	shown_coins = target if absf(shown_coins - target) < 0.5 else lerpf(shown_coins, target, 1.0 - exp(-dt * 8.0))
 	coin_label.text = str(int(round(shown_coins)))
-	var tl := maxf(0.0, Game.time_left)
-	clock_label.text = "Day %d   %d:%02d" % [Game.day, int(tl) / 60, int(tl) % 60] if Game.playing else "Day %d" % Game.day
-	clock_label.add_theme_color_override("font_color", Color("ff9f8a") if Game.playing and tl < 20 else CREAM)
-	for o in Game.orders:
-		var card: Control = cards.get(o.id)
-		if card:
-			var bar: ProgressBar = card.find_child("bar", true, false)
-			var k: float = o.left / o.total
-			bar.value = 100.0 * k
-			var f := sb(GREEN.lerp(Color("e0a83a"), clampf(1.6 - k * 2.0, 0, 1)).lerp(Color("d9534a"), clampf(0.7 - k * 2.0, 0, 1) / 0.7), 8, 0)
-			f.content_margin_top = 0
-			f.content_margin_bottom = 0
-			bar.add_theme_stylebox_override("fill", f)
-			card.rotation = sin(Time.get_ticks_msec() / 60.0) * 0.02 if k < 0.2 else 0.0
+	var mins := int(Game.clock * 24 * 60)
+	clock_label.text = "Day %d   %d:%02d" % [Game.day, mins / 60, mins % 60]
 	if hint_t > 0.0:
 		hint_t -= dt
 		if hint_t <= 0.0:
 			create_tween().tween_property(hint_panel, "modulate:a", 0.0, 0.3)
 	_update_action()
 
-# ---------------------------------------------------------------- orders
-func _orders() -> void:
-	var holder := VBoxContainer.new()
-	holder.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	holder.position = Vector2(-290, 18)
-	holder.custom_minimum_size = Vector2(270, 0)
-	holder.add_theme_constant_override("separation", 8)
-	root.add_child(holder)
-	var t := label("Orders", 24, CREAM)
-	t.add_theme_constant_override("outline_size", 8)
-	t.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.5))
-	holder.add_child(t)
-	orders_box = VBoxContainer.new()
-	orders_box.add_theme_constant_override("separation", 8)
-	holder.add_child(orders_box)
-
-func _sync_orders() -> void:
-	var ids := {}
-	for o in Game.orders:
-		ids[o.id] = true
-		if not cards.has(o.id):
-			var c := _card(o)
-			orders_box.add_child(c)
-			cards[o.id] = c
-			c.modulate.a = 0.0
-			c.position.x += 60
-			create_tween().tween_property(c, "modulate:a", 1.0, 0.25)
-	for id in cards.keys():
-		if not ids.has(id) and not cards[id].has_meta("leaving"):
-			_remove_card(id, false)
-
-func _card(o: Dictionary) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", sb(CREAM, 20))
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 10)
-	var ib := PanelContainer.new()
-	var ibs := sb(Color("efe2d0"), 16, 0)
-	ibs.set_content_margin_all(2)
-	ib.add_theme_stylebox_override("panel", ibs)
-	ib.add_child(pic(toy_icon(o.toy, o.c), 62))
-	h.add_child(ib)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 2)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_child(label(Game.order_title(o), 19))
-	v.add_child(label("for " + o.who, 15, Color("8a7466")))
-	var bar := ProgressBar.new()
-	bar.name = "bar"
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(150, 12)
-	bar.value = 100
-	v.add_child(bar)
-	h.add_child(v)
-	card.add_child(h)
-	return card
-
-func _remove_card(id: int, good: bool) -> void:
-	var c: Control = cards.get(id)
-	if c == null:
-		return
-	c.set_meta("leaving", true)
-	c.add_theme_stylebox_override("panel", sb(Color("cdeccf") if good else Color("f3c5bd"), 20))
-	var tw := create_tween()
-	tw.tween_interval(0.6)
-	tw.tween_property(c, "modulate:a", 0.0, 0.25)
-	tw.tween_callback(func():
-		cards.erase(id)
-		c.queue_free())
-
-func _on_done(o: Dictionary, pay: int, tip: int) -> void:
-	_remove_card(o.id, true)
-	Sfx.buzz(40)
-	_float("+%d" % pay + ("   +%d tip!" % tip if tip > 0 else ""), Color("ffd36b"))
-
-func _on_missed(o: Dictionary) -> void:
-	_remove_card(o.id, false)
-	Sfx.play("error")
-	show_hint("%s got tired of waiting for a %s" % [o.who, Game.order_title(o)])
-
 func _float(text: String, col: Color) -> void:
-	var l := label(text, 44, col)
+	var l := label(text, 40, col)
 	l.add_theme_constant_override("outline_size", 12)
-	l.add_theme_color_override("font_outline_color", Color(0.25, 0.14, 0.08))
+	l.add_theme_color_override("font_outline_color", Color(0.22, 0.13, 0.08))
 	root.add_child(l)
 	l.reset_size()
-	l.position = Vector2((root.size.x - l.size.x) / 2.0, root.size.y * 0.32)
+	l.position = Vector2((root.size.x - l.size.x) / 2.0, root.size.y * 0.3)
 	l.pivot_offset = l.size / 2.0
 	l.scale = Vector2(0.5, 0.5)
 	var tw := create_tween().set_parallel()
@@ -377,11 +298,13 @@ func _action() -> void:
 		act_btn.add_theme_stylebox_override(st, s)
 	act_btn.add_theme_stylebox_override("pressed", sb(ORANGE.darkened(0.12), 85, 3))
 	act_btn.add_theme_stylebox_override("disabled", sb(Color(0.4, 0.33, 0.28, 0.55), 85, 0))
-	act_label = label("", 22, Color.WHITE)
+	act_label = label("", 21, Color.WHITE)
 	act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	act_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	act_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	act_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	act_label.offset_left = 12
+	act_label.offset_right = -12
 	act_label.add_theme_constant_override("outline_size", 6)
 	act_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.25))
 	act_btn.add_child(act_label)
@@ -390,63 +313,43 @@ func _action() -> void:
 	juice(act_btn)
 	root.add_child(act_btn)
 	chips = HBoxContainer.new()
-	chips.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	chips.position = Vector2(-560, -110)
 	chips.add_theme_constant_override("separation", 8)
 	root.add_child(chips)
 
 func _update_action() -> void:
 	if ws == null:
 		return
-	var t: String = ws.action_label() if Game.playing else ""
-	act_label.text = t
-	act_btn.disabled = t == ""
-	if ws.player.working_at:
-		var w: float = ws.player.working_at.work
-		act_label.text = "%d%%" % int(w * 100)
-	# colour and mode choices appear when you stand at the paint table or drill press
-	var near: String = ws.target.kind if ws.target and Game.playing else ""
-	if near != chips_for:
-		chips_for = near
+	var a: Dictionary = ws.action_info()
+	act_label.text = a.get("label", "")
+	act_btn.disabled = act_label.text == ""
+	act_btn.modulate = Color(1, 1, 1, 0.75) if a.get("bad", false) else Color.WHITE
+	var pr: float = ws.work_progress()
+	if pr >= 0.0:
+		act_label.text = "%d%%" % int(pr * 100)
+	# seed choice appears at the seed stand and next to empty soil
+	var near := ""
+	if ws.target and (ws.target.kind == "stand" or (ws.target.kind == "plot" and ws.target.state == "tilled")):
+		near = "seeds"
+	var key := near + str(Game.level) + Game.seed
+	if key != chips_for:
+		chips_for = key
 		for c in chips.get_children():
 			c.queue_free()
-		if near == "paint":
-			if Game.paints_open().is_empty():
-				chips.add_child(_chip_label("Paints unlock at level 2"))
-			for col in Game.paints_open():
-				chips.add_child(_swatch(col))
-		elif near == "lathe":
-			for m in ["wheel", "peg"]:
-				chips.add_child(_mode_chip(m))
+		if near == "seeds":
+			for c in Data.crops_at(Game.level):
+				chips.add_child(_seed_chip(c))
 		chips.reset_size()
-		chips.position = Vector2(root.size.x - 230 - chips.size.x, root.size.y - 110)
+		chips.position = Vector2(root.size.x - 230 - chips.size.x, root.size.y - 120)
 
-func _chip_label(t: String) -> Control:
-	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", sb(CREAM, 20))
-	p.add_child(label(t, 18))
-	return p
-
-func _swatch(col: String) -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(64, 64)
-	var on: bool = ws.stations.paint.color == col
-	for st in ["normal", "hover", "pressed"]:
-		b.add_theme_stylebox_override(st, sb(Data.COLORS[col], 32, 4, 6 if on else 3, Color.WHITE if on else Color(1, 1, 1, 0.5)))
-	b.pressed.connect(func():
-		ws.set_paint(col)
-		chips_for = "")
-	juice(b)
-	return b
-
-func _mode_chip(m: String) -> Button:
-	var on: bool = ws.stations.lathe.mode == m
-	var b := button("Wheels" if m == "wheel" else "Pegs", TEAL if on else Color("a99686"), 20)
-	b.icon = toy_icon(m)
+func _seed_chip(c: String) -> Button:
+	var on := Game.seed == c
+	var b := button("%s  %d" % [Data.CROPS[c].name, Game.seeds.get(c, 0)], TEAL if on else Color("a99686"), 17)
+	b.icon = crop_icon(c)
 	b.expand_icon = true
-	b.custom_minimum_size = Vector2(140, 64)
+	b.custom_minimum_size = Vector2(150, 62)
 	b.pressed.connect(func():
-		ws.set_lathe(m)
+		Game.seed = c
+		Game.changed.emit()
 		chips_for = "")
 	return b
 
@@ -514,68 +417,35 @@ func _center(l: Label) -> Label:
 
 func _intro() -> void:
 	var v := _modal(720)
-	v.add_child(_center(label("Tiny Toyworks", 58, ORANGE)))
-	v.add_child(_center(label("You're the toymaker. Walk with the stick on the left, use the big button on the right.\nGrab lumber, saw it into blocks, turn wheels and pegs on the drill press, paint them,\nassemble toys at the workbench and drop them in the shipping box before customers lose patience.", 19, Color("6d584c"))))
+	v.add_child(_center(label("Meadowbrook", 60, ORANGE)))
+	v.add_child(_center(label("Your own little farm. Walk with the stick on the left; the big button on the right does things.\nDig the soil, plant seeds, fill your can at the barrel and water them, harvest when they're ripe,\nand sell at the crate. Chop trees for wood to open new fields, buy seeds at the stand.", 19, Color("6d584c"))))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	for p in [["car", "red"], ["top", "blue"], ["plane", "yellow"], ["train", "green"]]:
-		row.add_child(pic(toy_icon(p[0], p[1]), 96))
+	for c in ["onion", "potato", "gazania", "ursinia", "apple", "pear"]:
+		row.add_child(pic(crop_icon(c), 84))
 	v.add_child(row)
-	var ok := button("Open the workshop", ORANGE, 30)
-	ok.custom_minimum_size = Vector2(340, 76)
+	var ok := button("Start farming", ORANGE, 30)
+	ok.custom_minimum_size = Vector2(320, 76)
 	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok.pressed.connect(func():
 		Game.seen_intro = true
+		Game.save_game()
 		close_modal()
-		_begin())
+		show_hint("Walk to the grass patches and hold the button to dig!"))
 	v.add_child(ok)
-
-func _day_card() -> void:
-	var v := _modal(520)
-	v.add_child(_center(label("Day %d" % Game.day, 56, ORANGE)))
-	v.add_child(_center(label("Orders come in all day. Fast deliveries earn tips!", 20, Color("6d584c"))))
-	var ok := button("Start the day", ORANGE, 28)
-	ok.custom_minimum_size = Vector2(300, 70)
-	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok.pressed.connect(func():
-		close_modal()
-		_begin())
-	v.add_child(ok)
-
-func _begin() -> void:
-	Game.start_day()
-	Sfx.play("ding")
-	show_hint("Follow the golden arrow to make your first toy!" if Game.day <= 1 else "Here come the orders!")
 
 func _on_level(lvl: int, unlocked: Array) -> void:
 	Sfx.play("levelup")
 	Sfx.buzz(60)
 	var text := "Level %d!" % lvl
 	for u in unlocked:
-		text += "\nNew: " + (Data.TOYS[u].name if Data.TOYS.has(u) else Data.UPGRADES[u].name)
-	if lvl == 2:
-		text += "\nPaints unlocked: customers want colours now"
-	_float(text, Color("9fe0a5"))
+		text += "\nNew: " + (Data.CROPS[u].name + " seeds" if Data.CROPS.has(u) else Data.UPGRADES[u].name + " in the shop")
+	_float(text, Color("b8f0a8"))
 	_confetti()
-
-func _on_day_over(stats: Dictionary) -> void:
-	Sfx.play("levelup")
-	var v := _modal(620)
-	v.add_child(_center(label("Day %d done!" % (Game.day - 1), 50, ORANGE)))
-	var stars := 3 if stats.missed == 0 and stats.done >= 3 else (2 if stats.done > stats.missed else 1)
-	v.add_child(_center(label("★".repeat(stars) + "☆".repeat(3 - stars), 54, Color("f2b632"))))
-	v.add_child(_center(label("Toys delivered: %d     Missed: %d\nEarned: %d coins  (tips: %d)" % [stats.done, stats.missed, stats.earned, stats.tips], 22)))
-	var ok := button("Visit the shop", TEAL, 26)
-	ok.custom_minimum_size = Vector2(300, 66)
-	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ok.pressed.connect(_shop)
-	v.add_child(ok)
-	if stars == 3:
-		_confetti()
 
 func _shop() -> void:
 	var v := _modal(900)
-	v.add_child(_center(label("Workshop shop", 44, ORANGE)))
+	v.add_child(_center(label("Farm shop", 44, ORANGE)))
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
@@ -583,14 +453,12 @@ func _shop() -> void:
 	for u in Data.UPGRADE_ORDER:
 		grid.add_child(_shop_card(u))
 	v.add_child(grid)
-	var ok := button("Start day %d" % Game.day, ORANGE, 26)
-	ok.custom_minimum_size = Vector2(300, 66)
+	var ok := button("Back to the farm", ORANGE, 24)
+	ok.custom_minimum_size = Vector2(280, 62)
 	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ok.pressed.connect(func():
 		close_modal()
-		ws.spawn_helpers()
-		ws.player.speed = 2.6 * (1.2 if Game.owned.has("shoes") else 1.0)
-		_begin())
+		ws.spawn_helper())
 	v.add_child(ok)
 
 func _shop_card(u: String) -> Control:
@@ -611,6 +479,7 @@ func _shop_card(u: String) -> Control:
 	b.pressed.connect(func():
 		if Game.buy(u):
 			Sfx.play("coin")
+			ws.spawn_helper()
 			_shop())
 	v.add_child(b)
 	p.add_child(v)

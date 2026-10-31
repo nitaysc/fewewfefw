@@ -7,12 +7,13 @@ var carry := {}
 var carry_node: Node3D
 var speed := 2.6
 var move_dir := Vector3.ZERO
-var working_at: Station
+var working_at: Node3D
+var work_anim := "Interact"
 var yaw_goal := 0.0
 var steps := 0.0
 signal footstep
 
-const WORK_ANIM := {"saw": "TreeChopping", "lathe": "Push", "paint": "Farm_Watering", "bench": "Interact"}
+const WORK_ANIM := {"dig": "TreeChopping", "chop": "TreeChopping", "plant": "Farm_PlantSeed", "water": "Farm_Watering", "harvest": "Farm_Harvest", "pick": "Farm_Harvest", "fill": "Interact"}
 
 func setup(female := false, hair := "Hair_SimpleParted", hair_col := Color(0.42, 0.27, 0.17), beard := true) -> Worker:
 	var shape := CollisionShape3D.new()
@@ -51,11 +52,11 @@ func hold(it: Dictionary) -> void:
 		carry_node = null
 	if it.is_empty():
 		return
-	carry_node = Props.item(it)
-	carry_node.position = Vector3(0, 1.0, 0.46)
+	carry_node = Props.basket(it)
+	carry_node.position = Vector3(0, 0.95, 0.42)
 	carry_node.scale = Vector3.ONE * 0.4
 	add_child(carry_node)
-	create_tween().tween_property(carry_node, "scale", Vector3.ONE * 1.25, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	create_tween().tween_property(carry_node, "scale", Vector3.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func drop() -> Dictionary:
 	var it := carry
@@ -79,7 +80,7 @@ func _physics_process(dt: float) -> void:
 	rotation.y = lerp_angle(rotation.y, yaw_goal, 1.0 - exp(-dt * 12.0))
 	var moving := velocity.length() > 0.3
 	if working_at:
-		model.play(WORK_ANIM.get(working_at.kind, "Interact"), 0.2, 1.2)
+		model.play(work_anim, 0.2, 1.1)
 	elif moving:
 		var fast := speed > 2.9
 		if carry.is_empty():
@@ -93,4 +94,4 @@ func _physics_process(dt: float) -> void:
 	else:
 		model.play("Idle" if carry.is_empty() else "Walk_Carry", 0.25, 1.0 if carry.is_empty() else 0.0)
 	if carry_node:
-		carry_node.position.y = 1.0 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)
+		carry_node.position.y = 0.95 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)

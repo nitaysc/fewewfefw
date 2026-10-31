@@ -80,13 +80,6 @@ static func textured(id: String, tint := Color.WHITE, scale := 1.0, rough_mul :=
 	_mats[key] = m
 	return m
 
-## wood for a part or toy in a colour: natural wood, or wood painted with a lacquer
-static func wood(c: String) -> StandardMaterial3D:
-	if c == "wood":
-		return textured("fine_grained_wood", Color(1.0, 0.92, 0.82), 3.0, 0.9)
-	var col: Color = Data.COLORS[c]
-	return textured("fine_grained_wood", col.lerp(Color.WHITE, 0.08) * 1.15, 3.0, 0.55, 0.6)
-
 static func plain(c: Color, rough := 0.5, metal := 0.0) -> StandardMaterial3D:
 	var key := "plain|%s|%.2f|%.2f" % [c.to_html(), rough, metal]
 	if _mats.has(key):
@@ -98,48 +91,23 @@ static func plain(c: Color, rough := 0.5, metal := 0.0) -> StandardMaterial3D:
 	_mats[key] = m
 	return m
 
-# ---------------------------------------------------------------- parts and toys
-static func item(it: Dictionary) -> Node3D:
+# ---------------------------------------------------------------- produce
+## one piece of produce (a real scanned onion, potato, flower, apple...)
+static func produce(t: String) -> Node3D:
+	var id: String = Data.CROPS[t].model if Data.CROPS.has(t) else Data.FRUIT[t].model
+	var holder := Node3D.new()
+	var w := 0.13 if Data.CROPS.has(t) and not t in ["gazania", "ursinia"] else (0.22 if t in ["gazania", "ursinia"] else 0.09)
+	place(holder, id, Vector3.ZERO, 0.0, w)
+	return holder
+
+## a wicker basket holding what you carry
+static func basket(it: Dictionary) -> Node3D:
 	var n := Node3D.new()
-	var c: String = it.get("c", "wood")
-	var w := wood(c)
-	var dark := plain(Color("2b2321"), 0.45)
-	var put := func(mesh: Mesh, m: Material, pos: Vector3, rot := Vector3.ZERO) -> MeshInstance3D:
-		return Meshes.put(n, mesh, m, pos, rot)
-	match it.t:
-		"lumber":
-			put.call(Meshes.rbox(Vector3(0.62, 0.09, 0.16), 0.012, 2), textured("oak_wood_planks", Color(1, 0.95, 0.9), 2.0), Vector3(0, 0.045, 0))
-		"block":
-			put.call(Meshes.rbox(Vector3(0.2, 0.13, 0.13), 0.018, 2), w, Vector3(0, 0.065, 0))
-		"wheel":
-			put.call(Meshes.cyl(0.075, 0.075, 0.045, 28), w, Vector3(0, 0.075, 0), Vector3(90, 0, 0))
-			put.call(Meshes.cyl(0.022, 0.022, 0.055, 12), dark, Vector3(0, 0.075, 0), Vector3(90, 0, 0))
-		"peg":
-			put.call(Meshes.cyl(0.022, 0.022, 0.16, 14), w, Vector3(0, 0.022, 0), Vector3(0, 0, 90))
-			put.call(Meshes.sphere(0.035), w, Vector3(0.085, 0.03, 0))
-		"car":
-			put.call(Meshes.rbox(Vector3(0.28, 0.09, 0.15), 0.025, 2), w, Vector3(0, 0.09, 0))
-			put.call(Meshes.rbox(Vector3(0.13, 0.08, 0.13), 0.025, 2), w, Vector3(-0.02, 0.165, 0))
-			for x in [-0.09, 0.09]:
-				for z in [-0.085, 0.085]:
-					put.call(Meshes.cyl(0.045, 0.045, 0.03, 20), dark, Vector3(x, 0.045, z), Vector3(90, 0, 0))
-		"top":
-			put.call(Meshes.cyl(0.12, 0.0, 0.12, 28), w, Vector3(0, 0.07, 0), Vector3(180, 0, 0))
-			put.call(Meshes.cyl(0.12, 0.12, 0.03, 28), w, Vector3(0, 0.145, 0))
-			put.call(Meshes.cyl(0.02, 0.02, 0.11, 12), wood("wood"), Vector3(0, 0.21, 0))
-		"plane":
-			put.call(Meshes.rbox(Vector3(0.3, 0.08, 0.08), 0.03, 2), w, Vector3(0, 0.1, 0))
-			put.call(Meshes.rbox(Vector3(0.09, 0.015, 0.36), 0.008, 2), w, Vector3(0.02, 0.12, 0))
-			put.call(Meshes.rbox(Vector3(0.05, 0.08, 0.012), 0.006, 2), w, Vector3(-0.13, 0.16, 0))
-			put.call(Meshes.rbox(Vector3(0.012, 0.13, 0.025), 0.004, 2), wood("wood"), Vector3(0.155, 0.1, 0))
-			put.call(Meshes.cyl(0.03, 0.03, 0.02, 14), dark, Vector3(0.02, 0.035, 0.05), Vector3(90, 0, 0))
-			put.call(Meshes.cyl(0.03, 0.03, 0.02, 14), dark, Vector3(0.02, 0.035, -0.05), Vector3(90, 0, 0))
-		"train":
-			put.call(Meshes.cyl(0.065, 0.065, 0.2, 22), w, Vector3(0.04, 0.12, 0), Vector3(0, 0, 90))
-			put.call(Meshes.rbox(Vector3(0.12, 0.16, 0.15), 0.02, 2), w, Vector3(-0.1, 0.14, 0))
-			put.call(Meshes.rbox(Vector3(0.15, 0.025, 0.18), 0.01, 2), dark, Vector3(-0.1, 0.23, 0))
-			put.call(Meshes.cyl(0.025, 0.035, 0.08, 12), dark, Vector3(0.1, 0.21, 0))
-			for x in [-0.1, 0.0, 0.1]:
-				for z in [-0.08, 0.08]:
-					put.call(Meshes.cyl(0.04, 0.04, 0.025, 16), dark, Vector3(x, 0.04, z), Vector3(90, 0, 0))
+	place(n, "wicker_basket_02", Vector3.ZERO, 0.0, 0.42)
+	var k: int = mini(int(it.get("n", 1)), 6)
+	for i in k:
+		var p := produce(it.t)
+		p.position = Vector3(-0.1 + (i % 3) * 0.1, 0.06 + int(i / 3) * 0.05, -0.05 + int(i / 3) * 0.08)
+		p.rotation.y = i * 1.3
+		n.add_child(p)
 	return n
