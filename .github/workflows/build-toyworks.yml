@@ -21,7 +21,7 @@ jobs:
       - name: Set up Godot export templates, Android settings and a signing key
         run: |
           export HOME=/root
-          ls /root/.local/share/godot/export_templates
+          ls -la /root/.local/share/godot/export_templates/*
           ls -la /root/.config/godot || true
           cat /root/.config/godot/editor_settings-4*.tres || true
           keytool -genkeypair -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android \
