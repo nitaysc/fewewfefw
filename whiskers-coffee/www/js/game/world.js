@@ -24,7 +24,7 @@ export function newCafe(name = 'Our Café') {
     modified: Date.now(),
     walls: DEFAULT_WALLS,
     furniture: [
-      f('espresso', 4, 2), f('counter', 6, 2), f('pastry', 7, 2),
+      f('espresso', 4, 2), f('cake_counter', 6, 2),
       f('rug', 6, 5),
       f('table_round', 6, 6), f('chair', 5, 6, 3), f('chair', 7, 6, 1),
       f('table_cake', 3, 6), f('chair', 3, 5, 0), f('chair', 3, 7, 2),

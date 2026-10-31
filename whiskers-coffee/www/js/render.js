@@ -9,7 +9,7 @@ import { personSprite } from './art/people.js';
 import { cupCanvas, bubbleCanvas, bubblePix, cupPix, emotePix } from './art/drinks.js';
 import { plateCanvas, platePix } from './art/foods.js';
 import { t as tr } from './i18n.js';
-import { refImg, refsReady, personPose, personScale, catPose, furniturePic, PERSON_HEIGHT } from './art/refsprites.js';
+import { refImg, refsReady, personPose, personScale, sitScale, catPose, furniturePic, PERSON_HEIGHT } from './art/refsprites.js';
 import { icon } from './ui/icons.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
@@ -257,7 +257,7 @@ export class Renderer {
     const pose = personPose(p.look.model, p, t);
     const im = pose && refImg(pose.name, pose.flip);
     if (!im) return false;
-    const sc = personScale(p.look.model), w = im.w * sc, h = im.h * sc;
+    const sc = pose.sit ? sitScale(p.look.model, pose.name) : personScale(p.look.model), w = im.w * sc, h = im.h * sc;
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0), floor = wy(p.x, p.y, 0);
     if (!p.z) this.shadow(px, py, 8);
     const g = this.g;
@@ -271,7 +271,7 @@ export class Renderer {
       this.blit(im.canvas, px - w / 2, py + 2 - h + bob, w, h);
     }
     let thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
-    if (!thing && p.state === 'drink' && p.items && !p.table && !pose.sit) { const d = p.items.find((i) => i.kind === 'drink'); if (d) thing = cupCanvas(d.id, d.extra); }
+    if (!thing && p.state === 'drink' && p.items && !p.table && !pose.sit && !pose.holding) { const d = p.items.find((i) => i.kind === 'drink'); if (d) thing = cupCanvas(d.id, d.extra); }
     if (thing) {
       const hx = (p.flip ? -1 : 1) * w * 0.3;
       const hy = pose.sit || pose.cut ? py - h * 0.25 : py - h * 0.42;

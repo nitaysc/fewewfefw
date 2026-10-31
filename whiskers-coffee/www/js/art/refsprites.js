@@ -33,29 +33,45 @@ export function refImg(name, flip = false) {
 
 // ---------- people ----------
 // side: which way the side and walking pictures face
+// sit poses (from the seated sheet): cup = holding a drink, eat = eating cake, sitBack = seen
+// from behind, sitSide = side view facing sideFaces (1 right, -1 left)
+const seated = (n, sideFaces = 1, cup = n + '_sitcup') => ({ cup, eat: n + '_siteat', sitBack: n + '_sitback', sitSide: n + '_sitside', sideFaces });
 export const MODELS = {
   barista: { name: 'Barista', front: 'barista_front', back: 'barista_back', side: 'barista_side', walk: ['barista_walk1', 'barista_walk2', 'barista_walk3', 'barista_walk2'], faces: 1, staff: true },
   catear: { name: 'Cat-ear barista', front: 'catear_front', back: 'catear_back', side: 'catear_side', walk: ['catear_walk', 'catear_side'], faces: 1, staff: true },
-  hoodie: { name: 'Hoodie', front: 'hoodie_front', back: 'hoodie_back', side: 'hoodie_side', walk: ['hoodie_walk1', 'hoodie_walk2', 'hoodie_walk1', 'hoodie_walk2'], sit: 'hoodie_sitcup', faces: -1 },
-  pink: { name: 'Pink coat', front: 'pink_front', back: 'pink_back', side: 'pink_side', walk: ['pink_side'], faces: 1 },
-  jacket: { name: 'Green jacket', front: 'jacket_front' },
-  sweater: { name: 'White sweater', front: 'sweater_front' },
+  hoodie: { name: 'Hoodie', front: 'hoodie_front', back: 'hoodie_back', side: 'hoodie_side', walk: ['hoodie_walk1', 'hoodie_walk2', 'hoodie_walk1', 'hoodie_walk2'], faces: -1, ...seated('hoodie', 1, 'hoodie_sitcup2') },
+  pink: { name: 'Pink coat', front: 'pink_front', back: 'pink_back', side: 'pink_side', walk: ['pink_side'], faces: 1, ...seated('pink', -1) },
+  jacket: { name: 'Green jacket', front: 'jacket_front', ...seated('jacket') },
+  sweater: { name: 'White sweater', front: 'sweater_front', ...seated('sweater') },
   jacket2: { name: 'Olive jacket', front: 'jacket2_front' },
-  cap: { name: 'Cap and apron', front: 'cap_front', staff: true },
+  grandpa: { name: 'Grandpa', front: 'grandpa_front', back: 'grandpa_back', side: 'grandpa_side', walk: ['grandpa_walk1', 'grandpa_walk2', 'grandpa_walk3', 'grandpa_walk4'], faces: -1 },
+  raincoat: { name: 'Raincoat', front: 'raincoat_front', back: 'raincoat_back', side: 'raincoat_walk1', walk: ['raincoat_walk1', 'raincoat_walk2', 'raincoat_walk3', 'raincoat_walk4'], faces: 1 },
+  student: { name: 'Student', front: 'student_front', back: 'student_back', side: 'student_side', walk: ['student_walk1', 'student_walk2', 'student_walk3', 'student_walk4'], faces: 1 },
+  cap: { name: 'Cap and apron', front: 'cap_front', staff: true, ...seated('cap', -1) },
   cap2: { name: 'Black apron', front: 'cap2_front', staff: true },
 };
 export const MODEL_ORDER = Object.keys(MODELS);
-export const CUSTOMER_MODELS = ['hoodie', 'pink', 'jacket', 'sweater', 'jacket2'];
+export const CUSTOMER_MODELS = ['hoodie', 'pink', 'jacket', 'sweater', 'jacket2', 'grandpa', 'raincoat', 'student'];
 const PERSON_H = 46; // how tall a person stands in the café, in world pixels
 export const personScale = (model) => PERSON_H / (MANIFEST[MODELS[model].front]?.[1] || 92);
 export const PERSON_HEIGHT = PERSON_H;
+// seated pictures come from another sheet: size them so a seated person is a bit shorter than standing
+export const sitScale = (model, name) => (PERSON_H * 0.84) / (MANIFEST[MODELS[model].cup]?.[1] || MANIFEST[name]?.[1] || 88);
 
 // which picture shows a person right now; returns { name, flip }
 export function personPose(model, p, t) {
   const M = MODELS[model];
   if (!M) return null;
   if (p.sitting) {
-    if (M.sit && p.view !== 'back') return { name: M.sit, flip: !!p.flip === (M.faces !== -1), sit: true };
+    if (M.cup) {
+      if (p.view === 'back') return { name: M.sitBack, flip: false, sit: true };
+      // waiting for the order: side on; once it arrives: the cup, or the cake if there is food
+      if (p.state === 'drink') {
+        const food = p.items?.some((i) => i.kind === 'food'), drink = p.items?.some((i) => i.kind === 'drink');
+        return { name: food && (!drink || Math.floor(t / 4 + (p.seed || 0)) % 2) ? M.eat : M.cup, flip: false, sit: true, holding: true };
+      }
+      return { name: M.sitSide, flip: !!p.flip === (M.sideFaces !== -1), sit: true };
+    }
     return { name: p.view === 'back' && M.back ? M.back : M.front, flip: false, cut: true };
   }
   if (p.moving) {
@@ -90,12 +106,24 @@ export function catPose(coat, state, t, phase) {
 
 // ---------- furniture ----------
 // for each catalog item: the picture for each quarter turn ([name, mirrored]) and its width in the café
+// views drawn on the four-ways sheet: [rot0, rot1, rot2, rot3] faces +y, -x, -y, +x
+const four = (n) => [[n + '_r0', false], [n + '_r1', false], [n + '_r2', false], [n + '_r3', false]];
+// long counters are drawn running up to the right with their front on the right (rot 3); the
+// other quarter turns use the same picture or its mirror
+const longCounter = (n) => [[n, true], [n, false], [n, true], [n, false]];
 export const FURNITURE = {
-  chair: { rots: [['chair1', false], ['chair3', true], ['chair3', false], ['chair1', true]], w: 24, seatZ: 13 },
-  armchair: { rots: [['armchair_green', false], ['armchair_green', true], ['armchair_green', true], ['armchair_green', true]], w: 30, seatZ: 11 },
-  armchair_pink: { rots: [['armchair_pink', false], ['armchair_pink', true], ['armchair_pink', true], ['armchair_pink', true]], w: 30, seatZ: 11 },
-  sofa: { rots: [['sofa_brown', false], ['sofa_brown', true], ['sofa_brown', false], ['sofa_brown', true]], w: 58, seatZ: 11 },
-  sofa_grey: { rots: [['sofa_grey', false], ['sofa_grey', true], ['sofa_grey', false], ['sofa_grey', true]], w: 56, seatZ: 11 },
+  chair: { rots: four('chairB'), w: 24, seatZ: 13 },
+  chair_spindle: { rots: four('chairA'), w: 23, seatZ: 13 },
+  armchair: { rots: four('armgreen'), w: 30, seatZ: 11 },
+  armchair_pink: { rots: four('armpink'), w: 30, seatZ: 11 },
+  sofa: { rots: [['sofabrown_r0', false], ['sofabrown_back', false], ['sofabrown_back', true], ['sofabrown_r3', false]], w: 50, seatZ: 11 },
+  sofa_grey: { rots: [['sofagrey_r0', false], ['sofagrey_back', true], ['sofagrey_back', false], ['sofagrey_r3', false]], w: 50, seatZ: 11 },
+  espresso: { rots: longCounter('ctr_espresso'), w: 50 },
+  counter_long: { rots: longCounter('ctr_plain'), w: 50 },
+  counter_register: { rots: longCounter('ctr_register'), w: 50 },
+  counter_beans: { rots: longCounter('ctr_beans'), w: 50 },
+  cake_counter: { rots: longCounter('ctr_cakecase'), w: 50 },
+  cup_hutch: { rots: [['ctr_shelf', false], ['ctr_shelf', true], ['ctr_shelf', true], ['ctr_shelf', false]], w: 30 },
   stool: { img: 'stool_brown', w: 17, seatZ: 15 },
   stool_green: { img: 'stool_green', w: 17, seatZ: 15 },
   stool_cream: { img: 'stool_cream', w: 17, seatZ: 15 },

@@ -74,7 +74,7 @@ export const CATALOG = {
     },
   },
   counter: {
-    name: 'Counter', cat: 'counter', price: 80, size: [1, 1], surface: 17, rotates: true,
+    name: 'Counter', cat: 'counter', price: 80, size: [1, 1], surface: 17, rotates: true, food: true,
     paint(p) {
       counterBody(p, 16);
       p.cyl(5, 8, 17, 2, 4, { top: P.linen, left: '#f4efe6', right: '#d9d2c4' }).cyl(10, 9, 17, 2, 4, { top: P.linen, left: '#f4efe6', right: '#d9d2c4' });
@@ -97,7 +97,7 @@ export const CATALOG = {
     },
   },
   pastry: {
-    name: 'Pastry case', cat: 'counter', price: 150, size: [1, 1], surface: 17, rotates: true,
+    name: 'Pastry case', cat: 'counter', price: 150, size: [1, 1], surface: 17, rotates: true, food: true,
     paint(p) {
       counterBody(p, 16, P.woodLight);
       p.box(2, 3, 17, 12, 10, 3, { top: P.cake[3], left: shade(P.cake[3], 0.85), right: shade(P.cake[3], 0.7) })
@@ -416,6 +416,13 @@ export const CATALOG = {
   welcome_board: { name: 'Welcome sign', cat: 'decor', set: 'cozy', price: 45, size: [1, 1], paint(p) { CATALOG.bookshelf.paint(p); } },
   hanging_plant: { name: 'Hanging plant', cat: 'decor', set: 'cozy', price: 40, size: [1, 1], paint(p) { CATALOG.plant_big.paint(p); } },
   rug_paw: { name: 'Paw print mat', cat: 'decor', set: 'cozy', price: 35, size: [1, 1], flat: true, paint(p) { CATALOG.rug.paint(p); } },
+  // ---------- counters and seats from the four-ways and counters sheets ----------
+  cake_counter: { name: 'Cake counter', cat: 'counter', price: 220, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32, P.woodLight); } },
+  counter_long: { name: 'Long counter', cat: 'counter', price: 140, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32); } },
+  counter_register: { name: 'Till counter', cat: 'counter', price: 180, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32); } },
+  counter_beans: { name: 'Bean counter', cat: 'counter', price: 180, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32); } },
+  cup_hutch: { name: 'Cup shelf', cat: 'decor', price: 120, size: [1, 1], rotates: true, paint(p) { CATALOG.bookshelf.paint(p); } },
+  chair_spindle: { name: 'Spindle chair', cat: 'furniture', price: 40, size: [1, 1], seat: true, rotates: true, seatZ: 13, paint(p) { CATALOG.chair.paint(p); } },
 };
 
 // leafy blob: overlapping dithered ellipses in four greens
@@ -438,7 +445,7 @@ function leaves(pix, [cx, cy], h, r, n = 7) {
   pix.line(cx, cy, cx + 3, cy - h * 0.35, L[0]);
 }
 
-export const SHOP_ORDER = ['table_round', 'table_square', 'chair', 'stool', 'armchair', 'sofa', 'counter', 'pastry', 'bookshelf', 'plant_big', 'plant_small', 'rug', 'floor_lamp', 'cat_tree', 'cat_bed',
+export const SHOP_ORDER = ['table_round', 'table_square', 'chair', 'stool', 'armchair', 'sofa', 'counter', 'pastry', 'cake_counter', 'counter_long', 'counter_register', 'counter_beans', 'cup_hutch', 'chair_spindle', 'bookshelf', 'plant_big', 'plant_small', 'rug', 'floor_lamp', 'cat_tree', 'cat_bed',
   'chabudai', 'zabuton', 'andon', 'bonsai', 'shoji_screen',
   'wicker_chair', 'flower_box', 'quilt_rug', 'tea_hutch',
   'hay_bale', 'pumpkins', 'apple_crate', 'maple_rug',

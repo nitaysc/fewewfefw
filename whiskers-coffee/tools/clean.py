@@ -1,4 +1,4 @@
-import json, numpy as np
+import json, sys, numpy as np
 from PIL import Image
 from scipy import ndimage
 D = '/home/user/fewewfefw/whiskers-coffee/www/img/ref/'
@@ -6,13 +6,24 @@ m = json.load(open(D + 'manifest.json'))
 BG = np.array([240, 231, 214])
 FURN = {'sofa_grey', 'sofa_grey_cat', 'sofa_brown', 'sofa_brown2', 'chair1', 'chair2', 'chair3', 'armchair_pink', 'armchair_green', 'stool_brown', 'stool_green', 'stool_cream',
         'table_round', 'table_cake', 'table_laptop', 'coffee_table', 'coffee_table_cakes', 'counter_a', 'counter_b', 'monstera', 'cattree_small', 'menu_board', 'welcome_board', 'plant_mid', 'lamp', 'plant_small', 'cattree_tall'}
+FURN |= {n for n in m if n.startswith(('ctr_', 'chairA', 'chairB', 'armgreen', 'armpink', 'sofagrey', 'sofabrown', 'stool4'))}
+ONLY = set(sys.argv[1:])
 for n in m:
+    if ONLY and n not in ONLY: continue
     a = np.asarray(Image.open(D + n + '.png')).astype(int).copy()
     al = a[:, :, 3] > 0
-    for _ in range(2):
+    lum = a[:, :, :3].mean(2)
+    for _ in range(3):
+        # pale cream pixels on the edge are leftovers of the sheet's background
         edge = al & ~ndimage.binary_erosion(al, border_value=0)
         pale = np.abs(a[:, :, :3] - BG).sum(2) < 75
-        al = al & ~(edge & pale)
+        # light fringe outside the dark outline: an edge pixel clearly lighter than the darkest
+        # solid pixel next to it (blend of outline and background). A white object without an
+        # outline keeps its edge because its neighbours are just as light.
+        inner = np.where(al & ~edge, lum, 999)
+        darkest = ndimage.minimum_filter(inner, size=3, mode='constant', cval=999)
+        fringe = edge & (lum > 120) & (lum - darkest > 55)
+        al = al & ~(edge & (pale | fringe))
     if n in FURN:
         H = a.shape[0]
         rows = np.arange(H)[:, None] > H * 0.6

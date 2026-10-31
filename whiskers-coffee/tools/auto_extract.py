@@ -14,9 +14,12 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage
 
+CELLS = (3.5, 4.0, 4.5, 4.6, 4.7, 4.8, 5.0, 5.5, 6.0)
+
 def grid_fit(rgb, mask):
     lum = rgb.mean(2); best = None
-    for c in (3.5, 4.0, 4.5, 4.6, 4.7, 4.8, 5.0, 5.5, 6.0):
+    # art pixels are 4-6 sheet pixels on full-size sheets and 2-3 on downscaled ones
+    for c in CELLS:
         for ox in np.arange(0, c, 0.5):
             for oy in np.arange(0, c, 0.5):
                 ys = (np.arange(lum.shape[0]) - oy) // c; xs = (np.arange(lum.shape[1]) - ox) // c
@@ -52,7 +55,12 @@ def clean(img, bg):
     return Image.fromarray(a.astype(np.uint8), 'RGBA')
 
 def main():
+    global CELLS
     sheet, prefix = sys.argv[1], sys.argv[2]
+    if '--cells' in sys.argv:
+        CELLS = tuple(float(x) for x in sys.argv[sys.argv.index('--cells') + 1].split(','))
+    gap = int(sys.argv[sys.argv.index('--gap') + 1]) if '--gap' in sys.argv else 8
+    minpx = int(sys.argv[sys.argv.index('--min') + 1]) if '--min' in sys.argv else 1500
     out = sys.argv[sys.argv.index('--out') + 1] if '--out' in sys.argv else 'www/img/ref'
     a = np.asarray(Image.open(sheet).convert('RGB')).astype(int)
     bg = np.median(np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]]), axis=0)
@@ -61,17 +69,18 @@ def main():
     edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
     fg = ~np.isin(lab, list(edge))
     fg = ndimage.binary_opening(fg, iterations=2)
-    groups, k = ndimage.label(ndimage.binary_dilation(fg, iterations=8))
+    groups, k = ndimage.label(ndimage.binary_dilation(fg, iterations=gap))
     man_path = os.path.join(out, 'manifest.json')
     man = json.load(open(man_path)) if os.path.exists(man_path) else {}
     boxes = []
     for i, sl in enumerate(ndimage.find_objects(groups), 1):
         h = sl[0].stop - sl[0].start; w = sl[1].stop - sl[1].start
-        if h < 40 or w < 30: continue
+        if h < 20 or w < 16: continue
         m = (groups[sl] == i) & fg[sl]
-        if m.sum() < 1500: continue
+        if m.sum() < minpx: continue
         boxes.append((sl, m))
-    boxes.sort(key=lambda b: (b[0][0].start // 150, b[0][1].start))
+    row = max(40, a.shape[0] // 12)
+    boxes.sort(key=lambda b: (b[0][0].start // row, b[0][1].start))
     contact = Image.open(sheet).convert('RGB'); dr = ImageDraw.Draw(contact)
     for n_, (sl, m) in enumerate(boxes, 1):
         img, c = cut(a[sl], ndimage.binary_fill_holes(m) & (m | ~near[sl]))

@@ -223,7 +223,7 @@ export class CustomerSystem {
     for (const u of this.list.values()) for (const x of u.items) if (x.by === pid && x !== it && !x.done) x.by = null;
     it.by = pid;
     // walk over to the espresso bar, or the pastry case for food
-    const want = it.kind === 'food' ? (d) => d.type === 'pastry' || d.type === 'counter' : (d) => CATALOG[d.type].station;
+    const want = it.kind === 'food' ? (d) => CATALOG[d.type].food : (d) => CATALOG[d.type].station;
     const st = this.cafe.furniture.find(want) || this.cafe.furniture.find((f) => CATALOG[f.type].station);
     if (st) {
       const [w, d] = footprint(st);
