@@ -50,7 +50,7 @@ func get_icon(key: String, maker: Callable) -> ImageTexture:
 	return tex
 
 func toy(t: String, c := "wood") -> ImageTexture:
-	return get_icon("item|%s|%s" % [t, c], func(): return Meshes.item({"t": t, "c": c}))
+	return get_icon("item|%s|%s" % [t, c], func(): return Props.item({"t": t, "c": c}))
 
 func machine(kind: String) -> ImageTexture:
 	if kind == "belt":

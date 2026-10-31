@@ -9,7 +9,7 @@ var last := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	for n in ["click", "pop", "place", "remove", "coin", "ding", "levelup", "error", "whoosh", "saw", "tap"]:
+	for n in ["click", "pop", "place", "remove", "coin", "ding", "levelup", "error", "whoosh", "saw", "tap", "step"]:
 		streams[n] = load("res://sfx/%s.wav" % n)
 	for i in 8:
 		var p := AudioStreamPlayer.new()

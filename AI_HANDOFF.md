@@ -1,3 +1,7 @@
+# Start here
+The current project is **Tiny Toyworks** (`toy-workshop/`, Godot 4). Read `toy-workshop/HANDOFF.md` first.
+The older web games below are paused.
+
 # AI handoff: start here
 
 This repo holds several of the owner's game projects, all built in conversations with

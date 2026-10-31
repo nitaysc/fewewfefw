@@ -1,0 +1,96 @@
+class_name Worker
+extends CharacterBody3D
+## Someone in the workshop (you or an apprentice): walks, carries one thing, works at stations.
+
+var model: Toymaker
+var carry := {}
+var carry_node: Node3D
+var speed := 2.6
+var move_dir := Vector3.ZERO
+var working_at: Station
+var yaw_goal := 0.0
+var steps := 0.0
+signal footstep
+
+const WORK_ANIM := {"saw": "TreeChopping", "lathe": "Push", "paint": "Farm_Watering", "bench": "Interact"}
+
+func setup(female := false, hair := "Hair_SimpleParted", hair_col := Color(0.42, 0.27, 0.17), beard := true) -> Worker:
+	var shape := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.28
+	cap.height = 1.7
+	shape.shape = cap
+	shape.position.y = 0.85
+	add_child(shape)
+	model = Toymaker.new()
+	model.hair_color = hair_col
+	model.build(female, hair, beard)
+	add_child(model)
+	for n in WORK_ANIM.values():
+		var a: Animation = model.anim.get_animation(n)
+		if a:
+			a.loop_mode = Animation.LOOP_LINEAR
+	# a soft blob shadow under the feet grounds the character
+	var blob := MeshInstance3D.new()
+	var q := PlaneMesh.new()
+	q.size = Vector2(0.9, 0.9)
+	blob.mesh = q
+	var m := ShaderMaterial.new()
+	m.shader = Shader.new()
+	m.shader.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, depth_draw_never;\nvoid fragment(){ float d = length(UV - 0.5) * 2.0; ALBEDO = vec3(0.08,0.05,0.04); ALPHA = smoothstep(1.0, 0.3, d) * 0.45; }"
+	blob.material_override = m
+	blob.position.y = 0.01
+	blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(blob)
+	return self
+
+func hold(it: Dictionary) -> void:
+	carry = it
+	if carry_node:
+		carry_node.queue_free()
+		carry_node = null
+	if it.is_empty():
+		return
+	carry_node = Props.item(it)
+	carry_node.position = Vector3(0, 0.98, 0.34)
+	carry_node.scale = Vector3.ONE * 0.4
+	add_child(carry_node)
+	create_tween().tween_property(carry_node, "scale", Vector3.ONE * 1.25, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func drop() -> Dictionary:
+	var it := carry
+	hold({})
+	return it
+
+func face(p: Vector3) -> void:
+	var d := p - global_position
+	if Vector2(d.x, d.z).length() > 0.05:
+		yaw_goal = atan2(d.x, d.z)
+
+func _physics_process(dt: float) -> void:
+	var mv := move_dir
+	if working_at:
+		mv = Vector3.ZERO
+	velocity = Vector3(mv.x, 0, mv.z) * speed
+	move_and_slide()
+	global_position.y = 0.0
+	if mv.length() > 0.08:
+		yaw_goal = atan2(mv.x, mv.z)
+	rotation.y = lerp_angle(rotation.y, yaw_goal, 1.0 - exp(-dt * 12.0))
+	var moving := velocity.length() > 0.3
+	if working_at:
+		model.play(WORK_ANIM.get(working_at.kind, "Interact"), 0.2, 1.2)
+	elif moving:
+		var fast := speed > 2.9
+		if carry.is_empty():
+			model.play("Jog_Fwd" if fast else "Walk", 0.18, 1.0 if fast else speed / 1.6)
+		else:
+			model.play("Walk_Carry", 0.18, speed / 1.6)
+		steps += dt * speed * 1.4
+		if steps > 1.0:
+			steps = 0.0
+			footstep.emit()
+	else:
+		model.play("Idle" if carry.is_empty() else "Walk_Carry", 0.25, 1.0 if carry.is_empty() else 0.0)
+	if carry_node:
+		carry_node.position.y = 0.98 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)

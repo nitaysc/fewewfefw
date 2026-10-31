@@ -38,6 +38,7 @@ write('whoosh', noise * np.sin(np.pi * x / x[-1]) ** 2, 0.35)
 x = t(0.22); n2 = np.convolve(rng.normal(0, 1, len(x)), np.ones(6) / 6, 'same')
 write('saw', n2 * env(len(x), 0.01, 0.08) + 0.3 * np.sin(2 * np.pi * 330 * x) * env(len(x), 0.01, 0.06), 0.18)
 write('tap', bell(560, 0.08, 0.03, (1, 0.6)), 0.3)
+x = t(0.07); write('step', np.convolve(rng.normal(0, 1, len(x)), np.ones(12) / 12, 'same') * env(len(x), 0.002, 0.02) + 0.4 * np.sin(2 * np.pi * 90 * x) * env(len(x), 0.002, 0.02), 0.25)
 
 # music: a gentle 16-bar loop (C - Am - F - G), electric piano chords, soft bass, a marimba tune
 BPM = 96; beat = 60 / BPM; bars = 16; L = int(SR * beat * 4 * bars)

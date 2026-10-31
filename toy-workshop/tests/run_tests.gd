@@ -8,54 +8,73 @@ func check(ok: bool, what: String) -> void:
 	if not ok:
 		fails += 1
 
-func run(sim: Sim, seconds: float) -> Array:
-	var got := []
-	sim.shipped.connect(func(it, _p): got.append(it))
-	var t := 0.0
-	while t < seconds:
-		sim.step(0.05)
-		t += 0.05
-	return got
+func work(s: Station) -> void:
+	for i in 200:
+		if s.do_work(0.05):
+			return
 
-func _init() -> void:
-	# the starting line makes wooden toy cars on its own
-	var s := Sim.new()
-	s.starter()
-	var got := run(s, 60.0)
-	check(got.size() >= 8, "starter line ships cars (%d in 60 s)" % got.size())
-	check(got.all(func(x): return x.t == "car" and x.c == "wood"), "they are wooden cars")
+var done := false
 
-	# a paint booth between the saw and the bench makes red cars
-	s = Sim.new()
-	s.starter()
-	s.place(Vector2i(3, 2), "painter", 0)
-	got = run(s, 60.0)
-	check(got.size() >= 6 and got.all(func(x): return x.c == "red"), "painted line ships red cars (%d)" % got.size())
+func _process(_dt: float) -> bool:
+	if done:
+		return true
+	done = true
+	var Game = root.get_node("Game")
+	# lumber becomes two blocks at the saw
+	var saw := Station.new().setup("saw")
+	check(saw.can_put({"t": "lumber", "c": "wood"}), "the saw takes lumber")
+	saw.put({"t": "lumber", "c": "wood"})
+	check(not saw.can_put({"t": "lumber", "c": "wood"}), "one piece of lumber at a time")
+	check(saw.job() == "Saw", "there is sawing to do")
+	work(saw)
+	check(saw.items.size() == 2 and saw.items.all(func(i): return i.t == "block"), "sawing makes two blocks")
+	check(saw.take().t == "block", "you pick up a block")
 
-	# spinning tops: lathe on pegs feeds the bench with the other lathe's wheels
-	s = Sim.new()
-	s.starter()
-	s.cells[Vector2i(5, 2)].toy = "top"
-	s.cells[Vector2i(2, 2)] = s.place(Vector2i(2, 2), "lathe", 0)
-	s.cells[Vector2i(2, 2)].mode = "peg"
-	got = run(s, 60.0)
-	check(got.size() >= 6 and got.all(func(x): return x.t == "top"), "tops ship (%d)" % got.size())
+	# the drill press makes wheels or pegs
+	var lathe := Station.new().setup("lathe")
+	lathe.put({"t": "lumber", "c": "wood"})
+	work(lathe)
+	check(lathe.items.size() == 2 and lathe.items[0].t == "wheel", "drilling makes two wheels")
+	lathe.mode = "peg"
+	lathe.put({"t": "lumber", "c": "wood"})
+	work(lathe)
+	check(lathe.items.filter(func(i): return i.t == "peg").size() == 2, "peg mode makes pegs")
 
-	# belts never hand things backwards and a blocked line just waits
-	s = Sim.new()
-	s.place(Vector2i(0, 0), "crate_wood", 0)
-	s.place(Vector2i(1, 0), "belt", 0)
-	s.place(Vector2i(2, 0), "belt", 2)
-	run(s, 10.0)
-	check(s.cells[Vector2i(1, 0)].item != null and s.cells[Vector2i(2, 0)].item == null, "facing belts don't swap")
+	# painting
+	var paint := Station.new().setup("paint")
+	paint.color = "blue"
+	check(not paint.can_put({"t": "lumber", "c": "wood"}), "lumber can't be painted")
+	paint.put({"t": "block", "c": "wood"})
+	work(paint)
+	check(paint.items[0].c == "blue", "the block comes out blue")
 
-	# saving and loading keeps the layout and settings
-	s = Sim.new()
-	s.starter()
-	s.cells[Vector2i(5, 2)].toy = "train"
-	var t := Sim.new()
-	t.load_save(JSON.parse_string(JSON.stringify(s.to_save())))
-	check(t.cells.size() == s.cells.size() and t.cells[Vector2i(5, 2)].toy == "train", "save round trip")
+	# the bench builds a car from a block and two wheels, coloured by the block
+	var bench := Station.new().setup("bench")
+	bench.level = 1
+	bench.put({"t": "block", "c": "blue"})
+	bench.put({"t": "wheel", "c": "wood"})
+	check(bench.job() == "", "not enough parts yet")
+	bench.put({"t": "wheel", "c": "wood"})
+	check(bench.job() == "Assemble", "a car can be assembled")
+	work(bench)
+	check(bench.items.size() == 1 and bench.items[0].t == "car" and bench.items[0].c == "blue", "a blue toy car")
+	var b2 := Station.new().setup("bench")
+	b2.level = 1
+	for p in [{"t": "wheel", "c": "wood"}, {"t": "peg", "c": "wood"}]:
+		b2.put(p)
+	check(b2.job() == "", "spinning tops need level 2")
+	b2.level = 2
+	check(b2.job() == "Assemble", "at level 2 they can be made")
 
+	# orders pay more for colour and tip for speed
+	Game.level = 2
+	Game.start_day()
+	Game.orders = [{"id": 1, "toy": "car", "c": "blue", "left": 50.0, "total": 100.0, "who": "Mia"}]
+	var before: int = Game.coins
+	var o: Dictionary = Game.ship({"t": "car", "c": "blue"})
+	check(not o.is_empty() and Game.coins - before == int(30 * 1.25) + 9, "blue car pays %d" % (Game.coins - before))
+	check(Game.ship({"t": "car", "c": "red"}).is_empty(), "an unordered toy still sells, for less")
+	Game.playing = false
 	print("%d failed" % fails)
 	quit(1 if fails else 0)
+	return true

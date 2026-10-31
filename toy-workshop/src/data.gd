@@ -1,80 +1,53 @@
 class_name Data
-## Everything the workshop knows about: parts, toys, machines, recipes, colours and levels.
-
-const GRID_W := 12
-const GRID_H := 8
-
-# directions on the grid: 0 east (+x), 1 south (+z), 2 west (-x), 3 north (-z)
-const DIRS := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+## Everything the workshop knows about: parts, toys and their recipes, stations, colours,
+## upgrades and levels.
 
 const COLORS := {
-	"wood": Color("d9a066"),
-	"red": Color("ef5a5a"),
-	"blue": Color("4f8ff0"),
-	"yellow": Color("ffcc4d"),
-	"green": Color("5cc879"),
-	"pink": Color("ff8fc1"),
-	"purple": Color("9b7cf0"),
+	"wood": Color(1, 1, 1),
+	"red": Color("d8433b"),
+	"blue": Color("3f74c9"),
+	"yellow": Color("f2bd2e"),
+	"green": Color("4ea35b"),
+	"pink": Color("e57aa8"),
+	"purple": Color("7d5bc4"),
 }
 const PAINTS := ["red", "blue", "yellow", "green", "pink", "purple"]
 
 const PARTS := {
-	"log": {"name": "Log"},
-	"metal": {"name": "Metal bar"},
-	"cloth": {"name": "Cloth"},
+	"lumber": {"name": "Lumber"},
 	"block": {"name": "Block", "paint": true},
 	"wheel": {"name": "Wheel", "paint": true},
 	"peg": {"name": "Peg", "paint": true},
-	"tube": {"name": "Tube", "paint": true},
-	"fluff": {"name": "Fluff", "paint": true},
 }
 
-# toys: what goes in, which part gives the toy its colour, what it's worth, when it unlocks
+# toys: what the bench needs, which part gives the colour, value, unlock level
 const TOYS := {
-	"car": {"name": "Toy Car", "needs": {"block": 1, "wheel": 2}, "body": "block", "value": 20, "level": 1},
-	"top": {"name": "Spinning Top", "needs": {"wheel": 1, "peg": 1}, "body": "wheel", "value": 18, "level": 2},
-	"train": {"name": "Toy Train", "needs": {"block": 2, "wheel": 2}, "body": "block", "value": 42, "level": 3},
-	"rocket": {"name": "Rocket", "needs": {"tube": 1, "block": 1}, "body": "tube", "value": 48, "level": 4},
-	"teddy": {"name": "Teddy Bear", "needs": {"fluff": 2}, "body": "fluff", "value": 55, "level": 5},
-	"robot": {"name": "Robot", "needs": {"tube": 1, "block": 1, "peg": 2}, "body": "tube", "value": 80, "level": 6},
+	"car": {"name": "Toy Car", "needs": {"block": 1, "wheel": 2}, "body": "block", "value": 30, "level": 1},
+	"top": {"name": "Spinning Top", "needs": {"wheel": 1, "peg": 1}, "body": "wheel", "value": 26, "level": 2},
+	"plane": {"name": "Toy Plane", "needs": {"block": 1, "peg": 2}, "body": "block", "value": 38, "level": 3},
+	"train": {"name": "Toy Train", "needs": {"block": 2, "wheel": 2}, "body": "block", "value": 52, "level": 4},
 }
-const TOY_ORDER := ["car", "top", "train", "rocket", "teddy", "robot"]
+const TOY_ORDER := ["car", "top", "plane", "train"]
 
-# machines. kind: crate (makes raw stuff), proc (turns one thing into another), paint,
-# assemble, dock (ships toys), belt
-const MACHINES := {
-	"belt": {"name": "Conveyor", "cost": 5, "level": 1, "kind": "belt", "desc": "Carries things along. Drag to lay a line."},
-	"crate_wood": {"name": "Wood Crate", "cost": 40, "level": 1, "kind": "crate", "makes": "log", "period": 2.5, "desc": "Sends out logs."},
-	"saw": {"name": "Saw", "cost": 60, "level": 1, "kind": "proc", "desc": "Saws logs into blocks.",
-		"modes": {"block": {"in": "log", "out": ["block"], "time": 1.4}}},
-	"lathe": {"name": "Lathe", "cost": 80, "level": 1, "kind": "proc", "desc": "Turns logs into wheels or pegs.",
-		"modes": {"wheel": {"in": "log", "out": ["wheel", "wheel"], "time": 1.8}, "peg": {"in": "log", "out": ["peg", "peg"], "time": 1.6}}},
-	"assembler": {"name": "Assembly Bench", "cost": 150, "level": 1, "kind": "assemble", "desc": "Puts parts together into a toy."},
-	"dock": {"name": "Shipping Box", "cost": 100, "level": 1, "kind": "dock", "desc": "Ships finished toys to fill orders."},
-	"painter": {"name": "Paint Booth", "cost": 120, "level": 2, "kind": "paint", "desc": "Paints parts any colour.", "time": 1.0},
-	"crate_metal": {"name": "Metal Crate", "cost": 150, "level": 4, "kind": "crate", "makes": "metal", "period": 3.0, "desc": "Sends out metal bars."},
-	"press": {"name": "Tube Press", "cost": 140, "level": 4, "kind": "proc", "desc": "Rolls metal into tubes.",
-		"modes": {"tube": {"in": "metal", "out": ["tube"], "time": 1.8}}},
-	"crate_cloth": {"name": "Cloth Crate", "cost": 150, "level": 5, "kind": "crate", "makes": "cloth", "period": 2.8, "desc": "Sends out cloth."},
-	"loom": {"name": "Stuffing Loom", "cost": 160, "level": 5, "kind": "proc", "desc": "Turns cloth into fluffy stuffing.",
-		"modes": {"fluff": {"in": "cloth", "out": ["fluff", "fluff"], "time": 2.0}}},
+# how long hands-on work takes (seconds)
+const WORK := {"saw": 1.6, "lathe": 1.8, "paint": 1.1, "bench": 2.0}
+
+const DAY_LENGTH := 180.0
+const MAX_ORDERS := 4
+
+# things to buy between days
+const UPGRADES := {
+	"sawyer": {"name": "Apprentice sawyer", "desc": "Fetches lumber and saws blocks all day.", "cost": 220, "level": 1},
+	"turner": {"name": "Apprentice turner", "desc": "Fetches lumber and turns wheels or pegs.", "cost": 260, "level": 2},
+	"tools": {"name": "Sharper tools", "desc": "All hand work goes 35% faster.", "cost": 180, "level": 1},
+	"shoes": {"name": "Comfy shoes", "desc": "Walk 20% faster.", "cost": 120, "level": 1},
+	"patience": {"name": "Cozy waiting corner", "desc": "Customers wait 30% longer.", "cost": 200, "level": 2},
+	"painter": {"name": "Apprentice painter", "desc": "Paints blocks waiting at the saw in the paint table's colour.", "cost": 300, "level": 3},
 }
-const SHOP_ORDER := ["belt", "crate_wood", "saw", "lathe", "painter", "assembler", "dock", "crate_metal", "press", "crate_cloth", "loom"]
-
-# a tip shown after each level-up, so the player always knows what to try next
-const TIPS := {
-	2: "Buy a Paint Booth and place it on the belt right after the Saw. Tap it to choose a colour.",
-	3: "Trains need 2 blocks and 2 wheels. Tap the Assembly Bench to switch it to Trains, or build a second line.",
-	4: "Metal Crate + Tube Press make tubes. Rockets need a tube and a block.",
-	5: "Cloth Crate + Stuffing Loom make fluff. Teddy Bears need two fluffs.",
-	6: "Robots need a tube, a block and two pegs. Set a Lathe to Pegs!",
-}
-
-const BELT_SPEED := 1.25        # cells per second
-const BUFFER := 4               # how many things a machine holds waiting
+const UPGRADE_ORDER := ["sawyer", "tools", "shoes", "turner", "patience", "painter"]
 
 static func xp_for(level: int) -> int:
-	return int(round(40.0 * pow(level, 1.5)))
+	return int(round(60.0 * pow(level, 1.4)))
 
 static func toys_at(level: int) -> Array:
 	return TOY_ORDER.filter(func(t): return TOYS[t].level <= level)
@@ -82,3 +55,20 @@ static func toys_at(level: int) -> Array:
 static func item_name(it: Dictionary) -> String:
 	var base: String = TOYS[it.t].name if TOYS.has(it.t) else PARTS[it.t].name
 	return base if it.get("c", "wood") == "wood" else "%s %s" % [String(it.c).capitalize(), base]
+
+## which toy (if any) a set of parts on the bench makes, among the unlocked ones
+static func recipe_for(parts: Array, level: int) -> String:
+	var have := {}
+	for p in parts:
+		have[p.t] = have.get(p.t, 0) + 1
+	for t in toys_at(level):
+		if TOYS[t].needs == have:
+			return t
+	return ""
+
+## the toy's colour comes from its body part
+static func toy_color(toy: String, parts: Array) -> String:
+	for p in parts:
+		if p.t == TOYS[toy].body and p.get("c", "wood") != "wood":
+			return p.c
+	return "wood"
