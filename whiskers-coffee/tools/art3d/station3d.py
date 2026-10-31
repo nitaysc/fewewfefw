@@ -23,14 +23,21 @@ SPX = 12                          # scene px per unit in the bar view
 BAR_PPU = SPX * KS
 BAR_SIZE = (150 * KS, 100 * KS)
 BAR_CEN = (0.0, 2.2, 0.0)
-LIGHT = (-0.45, 0.85, 0.55)
+LIGHT = (-0.35, 0.8, 0.95)
 
 tile = Mat('#efe2c6', 5, 0.32, tex=lambda p, n: -0.16 * ((((p[:, 1] + 0.02) * 2.5) % 1 < 0.06) | ((((p[:, 0] + np.floor(p[:, 1] * 2.5) * 0.4) * 2.5) % 1) < 0.05)))
 counter_top = O(Mat('#e9dcc0', 5, 0.35, tex=wood(0, 40, 0.04, 7)))
 panel = O(Mat('#b07a4a', 6, 0.6, tex=lambda p, n: -0.18 * ((((p[:, 0] + 9) * 0.8) % 1) < 0.05) + wood(1, 60, 0.07, 4)(p, n)))
 steel, steelD, red, white = M['steel'], M['steelD'], M['red'], M['white']
 gaugeF = Mat('#fbf6ea', 4, 0.3, tex=lambda p, n: -0.3 * (np.abs(p[:, 0] % 0.6 - 0.3) < 0.02))
-beans = Mat('#5a3420', 5, 0.55, tex=lambda p, n: 0.18 * (np.sin(p[:, 0] * 90) * np.sin(p[:, 1] * 90 + p[:, 2] * 70) > 0.5) - 0.12 * (np.sin(p[:, 0] * 70 + p[:, 1] * 50) > 0.7))
+def _beans_tex(p, n):
+    # oval beans with a dark crease, packed in staggered rows
+    u = p[:, 0] * 9 + p[:, 2] * 4; v = p[:, 1] * 13 + p[:, 2] * 3
+    row = np.floor(v); u = u + (row % 2) * 0.5
+    fu, fv = (u % 1) - 0.5, (v % 1) - 0.5
+    d = (fu / 0.46) ** 2 + (fv / 0.4) ** 2
+    return np.where(d > 1, -0.32, 0.12 - 0.22 * d) - 0.3 * ((np.abs(fu) < 0.05) & (d < 0.8))
+beans = O(Mat('#6a3a20', 6, 0.5, spec=0.25, hs=-0.02, tex=_beans_tex), (40, 20, 12))
 glassJ = O(Mat('#d6ebf0', 4, 0.3, spec=1.0), (110, 140, 150))
 grill = O(Mat('#59636a', 5, 0.5, tex=lambda p, n: -0.25 * ((p[:, 0] * 6) % 1 < 0.3)), (40, 44, 48))
 
@@ -40,7 +47,7 @@ GX = -4.9                          # grinder
 CUPZ = 0.15
 P = dict(
     cup=(MX, 0.12, CUPZ), spout=(MX, 2.5, CUPZ), pf_machine=(MX, 2.55, CUPZ), pf_grinder=(GX, 0.25, 0.05),
-    crank=(GX + 0.95, 2.55, -0.3), chute=(GX, 1.35, 0.05), hopper_bot=(GX, 2.3, -0.4), hopper_top=(GX, 3.55, -0.4),
+    crank=(GX + 0.86, 1.55, -0.4), chute=(GX, 1.35, 0.05), hopper_bot=(GX, 2.3, -0.4), hopper_top=(GX, 3.55, -0.4),
     wand_tip=(MX + 3.25, 1.35, 0.05), jug_steam=(MX + 3.25, 0.55, 0.05), jug_home=(4.1, 0.0, 0.25), slot=(5.4, 0.0, 0.35),
     meter=(5.6, 3.6, 0.0), water=(MX + 1.55, 2.5, CUPZ),
 )
@@ -53,38 +60,38 @@ def bar_scene():
         (rbox((0, -0.27, 1.06), (9.5, 0.03, 0.02)), O(Mat('#8a5a36', 4, 0.4))),          # lip
     ]
     mx = MX
-    # espresso machine: a tall body at the back, the head over a recessed drip tray
+    # espresso machine: one clean body, a darker brew panel, the head over the drip tray
     sc += [
-        (rbox((mx, 2.2, -0.95), (2.7, 2.2, 0.5), 0.14), steel),                          # body
-        (rbox((mx, 3.75, -0.35), (2.75, 0.65, 0.42), 0.14), steel),                      # upper housing
-        (rbox((mx, 4.48, -0.6), (2.8, 0.07, 0.7), 0.04), steelD),                        # top rail
-        (rbox((mx, 3.55, 0.08), (2.75, 0.14, 0.03), 0.02), red),
-        (rbox((mx, 0.42, -0.44), (2.7, 0.09, 0.03), 0.02), red),
-        (rbox((mx, 2.95, CUPZ - 0.05), (0.55, 0.15, 0.25), 0.07), steelD),               # group head
-        (rbox((mx, 0.06, 0.12), (1.5, 0.06, 0.5), 0.03), grill),                         # drip tray
-        (rbox((mx + 1.55, 2.95, 0.0), (0.18, 0.14, 0.12), 0.05), steelD),                # water tap
-        (cyl((mx + 1.55, 2.75, 0.0), 0.06, 0.08, 0.02), steelD),
+        (rbox((mx, 2.3, -0.9), (2.7, 2.3, 0.55), 0.1), O(Mat('#c3cbcf', 6, 0.35, spec=0.6, hs=-0.02), (70, 78, 84))),
+        (rbox((mx, 1.75, -0.33), (1.55, 1.2, 0.03), 0.05), O(Mat('#7d878d', 5, 0.3, hs=-0.02), (50, 56, 60))),
+        (rbox((mx, 4.66, -0.9), (2.78, 0.08, 0.6), 0.04), steelD),
+        (rbox((mx, 3.4, -0.33), (2.7, 0.13, 0.03), 0.02), red),
+        (rbox((mx, 0.35, -0.33), (2.7, 0.08, 0.03), 0.02), red),
+        (rbox((mx, 2.95, CUPZ - 0.12), (0.5, 0.16, 0.3), 0.07), steelD),
+        (rbox((mx, 0.06, 0.12), (1.5, 0.06, 0.5), 0.03), grill),
+        (rbox((mx + 2.05, 2.95, -0.2), (0.18, 0.14, 0.14), 0.05), steelD),
     ]
     for gx in (mx - 1.75, mx + 1.75):
-        sc.append((xform(cyl((gx, 3.8, 0.08), 0.32, 0.04, 0.02), rot_x=np.pi / 2, about=(gx, 3.8, 0.08)), steelD))
-        sc.append((xform(cyl((gx, 3.8, 0.12), 0.26, 0.02, 0.01), rot_x=np.pi / 2, about=(gx, 3.8, 0.12)), gaugeF))
-        sc.append((cap((gx, 3.8, 0.15), (gx + 0.14, 3.93, 0.15), 0.022), red))
+        sc.append((xform(cyl((gx, 3.95, -0.3), 0.34, 0.04, 0.02), rot_x=np.pi / 2, about=(gx, 3.95, -0.3)), steelD))
+        sc.append((xform(cyl((gx, 3.95, -0.26), 0.28, 0.02, 0.01), rot_x=np.pi / 2, about=(gx, 3.95, -0.26)), gaugeF))
+        sc.append((cap((gx, 3.95, -0.23), (gx + 0.15, 4.08, -0.23), 0.022), red))
     for cx in (mx - 2.0, mx - 1.3, mx + 1.6):
-        sc.append((cyl((cx, 4.72, -0.85), 0.24, 0.17, 0.05), white))
+        sc.append((cyl((cx, 4.92, -0.95), 0.24, 0.17, 0.05), white))
     # steam wand
     wx = mx + 2.85
-    sc.append((rbox((wx, 3.15, -0.2), (0.14, 0.14, 0.14), 0.05), steelD))
+    sc.append((rbox((wx, 3.15, -0.3), (0.14, 0.14, 0.12), 0.05), steelD))
     sc.append((cap((wx, 3.1, -0.15), (P['wand_tip'][0], P['wand_tip'][1], P['wand_tip'][2]), 0.065), steel))
     sc.append((rbox((wx, 3.45, -0.2), (0.06, 0.25, 0.06), 0.03), O(Mat('#3b2a22', 5, 0.5))))
     # grinder (the bean hopper is a separate picture so the beans can run low)
     gx = GX
+    body = O(Mat('#c0453a', 6, 0.4, spec=0.5, hs=-0.03), (90, 30, 26))
     sc += [
-        (rbox((gx, 0.12, -0.3), (0.95, 0.12, 0.7), 0.05), steelD),
-        (rbox((gx, 1.25, -0.4), (0.72, 1.05, 0.5), 0.14), red),
-        (rbox((gx, 1.95, -0.4), (0.74, 0.08, 0.52), 0.04), steelD),
-        (rbox((gx, P['chute'][1], 0.12), (0.2, 0.14, 0.14), 0.05), steelD),             # chute
-        (cyl((gx, 2.25, -0.4), 0.5, 0.08, 0.03), steelD),                               # hopper collar
-        (xform(cyl((P['crank'][0] - 0.12, P['crank'][1], P['crank'][2]), 0.14, 0.1, 0.03), rot_z=np.pi / 2, about=(P['crank'][0] - 0.12, P['crank'][1], P['crank'][2])), steelD),
+        (rbox((gx, 0.1, -0.3), (0.95, 0.1, 0.72), 0.05), steelD),
+        (rcone((gx, 0.2, -0.4), (gx, 2.15, -0.4), 0.78, 0.55), body),
+        (cyl((gx, 2.2, -0.4), 0.6, 0.08, 0.03), steelD),
+        (rbox((gx, P['chute'][1], 0.25), (0.18, 0.13, 0.2), 0.05), steelD),
+        (rbox((gx, 1.75, 0.3), (0.32, 0.12, 0.04), 0.03), O(Mat('#fbf6ea', 4, 0.3))),
+        (xform(cyl((P['crank'][0] - 0.1, P['crank'][1], P['crank'][2]), 0.13, 0.12, 0.03), rot_z=np.pi / 2, about=(P['crank'][0] - 0.1, P['crank'][1], P['crank'][2])), steelD),
     ]
     # a shelf on the wall with jars and cups
     sc.append((rbox((5.0, 5.0, -1.38), (2.0, 0.06, 0.2), 0.02), M['oak']))
@@ -105,7 +112,8 @@ def hopper(part):
     A, B = loc(a), loc(b)
     if part == 'beans': return [(rcone(A, (B[0], B[1] - 0.1, B[2]), 0.42, 0.68), beans)]
     return [(sub(rcone(A, B, 0.46, 0.74), rcone((A[0], A[1] + 0.05, A[2]), (B[0], B[1] + 0.2, B[2]), 0.42, 0.7)), O(Mat('#d4eaf0', 4, 0.25, spec=1.0), (120, 150, 160))),
-            (torus(B, 0.74, 0.05), glassJ), (cyl((B[0], B[1] + 0.1, B[2]), 0.76, 0.06, 0.04), steelD)]
+            (torus(B, 0.74, 0.05), glassJ), (cyl((B[0], B[1] + 0.12, B[2]), 0.8, 0.07, 0.04), steelD),
+            (ell((B[0], B[1] + 0.2, B[2]), (0.7, 0.16, 0.7)), steelD), (ell((B[0], B[1] + 0.4, B[2]), (0.12, 0.1, 0.12)), O(Mat('#3b2a22', 5, 0.5)))]
 
 # props that move or come and go in the bar view; anchored at their base centre
 def portafilter(full):
@@ -209,6 +217,7 @@ VES = {  # radius, height, body colour, kind (station size, units)
     'demi': (0.6, 0.75, '#f7f1e6', 'ceramic'), 'cup': (0.86, 0.9, '#f7f1e6', 'ceramic'), 'mug': (0.75, 1.4, '#d9826f', 'ceramic'),
     'glass': (0.72, 1.7, None, 'glass'), 'tall': (0.6, 2.4, None, 'glass'),
 }
+LIFT = {'demi': 0.07, 'cup': 0.07}      # cups stand on their saucer
 glassWall = Mat('#d4eaf0', 4, 0.25, spec=1.0)   # made see-through after rendering
 def vessel(v, empty_inside=True):
     r, h, body, kind = VES[v]
@@ -216,15 +225,20 @@ def vessel(v, empty_inside=True):
     whiteM = O(Mat('#fbf7ef', 5, 0.35))
     if kind == 'ceramic':
         bm = O(Mat(body, 6, 0.45, spec=0.5))
+        inside = O(Mat('#f3ebdc' if v != 'mug' else '#f1e4d6', 5, 0.3, hs=-0.02))
+        L = LIFT.get(v, 0.0)
         tap = 0.78 if v != 'mug' else 0.95
-        outer = rcone((0, 0.0, 0), (0, h, 0), r * tap, r)
-        inner = rcone((0, 0.07, 0), (0, h + 0.2, 0), r * tap - 0.06, r - 0.06)
-        cup = lambda p: np.maximum(np.maximum(outer(p), p[:, 1] - h), -inner(p))
+        outer = rcone((0, L, 0), (0, L + h, 0), r * tap, r)
+        inner = rcone((0, L + 0.07, 0), (0, L + h + 0.2, 0), r * tap - 0.06, r - 0.06)
+        cup = lambda p: np.maximum(np.maximum(outer(p), p[:, 1] - L - h), -inner(p))
+        lining = lambda p: np.maximum(np.maximum(inner(p) - 0.015, -inner(p) - 0.03), p[:, 1] - L - h + 0.01)
         sc.append((cup, bm))
-        sc.append((torus((r + 0.1 + h * 0.04, h * 0.55, 0), 0.12 + h * 0.06, 0.05, 'z'), bm))
-        if v in ('demi', 'cup'):
-            sc.append((cyl((0, 0.02, 0), r + 0.42, 0.025, 0.02), whiteM))
-            sc.append((torus((0, 0.04, 0), r + 0.36, 0.035), whiteM))
+        sc.append((lining, inside))
+        sc.append((torus((r + 0.1 + h * 0.04, L + h * 0.55, 0), 0.12 + h * 0.06, 0.05, 'z'), bm))
+        if L:
+            R = r + 0.3
+            sc.append((cyl((0, 0.03, 0), R, 0.03, 0.025), whiteM))
+            sc.append((torus((0, 0.06, 0), R - 0.05, 0.022), whiteM))
     else:
         rim = O(Mat('#e9f5f8', 4, 0.3, spec=1.0), (90, 120, 130))
         sc.append((cyl((0, 0.04, 0), r, 0.045, 0.02), rim))
@@ -256,10 +270,17 @@ def cake(kind):
     else: layers = [(0.0, 0.06, O(Mat('#b8803a', 5, 0.35, hs=-0.02))), (0.06, 0.3, O(Mat('#f8ecc8', 5, 0.25, hs=-0.02))), (0.3, 0.33, O(Mat('#e8c070', 5, 0.3, hs=-0.02)))]
     return [(wedge(a + 0.02, b + 0.02), m) for a, b, m in layers]
 def bowl_base():
-    sc = [(sub(ell((0, 0.2, 0), (0.78, 0.3, 0.78)), ell((0, 0.3, 0), (0.7, 0.28, 0.7))), O(Mat('#e6eef0', 5, 0.35))), (cyl((0, 0.06, 0), 0.5, 0.06), O(Mat('#d8e2e4', 4, 0.3)))]
-    for i in range(14):
-        a = i * 2.39; rr = 0.1 + 0.45 * np.sqrt((i * 0.37) % 1)
-        sc.append((xform(ell((np.cos(a) * rr, 0.3 + 0.03 * (i % 3), np.sin(a) * rr), (0.24, 0.05, 0.16)), rot_y=a, about=(np.cos(a) * rr, 0.3, np.sin(a) * rr)), M['leaf'] if i % 2 else O(Mat('#8fc25a', 5, 0.55))))
+    R, H = 0.72, 0.42
+    outer = ell((0, H * 0.55, 0), (R, H * 0.95, R)); inner = ell((0, H * 0.62, 0), (R - 0.06, H * 0.92, R - 0.06))
+    shell = inter(sub(outer, inner), lambda p: np.maximum(p[:, 1] - H, -p[:, 1]))
+    sc = [(shell, O(Mat('#f4f1ea', 6, 0.35, spec=0.4, hs=-0.02, tex=lambda p, n: -0.35 * (np.abs(p[:, 1] - H * 0.78) < 0.03)), (120, 110, 100))),
+          (torus((0, H, 0), R - 0.03, 0.035), O(Mat('#6f8fc9', 5, 0.4), (40, 60, 100))),
+          (cyl((0, 0.03, 0), 0.38, 0.03, 0.02), O(Mat('#e6e2da', 4, 0.3)))]
+    for i in range(30):
+        a = i * 2.39; rr = 0.04 + 0.52 * np.sqrt((i * 0.618) % 1)
+        y = 0.2 + 0.28 * (1 - rr / 0.6) + 0.03 * (i % 3)
+        sc.append((xform(ell((np.cos(a) * rr, y, np.sin(a) * rr), (0.22, 0.05, 0.15)), rot_y=a, rot_x=0.25 * ((i % 3) - 1), about=(np.cos(a) * rr, y, np.sin(a) * rr)),
+                   O(Mat('#8fc25a' if i % 3 else '#a8d070', 5, 0.5, hs=-0.04, tex=lambda p, n: 0.25 * (np.abs(np.sin(p[:, 0] * 40 + p[:, 2] * 40)) < 0.08)), (60, 100, 40)) if i % 2 else M['leaf']))
     return sc
 def toast_base():
     crust = O(Mat('#a8642c', 5, 0.4)); crumb = O(Mat('#ecc27a', 5, 0.3, hs=-0.02, tex=lambda p, n: 0.08 * (np.sin(p[:, 0] * 160) * np.sin(p[:, 2] * 150) > 0.6) - 0.08 * (np.sin(p[:, 0] * 90 + p[:, 2] * 70) > 0.8)))
@@ -377,7 +398,7 @@ def job(args):
         return 'st_bar', [BAR_SIZE[0], BAR_SIZE[1], 0, 0]
     if kind == 'hopper':
         sc = hopper(k)
-        size = (160, 200); cen = (0, 0.7, 0)
+        size = (180, 230); cen = (0, 0.8, 0)
         img = render(sc, size, ppu=BAR_PPU, center=cen, pitch=20, light=LIGHT)
         if k == 'glass': img = see_through(img, render(sc[1:], size, ppu=BAR_PPU, center=cen, pitch=20, light=LIGHT))
         ax, ay = project((0, 0, 0), size, BAR_PPU, cen, 20)
@@ -387,7 +408,7 @@ def job(args):
     if kind == 'ves':
         r, h, body, vk = VES[k]
         sc = vessel(k)
-        size = (int((2 * r + 1.2) * BAR_PPU), int((h + 1.0) * BAR_PPU)); cen = (0.25, h / 2, 0)
+        size = (int((2 * r + 1.4) * BAR_PPU), int((h + 1.1) * BAR_PPU)); cen = (0.25, h / 2, 0)
         img = render(sc, size, ppu=BAR_PPU, center=cen, pitch=20, light=LIGHT)
         if vk == 'glass':
             wall = [i for i, (f, m) in enumerate(sc) if m is glassWall]
@@ -398,9 +419,12 @@ def job(args):
         r, h, body, vk = VES[k]
         ri = r - (0.06 if vk == 'ceramic' else 0.035)
         ppu = TOP_R * KS / ri
-        span = (r + (0.5 if k in ('demi', 'cup') else 0.45)) * 2
+        span = (r + (0.42 if k in ('demi', 'cup') else 0.45)) * 2
+        h = h + LIFT.get(k, 0.0)
         size = (int(span * ppu) + 40, int(span * ppu) + 40); cen = (0.1, h, 0)
-        img = render(vessel(k), size, ppu=ppu, center=cen, pitch=89.5, yaw=0, light=LIGHT)
+        sc = vessel(k)
+        img = render(sc, size, ppu=ppu, center=cen, pitch=89.5, yaw=0, light=LIGHT)
+        if vk == 'glass': img = see_through(img, render([x for x in sc if x[1] is not glassWall], size, ppu=ppu, center=cen, pitch=89.5, yaw=0, light=LIGHT))
         ax, ay = project((0, h, 0), size, ppu, cen, 89.5, 0)
         return crop_save('sv_' + k + '_top', img, ax + 0.5, ay + 0.5)
     if kind == 'topbg':
@@ -443,7 +467,7 @@ def layout():
     for k, (r, h, body, vk) in VES.items():
         ri = r - (0.06 if vk == 'ceramic' else 0.035)
         rib = (r * (0.78 if k != 'mug' else 0.95) - 0.06) if vk == 'ceramic' else ri
-        bot = 0.07 if vk == 'ceramic' else 0.09
+        lift = LIFT.get(k, 0.0); bot = (0.07 + lift) if vk == 'ceramic' else 0.09; h = h + lift
         ves[k] = dict(h=round(h * SPX * np.cos(np.radians(20)), 2), rx=round(ri * SPX, 2), rxb=round(rib * SPX, 2),
                       ry=round(np.sin(np.radians(20)), 4), bot=round(bot * SPX * np.cos(np.radians(20)), 2), glass=vk == 'glass',
                       top_r=round((r + 0.0) / ri * TOP_R, 2))

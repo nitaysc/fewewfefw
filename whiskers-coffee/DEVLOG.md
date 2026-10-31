@@ -655,4 +655,11 @@ look maps to one of the baristas. HUD buttons were restyled (cream, rounded, col
   bands on plain table tops).
 - The owner said the first fork "looked weird": it is now a proper fork (head, neck, four
   tines, tapered handle) with a knife on a napkin. Look at small props up close before shipping.
+- Second pass after the owner's feedback ("plate inside the cup", "the grinder looks weird"):
+  cups now stand on a small raised saucer (`LIFT` in station3d.py; the layout includes it) with
+  a light lining inside; the espresso machine is one clean body with a darker brew panel (no
+  overhanging housing casting odd shadows); the grinder is a tapered red body with a glass
+  hopper of individual-looking beans, a steel lid and the crank attached to its side; the light
+  is more frontal so shadows fall behind things; the salad bowl is a deep white bowl with a
+  blue rim, heaped with leaves, so it doesn't read as a plate on a plate.
 
