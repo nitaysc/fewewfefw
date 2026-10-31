@@ -11,6 +11,7 @@ import { plateCanvas, platePix } from './art/foods.js';
 import { t as tr } from './i18n.js';
 import { refImg, refsReady, personPose, personScale, sitScale, catPose, furniturePic, PERSON_HEIGHT } from './art/refsprites.js';
 import { icon } from './ui/icons.js';
+import { r3, r3Ready, K3, furniture3, composeRoom3, modelFor, personFrame, catFrame3, PERSON3_H } from './art/r3.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
 
@@ -42,7 +43,9 @@ export class Renderer {
     this.canvas.height = Math.round(window.innerHeight * dpr);
     // fit the whole room on screen at a whole-number zoom
     const roomW = (ROOM_W + ROOM_H) * 16 + 16, roomH = (ROOM_W + ROOM_H) * 8 + WALL_H + 6;
-        this.fitZoom = Math.max(2, Math.floor(Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY) / roomH)));
+    const fit = Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY) / roomH);
+    // the detailed art has two picture pixels per world pixel, so keep the zoom even
+    this.fitZoom = r3Ready() ? Math.max(2, Math.floor(fit / 2) * 2) : Math.max(2, Math.floor(fit));
     if (!this.userZoom) this.zoom = this.fitZoom;
     this.clampCam();
   }
@@ -65,9 +68,14 @@ export class Renderer {
   }
 
   sprite(type, rot) {
-    const key = type + ':' + rot + (refsReady() ? ':ref' : '');
+    const key = type + ':' + rot + (r3Ready() ? ':r3' : refsReady() ? ':ref' : '');
     if (!this.sprites.has(key)) {
       const def = CATALOG[type];
+      const p3 = r3Ready() && furniture3(type, def.rotates ? rot : 0);
+      if (p3) {
+        this.sprites.set(key, { canvas: p3.canvas, ax: p3.ax / K3, ay: p3.ay / K3, w: p3.w / K3, h: p3.h / K3 });
+        return this.sprites.get(key);
+      }
       // art from the reference sheets, standing on the front of its footprint
       const pic = furniturePic(type, def.rotates ? rot : 0);
       if (pic) {
@@ -90,7 +98,11 @@ export class Renderer {
   // preview: { wall, floor } shown while trying a style in the shop
   ensureRoom(cafe, preview) {
     const wall = preview?.wall || cafe.decor?.wall || 'cream', floor = preview?.floor || cafe.decor?.floor || 'oak';
-    const key = JSON.stringify(cafe.walls) + wall + floor;
+    const key = JSON.stringify(cafe.walls) + wall + floor + (r3Ready() ? ':r3' : '');
+    if (key !== this.roomKey && r3Ready()) {
+      const r = composeRoom3(cafe.walls, wall, floor);
+      if (r) { this.room = r; this.roomKey = key; return; }
+    }
     if (key !== this.roomKey) {
       const r = paintRoom(ROOM_W, ROOM_H, cafe.walls, floor, wall);
       this.room = { canvas: scale2x(r.pix).toCanvas(), ax: r.ax, ay: r.ay, w: r.pix.w, h: r.pix.h, windows: r.windows };
@@ -230,6 +242,7 @@ export class Renderer {
   }
 
   drawPerson(p, t) {
+    if (r3Ready() && this.drawR3Person(p, t)) return;
     if (p.look?.model && this.drawRefPerson(p, t)) return;
     const frame = p.sitting ? 6 : p.moving ? Math.floor(t * 8) % 4 : (Math.floor(t * 1.5 + (p.x * 3)) % 2) + 4;
     const s = personSprite(p.look, p.view || 'front', frame, !!p.flip);
@@ -250,6 +263,22 @@ export class Renderer {
       const hx = p.view === 'back' ? (p.flip ? 3 : -11) : (p.flip ? -10 : 4);
       this.blit(thing, px + hx - Math.max(0, thing.width - 11) / 2, py - (p.sitting ? 11 : 16) - Math.max(0, thing.height - 11), thing.width, thing.height);
     }
+  }
+
+  // people in the detailed art: animated, four ways, sitting and carrying
+  drawR3Person(p, t) {
+    const f = personFrame(modelFor(p.look), p, t);
+    const im = r3(f.name, f.flip);
+    if (!im) return false;
+    const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
+    if (!p.z) this.shadow(px, py, 5);
+    this.blit(im.canvas, px - im.ax / K3, py - im.ay / K3, im.w / K3, im.h / K3);
+    const thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
+    if (thing) {
+      const back = p.view === 'back', hx = (p.flip ? -1 : 1) * (back ? 2 : 4);
+      this.blit(thing, px + hx - thing.width / 2, py - 15 - thing.height + 4, thing.width, thing.height);
+    }
+    return true;
   }
 
   // people from the reference sheets
@@ -283,9 +312,10 @@ export class Renderer {
   // order bubbles: every item still wanted, who's making it, and ticks for what has arrived
   bubble(u, t) {
     const bob = Math.round(Math.sin(t * 2.5 + u.x) * 1);
-    const tall = u.look?.model ? PERSON_HEIGHT - 27 : 0;
-    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + (u.z ? 25 : 31) + tall + bob);
-    if (u.emote) { const c = bubbleCanvas(u.emote); this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height); return; }
+    const tall = r3Ready() ? 0 : u.look?.model ? PERSON_HEIGHT - 27 : 0;
+    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + (r3Ready() ? (u.z ? 22 : PERSON3_H + 3) : (u.z ? 25 : 31)) + tall + bob);
+    const bs = r3Ready() ? 0.5 : 1;
+    if (u.emote) { const c = bubbleCanvas(u.emote); this.blit(c, px - Math.floor(c.width * bs / 2), py - c.height * bs, c.width * bs, c.height * bs); return; }
     if (u.state !== 'order' || !u.items?.length) return;
     const key = JSON.stringify(u.items.map((i) => [i.kind, i.id, i.extra, i.byColor, i.done]));
     this.bubbles ??= new Map();
@@ -305,10 +335,10 @@ export class Renderer {
     }
     const c = this.bubbles.get(key);
     const faded = u.items.every((i) => i.done || i.by);
-    this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height, faded ? 0.75 : 1);
+    this.blit(c, px - Math.floor(c.width * bs / 2), py - c.height * bs, c.width * bs, c.height * bs, faded ? 0.75 : 1);
     // whoever is making it, by name
     const maker = u.items.find((i) => i.by && !i.done);
-    if (maker?.byName) this.label(px, py - c.height - 2, tr('{name} is making it', { name: maker.byName }), maker.byColor);
+    if (maker?.byName) this.label(px, py - c.height * bs - 2, tr('{name} is making it', { name: maker.byName }), maker.byColor);
   }
 
   label(px, py, text, color) {
@@ -325,7 +355,7 @@ export class Renderer {
   personAt(list, sx, sy) {
     let best = null, bd = 16 * this.zoom;
     for (const u of list) {
-      const [cx, cy] = this.toScreen(wx(u.x, u.y), wy(u.x, u.y, (u.z || 0) + (u.look?.model ? 20 : 12)));
+      const [cx, cy] = this.toScreen(wx(u.x, u.y), wy(u.x, u.y, (u.z || 0) + (r3Ready() ? 12 : u.look?.model ? 20 : 12)));
       const d = Math.hypot(cx - sx, cy - sy);
       if (d < bd) { bd = d; best = u; }
     }
@@ -344,6 +374,15 @@ export class Renderer {
       default: frame = Math.floor(t * 0.6 + phase) % 7 === 0 ? 'blink' : (Math.floor(t * 1.1 + phase) % 2 ? 'sit1' : 'sit2');
     }
     const px = wx(c.x, c.y), py = wy(c.x, c.y, c.z || 0);
+    if (r3Ready()) {
+      const im = r3(catFrame3(c.coat, c.state === 'perch' ? 'sit' : c.state, t, phase), !!c.flip);
+      if (im) {
+        if (!c.z) this.shadow(px, py, 5);
+        this.blit(im.canvas, px - im.ax / K3, py - im.ay / K3, im.w / K3, im.h / K3);
+        if (c.state === 'sleep' && Math.floor(t * 0.7 + phase) % 2) { const k = (t * 0.7 + phase) % 1; this.blit(this.zzz, px + 5 + k * 4, py - 12 - k * 8, 5, 5, 1 - k); }
+        return;
+      }
+    }
     // cats from the reference sheets where there is a picture for that coat
     const cp = catPose(c.coat, c.state, t, phase), ci = cp && refImg(cp.name, !!c.flip);
     if (ci) {
@@ -373,7 +412,7 @@ export class Renderer {
 
   nameTag(p) {
     if (!p.name) return;
-    const g = this.g, [sx, sy] = this.toScreen(wx(p.x, p.y), wy(p.x, p.y) - (p.look?.model ? PERSON_HEIGHT + 6 : 34));
+    const g = this.g, [sx, sy] = this.toScreen(wx(p.x, p.y), wy(p.x, p.y) - (r3Ready() ? PERSON3_H + 6 : p.look?.model ? PERSON_HEIGHT + 6 : 34));
     const size = Math.max(10, Math.round(this.zoom * 3.2));
     g.font = `600 ${size}px "Pixelify Sans", monospace`;
     g.textAlign = 'center';
@@ -399,7 +438,20 @@ export class Renderer {
       if (def.fire) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, fire: true });
     }
     g.globalCompositeOperation = 'lighter';
-    for (const l of lamps) {
+    if (r3Ready()) {
+      for (const l of lamps) {
+        let flick = 0.9 + Math.sin(t * 3 + l.x * 5) * 0.03 + Math.sin(t * 11 + l.y) * 0.02;
+        if (l.fire) flick = 0.8 + Math.sin(t * 7 + l.x) * 0.1 + Math.sin(t * 17) * 0.07;
+        const [sx, sy] = this.toScreen(wx(l.x, l.y), wy(l.x, l.y, l.small ? 6 : 2));
+        const r = (l.fire ? 46 : l.small ? 30 : 34) * this.zoom;
+        const gr = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+        const col = l.fire ? '255,140,60' : '255,196,120';
+        gr.addColorStop(0, `rgba(${col},${0.26 * flick})`); gr.addColorStop(0.5, `rgba(${col},${0.1 * flick})`); gr.addColorStop(1, `rgba(${col},0)`);
+        g.save(); g.translate(sx, sy); g.scale(1, 0.55); g.translate(-sx, -sy);
+        g.fillStyle = gr; g.fillRect(sx - r, sy - r, r * 2, r * 2); g.restore();
+      }
+    }
+    for (const l of r3Ready() ? [] : lamps) {
       let flick = 0.85 + Math.sin(t * 3 + l.x * 5) * 0.03 + Math.sin(t * 11 + l.y) * 0.02;
       if (l.fire) flick = 0.8 + Math.sin(t * 7 + l.x) * 0.08 + Math.sin(t * 17) * 0.06;
       const glow = l.fire ? this.fireGlow : l.small ? this.smallGlow : this.glow;
@@ -409,9 +461,9 @@ export class Renderer {
     g.globalCompositeOperation = 'source-over';
     // the lamps themselves, hanging from the ceiling
     for (const l of lamps) {
-      if (!l.hang) continue;
-      const px = wx(l.x, l.y), py = wy(l.x, l.y, 64);
-      const [sx, sy] = this.toScreen(px, py), [, top] = this.toScreen(px, wy(l.x, l.y, WALL_H + 6));
+      if (!l.hang || r3Ready()) continue;
+      const px = wx(l.x, l.y), py = wy(l.x, l.y, r3Ready() ? 40 : 64);
+      const [sx, sy] = this.toScreen(px, py), [, top] = this.toScreen(px, wy(l.x, l.y, r3Ready() ? 52 : WALL_H + 6));
       const z = this.zoom;
       g.fillStyle = '#24160f';
       g.fillRect(sx, Math.max(0, top), z, sy - Math.max(0, top));
@@ -441,7 +493,7 @@ export class Renderer {
       const [fw, fd] = footprint(it);
       for (let i = 0; i < 4; i++) {
         const k = (t * 0.4 + i / 4) % 1;
-        const px = wx(it.x + fw * 0.35, it.y + fd * 0.5) + Math.sin((t + i) * 2) * 2, py = wy(it.x + fw * 0.35, it.y + fd * 0.5, 36 + k * 18);
+        const px = wx(it.x + fw * 0.35, it.y + fd * 0.5) + Math.sin((t + i) * 2) * 2, py = wy(it.x + fw * 0.35, it.y + fd * 0.5, (r3Ready() ? 22 : 36) + k * 18);
         const [sx, sy] = this.toScreen(px, py);
         g.fillStyle = `rgba(255,255,255,${0.35 * (1 - k)})`;
         g.fillRect(sx, sy, this.zoom * 2, this.zoom * 2);

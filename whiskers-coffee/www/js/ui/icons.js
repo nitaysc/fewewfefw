@@ -1,7 +1,7 @@
 // Small pixel-art UI icons, drawn from letter grids like the rest of the art.
 import { grid } from '../art/pix.js';
 
-const PAL = { o: '#24160f', y: '#ffd27a', Y: '#d29b3a', w: '#f4efe6', W: '#cdb98f', r: '#e46a5a', g: '#8fd16a', b: '#6f8fc9', p: '#ff8fa3', k: '#7a4e30', K: '#5b3a26', s: '#b8bec0' };
+const PAL = { C: '#8a5434', V: '#fffaf0', Q: '#c9a04f', E: '#ef8fae', G: '#b8bec0', R: '#e88a96', Z: '#d9b48a', o: '#24160f', y: '#ffd27a', Y: '#d29b3a', w: '#f4efe6', W: '#cdb98f', r: '#e46a5a', g: '#8fd16a', b: '#6f8fc9', p: '#ff8fa3', k: '#7a4e30', K: '#5b3a26', s: '#b8bec0' };
 
 const ICONS = {
   coin: ['..oooo..', '.oyyyYo.', 'oyywyyYo', 'oyywyyYo', 'oyywyyYo', 'oyyyyyYo', '.oYYYYo.', '..oooo..'],
@@ -25,6 +25,10 @@ const ICONS = {
   bin: ['..oooo..', 'oooooooo', '.osssso.', '.osososo'.slice(0, 8), '.osososo'.slice(0, 8), '.osssso.', '.osssso.', '..oooo..'],
   up: ['........', '...oo...', '..owwo..', '.owwwwo.', 'owwwwwwo', 'oooooooo', '........', '........'],
   down: ['........', '........', 'oooooooo', 'owwwwwwo', '.owwwwo.', '..owwo..', '...oo...', '........'],
+  mug: ['...w..w.....', '....w..w....', '...w..w.....', 'oooooooooo..', 'oCCCCCCCCooo', 'oVVVVVVVVo.o', 'oVVVVVVVVo.o', 'oVVVVVVVVooo', '.oVVVVVVo...', '..oooooo....', 'oooooooooooo', '.oQQQQQQQQo.'],
+  paw2: ['...oo..oo...', '..oEEooEEo..', '..oEEooEEo..', 'oo.oo..oo.oo', 'oEo......oEo', 'oEo.oooo.oEo', '.o.oEEEEo.o.', '..oEEEEEEo..', '.oEEEEEEEEo.', '.oEEEEEEEEo.', '..oEEEEEEo..', '...oooooo...'],
+  sofa: ['............', '..oooooooo..', '.oZZZZZZZZo.', '.oZCCCCCCZo.', 'ooZCCCCCCZoo', 'oZooooooooZo', 'oZZZZZZZZZZo', 'oZCCCCCCCCZo', 'oooooooooooo', '.oo......oo.', '............', '............'],
+  gear2: ['....oooo....', '..o.oGGo.o..', '.oGooGGooGo.', '..oGGGGGGo..', 'ooGGGooGGGoo', 'oGGGo..oGGGo', 'oGGGo..oGGGo', 'ooGGGooGGGoo', '..oGGGGGGo..', '.oGooGGooGo.', '..o.oGGo.o..', '....oooo....'],
   back: ['...o....', '..owo...', '.owwoooo', 'owwwwwwo', '.owwoooo', '..owo...', '...o....', '........'],
 };
 

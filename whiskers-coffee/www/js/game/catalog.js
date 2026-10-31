@@ -18,14 +18,14 @@ const counterBody = (p, w, top = P.woodPale) => {
 
 export const CATALOG = {
   table_round: {
-    name: 'Round table', cat: 'furniture', price: 60, size: [1, 1], surface: 20, table: true,
+    name: 'Round table', cat: 'furniture', price: 60, size: [1, 1], surface: 14, table: true,
     paint(p) {
       p.cyl(8, 8, 0, 4, 1, P.woodDark).cyl(8, 8, 1, 1.4, 10, P.woodDark)
         .cyl(8, 8, 11, 7, 2, { top: P.woodLight, left: P.wood, right: P.woodDark }, { rim: true });
     },
   },
   table_square: {
-    name: 'Café table', cat: 'furniture', price: 70, size: [1, 1], surface: 12, table: true,
+    name: 'Café table', cat: 'furniture', price: 70, size: [1, 1], surface: 14, table: true,
     paint(p) {
       legs(p, 2, 2, 14, 14, 11, P.woodDark);
       p.box(1, 1, 11, 14, 14, 2, { top: P.woodLight, left: P.wood, right: P.woodDark }, { order: 2 })
@@ -33,7 +33,7 @@ export const CATALOG = {
     },
   },
   chair: {
-    name: 'Wooden chair', cat: 'furniture', price: 35, size: [1, 1], seat: true, rotates: true, seatZ: 13,
+    name: 'Wooden chair', cat: 'furniture', price: 35, size: [1, 1], seat: true, rotates: true, seatZ: 9,
     paint(p) {
       legs(p, 4, 4, 13, 13, 4, P.woodDark);
       p.box(3, 3, 4, 11, 11, 2, { top: P.wood, left: P.woodDark, right: shade(P.woodDark, 0.8) }, { order: 1 });
@@ -42,14 +42,14 @@ export const CATALOG = {
     },
   },
   stool: {
-    name: 'Bar stool', cat: 'furniture', price: 25, size: [1, 1], seat: true, seatZ: 15,
+    name: 'Bar stool', cat: 'furniture', price: 25, size: [1, 1], seat: true, seatZ: 12,
     paint(p) {
       legs(p, 4, 4, 12, 12, 12, P.woodDark);
       p.cyl(8, 8, 12, 5, 2, { top: P.rose, left: shade(P.rose, 0.85), right: shade(P.rose, 0.7) }, { order: 3 });
     },
   },
   armchair: {
-    name: 'Armchair', cat: 'furniture', price: 120, size: [1, 1], seat: true, rotates: true, seatZ: 11,
+    name: 'Armchair', cat: 'furniture', price: 120, size: [1, 1], seat: true, rotates: true, seatZ: 8,
     paint(p) {
       const f = { top: shade(P.sage, 1.1), left: P.sage, right: P.sageDark };
       p.box(1, 2, 0, 14, 13, 8, f)
@@ -60,7 +60,7 @@ export const CATALOG = {
     },
   },
   sofa: {
-    name: 'Leather sofa', cat: 'furniture', price: 220, size: [2, 1], seat: true, rotates: true, seatZ: 11,
+    name: 'Leather sofa', cat: 'furniture', price: 220, size: [2, 1], seat: true, rotates: true, seatZ: 8,
     paint(p) {
       const f = { top: shade(P.terracotta, 1.1), left: P.terracotta, right: P.terracottaDark };
       p.box(1, 2, 0, 30, 13, 8, f)
@@ -151,7 +151,7 @@ export const CATALOG = {
     },
   },
   cat_tree: {
-    name: 'Cat tree', cat: 'cat', price: 140, size: [1, 1], perch: 34,
+    name: 'Cat tree', cat: 'cat', price: 140, size: [1, 1], perch: 24,
     paint(p) {
       p.box(1, 1, 0, 14, 14, 3, { top: P.linen, left: P.linenShade, right: shade(P.linenShade, 0.85) });
       p.cyl(8, 8, 3, 2.5, 18, { top: P.sisal, left: P.sisal, right: P.sisalDark }, { order: 1 });
@@ -168,7 +168,7 @@ export const CATALOG = {
     },
   },
   floor_lamp: {
-    name: 'Floor lamp', cat: 'decor', price: 65, size: [1, 1], light: true, glow: 34,
+    name: 'Floor lamp', cat: 'decor', price: 65, size: [1, 1], light: true, glow: 26,
     paint(p) {
       p.cyl(8, 8, 0, 3, 1, P.metalDark).cyl(8, 8, 1, 0.7, 30, P.metalDark)
         .cyl(8, 8, 30, 4, 7, { top: P.lampHot, left: '#f2d9a2', right: '#d9b97a' }, { order: 1 });
@@ -176,7 +176,7 @@ export const CATALOG = {
   },
   // ---------- Kyoto collection ----------
   chabudai: {
-    name: 'Low table', cat: 'furniture', set: 'kyoto', price: 70, size: [1, 1], surface: 7, table: true,
+    name: 'Low table', cat: 'furniture', set: 'kyoto', price: 70, size: [1, 1], surface: 6, table: true,
     paint(p) {
       legs(p, 4, 4, 12, 12, 5, P.woodDark);
       p.cyl(8, 8, 5, 7, 2, { top: '#7a4e30', left: '#5b3a26', right: '#4a2f20' }, { rim: true, order: 2 });
@@ -185,14 +185,14 @@ export const CATALOG = {
     },
   },
   zabuton: {
-    name: 'Floor cushion', cat: 'furniture', set: 'kyoto', price: 25, size: [1, 1], seat: true, seatZ: 3,
+    name: 'Floor cushion', cat: 'furniture', set: 'kyoto', price: 25, size: [1, 1], seat: true, seatZ: 2,
     paint(p) {
       p.box(2, 2, 0, 12, 12, 3, { top: '#b5483c', left: '#8e3329', right: '#73291f' })
         .faceRect('top', 5, 5, 2, 2, '#f2d27a').faceLine('top', 1, 1, 11, 1, shade('#b5483c', 1.12));
     },
   },
   andon: {
-    name: 'Paper lantern', cat: 'decor', set: 'kyoto', price: 60, size: [1, 1], light: true, glow: 14,
+    name: 'Paper lantern', cat: 'decor', set: 'kyoto', price: 60, size: [1, 1], light: true, glow: 8,
     paint(p) {
       legs(p, 3, 3, 13, 13, 4, P.woodDark, 1.5);
       p.box(3, 3, 4, 10, 10, 18, { top: P.lampHot, left: '#f6e3b0', right: '#e2c98e' }, { order: 1 });
@@ -236,7 +236,7 @@ export const CATALOG = {
 
   // ---------- Cottage collection ----------
   wicker_chair: {
-    name: 'Wicker chair', cat: 'furniture', set: 'cottage', price: 60, size: [1, 1], seat: true, rotates: true, seatZ: 8,
+    name: 'Wicker chair', cat: 'furniture', set: 'cottage', price: 60, size: [1, 1], seat: true, rotates: true, seatZ: 9,
     paint(p) {
       const f = { top: '#d8b57a', left: P.sisal, right: P.sisalDark };
       p.box(2, 3, 0, 12, 11, 7, f);
@@ -316,7 +316,7 @@ export const CATALOG = {
     },
   },
   hay_bale: {
-    name: 'Hay bale seat', cat: 'furniture', set: 'autumn', price: 30, size: [1, 1], seat: true, seatZ: 10,
+    name: 'Hay bale seat', cat: 'furniture', set: 'autumn', price: 30, size: [1, 1], seat: true, seatZ: 9,
     paint(p) {
       p.box(1, 3, 0, 14, 10, 10, { top: '#e8c870', left: '#d4ae52', right: '#b8923e' });
       for (let u = 1; u < 14; u += 3) p.faceLine('y', u, 1, u + 1, 9, '#c29a44');
@@ -352,7 +352,7 @@ export const CATALOG = {
 
   // ---------- Winter collection ----------
   xmas_tree: {
-    name: 'Holiday tree', cat: 'decor', set: 'winter', price: 160, size: [1, 1], light: true, glow: 26, twinkle: true,
+    name: 'Holiday tree', cat: 'decor', set: 'winter', price: 160, size: [1, 1], light: true, glow: 20, twinkle: true,
     paint(p) {
       p.box(4, 4, 0, 8, 8, 6, { top: '#3a2618', left: P.red, right: P.redDark }).faceRect('y', 0, 2, 8, 1, P.mustard);
       p.shape(20, [[0, 0, 50], [16, 16, 6]], (pix, at) => {
@@ -403,15 +403,15 @@ export const CATALOG = {
   },
 
   // ---------- Cozy collection (art from the owner's reference sheets) ----------
-  sofa_grey: { name: 'Grey sofa', cat: 'furniture', set: 'cozy', price: 200, size: [2, 1], seat: true, rotates: true, seatZ: 11, paint(p) { CATALOG.sofa.paint(p); } },
-  armchair_pink: { name: 'Pink armchair', cat: 'furniture', set: 'cozy', price: 120, size: [1, 1], seat: true, rotates: true, seatZ: 11, paint(p) { CATALOG.armchair.paint(p); } },
-  stool_green: { name: 'Green stool', cat: 'furniture', set: 'cozy', price: 25, size: [1, 1], seat: true, seatZ: 15, paint(p) { CATALOG.stool.paint(p); } },
-  stool_cream: { name: 'Cream stool', cat: 'furniture', set: 'cozy', price: 25, size: [1, 1], seat: true, seatZ: 15, paint(p) { CATALOG.stool.paint(p); } },
-  table_cake: { name: 'Table with cake', cat: 'furniture', set: 'cozy', price: 80, size: [1, 1], surface: 20, table: true, paint(p) { CATALOG.table_round.paint(p); } },
-  coffee_table: { name: 'Coffee table', cat: 'furniture', set: 'cozy', price: 70, size: [1, 1], surface: 14, table: true, paint(p) { CATALOG.table_square.paint(p); } },
-  coffee_table_cakes: { name: 'Coffee table with treats', cat: 'furniture', set: 'cozy', price: 95, size: [1, 1], surface: 14, table: true, paint(p) { CATALOG.table_square.paint(p); } },
+  sofa_grey: { name: 'Grey sofa', cat: 'furniture', set: 'cozy', price: 200, size: [2, 1], seat: true, rotates: true, seatZ: 8, paint(p) { CATALOG.sofa.paint(p); } },
+  armchair_pink: { name: 'Pink armchair', cat: 'furniture', set: 'cozy', price: 120, size: [1, 1], seat: true, rotates: true, seatZ: 8, paint(p) { CATALOG.armchair.paint(p); } },
+  stool_green: { name: 'Green stool', cat: 'furniture', set: 'cozy', price: 25, size: [1, 1], seat: true, seatZ: 12, paint(p) { CATALOG.stool.paint(p); } },
+  stool_cream: { name: 'Cream stool', cat: 'furniture', set: 'cozy', price: 25, size: [1, 1], seat: true, seatZ: 12, paint(p) { CATALOG.stool.paint(p); } },
+  table_cake: { name: 'Table with cake', cat: 'furniture', set: 'cozy', price: 80, size: [1, 1], surface: 14, table: true, paint(p) { CATALOG.table_round.paint(p); } },
+  coffee_table: { name: 'Coffee table', cat: 'furniture', set: 'cozy', price: 70, size: [1, 1], surface: 8, table: true, paint(p) { CATALOG.table_square.paint(p); } },
+  coffee_table_cakes: { name: 'Coffee table with treats', cat: 'furniture', set: 'cozy', price: 95, size: [1, 1], surface: 8, table: true, paint(p) { CATALOG.table_square.paint(p); } },
   potted_fern: { name: 'Potted fern', cat: 'decor', set: 'cozy', price: 30, size: [1, 1], paint(p) { CATALOG.plant_small.paint(p); } },
-  cattree_small: { name: 'Cat house', cat: 'cat', set: 'cozy', price: 110, size: [1, 1], perch: 24, paint(p) { CATALOG.cat_tree.paint(p); } },
+  cattree_small: { name: 'Cat house', cat: 'cat', set: 'cozy', price: 110, size: [1, 1], perch: 15, paint(p) { CATALOG.cat_tree.paint(p); } },
   menu_board: { name: 'Menu board', cat: 'decor', set: 'cozy', price: 45, size: [1, 1], paint(p) { CATALOG.bookshelf.paint(p); } },
   welcome_board: { name: 'Welcome sign', cat: 'decor', set: 'cozy', price: 45, size: [1, 1], paint(p) { CATALOG.bookshelf.paint(p); } },
   hanging_plant: { name: 'Hanging plant', cat: 'decor', set: 'cozy', price: 40, size: [1, 1], paint(p) { CATALOG.plant_big.paint(p); } },
@@ -422,7 +422,7 @@ export const CATALOG = {
   counter_register: { name: 'Till counter', cat: 'counter', price: 180, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32); } },
   counter_beans: { name: 'Bean counter', cat: 'counter', price: 180, size: [2, 1], surface: 17, rotates: true, food: true, paint(p) { counterBody(p, 32); } },
   cup_hutch: { name: 'Cup shelf', cat: 'decor', price: 120, size: [1, 1], rotates: true, paint(p) { CATALOG.bookshelf.paint(p); } },
-  chair_spindle: { name: 'Spindle chair', cat: 'furniture', price: 40, size: [1, 1], seat: true, rotates: true, seatZ: 13, paint(p) { CATALOG.chair.paint(p); } },
+  chair_spindle: { name: 'Spindle chair', cat: 'furniture', price: 40, size: [1, 1], seat: true, rotates: true, seatZ: 9, paint(p) { CATALOG.chair.paint(p); } },
 };
 
 // leafy blob: overlapping dithered ellipses in four greens

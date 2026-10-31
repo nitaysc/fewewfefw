@@ -15,6 +15,7 @@ import { catFrame, COLLARS, COLLAR_ORDER } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
 import { t, tr, setLang, getLang, LANGUAGES, translatePage } from './i18n.js';
 import { loadRefs, refImg, MODELS, MODEL_ORDER, CUSTOMER_MODELS, catPose } from './art/refsprites.js';
+import { loadR3, r3, r3Ready, modelFor, personFrame, catFrame3 } from './art/r3.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -437,7 +438,7 @@ canvas.addEventListener('pointermove', (e) => {
   p.x = e.clientX; p.y = e.clientY;
   if (gesture.kind === 'pinch' && pointers.size === 2) {
     const [a, b] = [...pointers.values()];
-    const z = Math.round(gesture.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d0);
+    const zr = gesture.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d0, z = r3Ready() ? Math.round(zr / 2) * 2 : Math.round(zr);
     renderer.zoom = Math.max(2, Math.min(12, z));
     renderer.userZoom = true;
     return;
@@ -464,7 +465,7 @@ const endPointer = (e) => {
 };
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); gesture = null; });
-canvas.addEventListener('wheel', (e) => { renderer.zoom = Math.max(2, Math.min(12, renderer.zoom + (e.deltaY < 0 ? 1 : -1))); renderer.userZoom = true; }, { passive: true });
+canvas.addEventListener('wheel', (e) => { renderer.zoom = Math.max(2, Math.min(12, renderer.zoom + (e.deltaY < 0 ? 1 : -1) * (r3Ready() ? 2 : 1))); renderer.userZoom = true; }, { passive: true });
 
 function tap(sx, sy) {
   if (S.screen !== 'hud' || !S.cafe) return;
@@ -831,11 +832,11 @@ function refreshHud() {
 }
 function labelHud() {
   $('#coinIcon').src = icon('coin', 3);
-  $('#btnMenu').innerHTML = iconImg('gear', 3);
+  $('#btnMenu').innerHTML = iconImg('gear2', 3);
   $('#btnInvite').innerHTML = iconImg('friend', 3);
-  $('#btnBuild').innerHTML = `${iconImg('hammer', 4)}${t('Decorate')}`;
-  $('#btnCats').innerHTML = `${iconImg('paw', 4)}${t('Cats')}`;
-  $('#btnOrders').innerHTML = `${iconImg('cup', 4)}${t('Orders')}`;
+  $('#btnBuild').innerHTML = `${iconImg('sofa', 3)}<span>${t('Decorate')}</span>`;
+  $('#btnCats').innerHTML = `${iconImg('paw2', 3)}<span>${t('Cats')}</span>`;
+  $('#btnOrders').innerHTML = `${iconImg('mug', 3)}<span>${t('Orders')}</span>`;
 }
 
 $('#btnBuild').addEventListener('click', () => { sfx.click(); openBuild(); });
@@ -884,6 +885,8 @@ function relabel() {
 const MOOD_TEXT = { sleepy: 'Sleepy, loves warm spots', playful: 'Playful, always exploring', shy: 'Shy, takes time to trust', calm: 'Calm and friendly' };
 const catsUi = { editing: null };
 function drawCatInto(cv, coat, collar) {
+  const c3 = r3Ready() && r3(catFrame3(coat, 'sit', 0, 0));
+  if (c3) { cv.width = c3.w; cv.height = c3.h; const g = cv.getContext('2d'); g.clearRect(0, 0, c3.w, c3.h); g.drawImage(c3.canvas, 0, 0); return; }
   const cp = catPose(coat, 'sit', 0, 0), ri = cp && refImg(cp.name);
   if (ri) { cv.width = ri.w; cv.height = ri.h; const g = cv.getContext('2d'); g.clearRect(0, 0, ri.w, ri.h); g.drawImage(ri.canvas, 0, 0); return; }
   const s = catFrame('sit1', coat, false, collar || 'none');
@@ -999,6 +1002,11 @@ function drawCharPreview(now) {
   const cv = $('#charPreview'), g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cv.width, cv.height);
+  if (r3Ready()) {
+    const f = personFrame(modelFor(prefs.look), { view: charView, flip: false, moving: true, x: 0, y: 0 }, now / 1000);
+    const p3 = r3(f.name);
+    if (p3) { const k = Math.floor(Math.min(cv.width / p3.w, cv.height / p3.h)); g.drawImage(p3.canvas, Math.round((cv.width - p3.w * k) / 2), cv.height - p3.h * k, p3.w * k, p3.h * k); return; }
+  }
   const M = prefs.look.model && MODELS[prefs.look.model];
   const im = M && refImg(charView === 'back' && M.back ? M.back : M.front);
   if (im) { const k = Math.min(cv.width / im.w, cv.height / im.h); g.drawImage(im.canvas, (cv.width - im.w * k) / 2, cv.height - im.h * k, im.w * k, im.h * k); return; }
@@ -1083,7 +1091,16 @@ translatePage();
 labelHud();
 goMenu();
 // the reference art loads in the background; redraw furniture and icons once it's here
+loadR3().then(() => {
+  renderer.sprites.clear(); iconCache.clear(); renderer.roomKey = '';
+  renderer.resize();
+  if (S.build) renderTray();
+  if (S.screen === 'cats') renderCats();
+  const lc = r3('c_orange_sit0');
+  if (lc) { const c = $('#logoCat'); c.width = lc.w; c.height = lc.h; c.getContext('2d').drawImage(lc.canvas, 0, 0); }
+});
 loadRefs().then(() => {
+  if (r3Ready()) return;
   renderer.sprites.clear(); iconCache.clear();
   if (S.build) renderTray();
   if (S.screen === 'cats') renderCats();
