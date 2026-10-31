@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Whiskers &amp; Coffee</string>
+    <string name="title_activity_main">Whiskers &amp; Coffee</string>
+    <string name="package_name">io.github.nitaysc.whiskerscoffee</string>
+    <string name="custom_url_scheme">io.github.nitaysc.whiskerscoffee</string>
+</resources>

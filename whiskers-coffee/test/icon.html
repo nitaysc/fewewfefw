@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<body style="margin:0">
+<script type="module">
+// Builds the app icon from the game's own pixel art: a cat peeking out of a coffee cup.
+import { Pix, grid } from '../www/js/art/pix.js';
+import { COATS } from '../www/js/art/cats.js';
+const p = new Pix(32, 32);
+// warm background with a soft lamp glow
+for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+  const d = Math.hypot(x - 16, y - 13);
+  p.set(x, y, d < 9 ? '#5b3a26' : d < 13 ? '#4a2f20' : '#3b261a');
+}
+const c = COATS.orange;
+const cat = grid([
+  '...o.......o...',
+  '..ono.....ono..',
+  '..obbo...obbo..',
+  '.obbbbbbbbbbbo.',
+  '.obbpbbbbbpbbo.',
+  'obbbbbbbbbbbbbo',
+  'obbeebbbbbeebbo',
+  'obbewbbbbbewbbo',
+  'obbbbblnlbbbbbo',
+  'obnbbbblbbbbnbo',
+], { ...c, n: '#f2a0a6' });
+p.blit(cat, 8, 6);
+// cup
+const cup = grid([
+  'ooooooooooooooooooo..',
+  'owwwwwwwwwwwwwwwwwo..',
+  'owccccccccccccccwwoooo',
+  'owwwwwwwwwwwwwwwwwo..o',
+  'owwwwwwrwwwrwwwwwwo..o',
+  'owwwwwwwrrrwwwwwwwo..o',
+  '.owwwwwwwwwwwwwwwo..o.',
+  '.owwwwwwwwwwwwwwwoo..',
+  '..owwwwwwwwwwwwwo....',
+  '...ooooooooooooo.....',
+], { o: '#24160f', w: '#f4efe6', c: '#7a4e30', r: '#e7a0a6' });
+p.blit(cup, 6, 15);
+// saucer
+p.rect(4, 25, 24, 2, '#e2d2ae'); p.rect(4, 27, 24, 1, '#24160f'); p.rect(3, 25, 1, 2, '#24160f'); p.rect(28, 25, 1, 2, '#24160f');
+// steam
+for (const [x, y] of [[5, 3], [6, 2], [5, 1], [26, 4], [27, 3], [26, 2]]) p.set(x, y, '#f4efe688');
+window.icon = p.toCanvas(32).toDataURL();
+</script>

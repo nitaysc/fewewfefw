@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1d130d">
+  <title>Whiskers &amp; Coffee</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- title -->
+  <section class="screen" id="menu">
+    <div class="logo">
+      <canvas id="logoCat" width="21" height="13"></canvas>
+      <h1>Whiskers <span>&amp;</span> Coffee</h1>
+      <p>a cozy cat café for two</p>
+    </div>
+    <div class="menu-buttons" id="menuButtons"></div>
+  </section>
+
+  <!-- character -->
+  <section class="screen dim" id="character">
+    <div class="panel wide">
+      <h2>Your barista</h2>
+      <div class="char-layout">
+        <div class="char-preview"><canvas id="charPreview" width="16" height="29"></canvas></div>
+        <div class="char-options">
+          <label class="field">Name <input id="nameInput" maxlength="14" autocomplete="off"></label>
+          <div class="opt"><span>Skin</span><div class="swatches" id="skinRow"></div></div>
+          <div class="opt"><span>Hair</span><div class="chips" id="styleRow"></div></div>
+          <div class="opt"><span>Hair colour</span><div class="swatches" id="hairRow"></div></div>
+          <div class="opt"><span>Shirt</span><div class="swatches" id="shirtRow"></div></div>
+          <div class="opt"><span>Apron</span><div class="swatches" id="apronRow"></div></div>
+        </div>
+      </div>
+      <button class="btn primary" id="charDone">Done</button>
+    </div>
+  </section>
+
+  <!-- join -->
+  <section class="screen dim" id="join">
+    <div class="panel">
+      <h2>Join a friend</h2>
+      <p class="hint">Ask your friend for the code shown under "Invite" in their café.</p>
+      <input id="codeInput" class="code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCDE">
+      <p class="status" id="joinStatus"></p>
+      <div class="row"><button class="btn" id="joinBack">Back</button><button class="btn primary" id="joinGo">Join</button></div>
+    </div>
+  </section>
+
+  <!-- in-game HUD -->
+  <section class="screen" id="hud">
+    <div class="topbar">
+      <div class="plate" id="cafeName"></div>
+      <div class="plate coins"><img id="coinIcon" alt=""><b id="money">0</b></div>
+      <div class="plate players" id="playerList"></div>
+    </div>
+    <div class="side">
+      <button class="sq" id="btnMenu" aria-label="Menu"></button>
+      <button class="sq" id="btnInvite" aria-label="Invite a friend"></button>
+    </div>
+    <div class="dock">
+      <button class="big" id="btnCats"></button>
+      <button class="big" id="btnBuild"></button>
+    </div>
+    <div class="banner" id="netBanner" hidden></div>
+  </section>
+
+  <!-- decorate -->
+  <section class="tray" id="tray" hidden>
+    <div class="tray-actions" id="trayActions"></div>
+    <div class="tray-tabs" id="trayTabs"></div>
+    <div class="tray-items" id="trayItems"></div>
+  </section>
+
+  <!-- invite -->
+  <section class="screen dim" id="invite">
+    <div class="panel">
+      <h2>Play together</h2>
+      <p class="hint">Your friend opens Whiskers &amp; Coffee, taps <b>Join a friend</b> and types this code:</p>
+      <div class="bigcode" id="inviteCode">·····</div>
+      <p class="status" id="inviteStatus"></p>
+      <div class="row"><button class="btn" id="inviteShare">Share code</button><button class="btn primary" id="inviteClose">Back to café</button></div>
+    </div>
+  </section>
+
+  <!-- cats -->
+  <section class="screen dim" id="cats">
+    <div class="panel wide">
+      <h2>Our cats</h2>
+      <div class="cat-list" id="catList"></div>
+      <button class="btn primary" id="catsClose">Close</button>
+    </div>
+  </section>
+
+  <!-- pause menu -->
+  <section class="screen dim" id="pause">
+    <div class="panel">
+      <h2 id="pauseTitle">Café</h2>
+      <button class="btn" id="pauseChar">Change my character</button>
+      <button class="btn" id="pauseSound">Sound: on</button>
+      <button class="btn" id="pauseLeave">Leave to title</button>
+      <button class="btn primary" id="pauseClose">Back to café</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="vendor/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<body style="margin:0;background:#1b120c">
+<canvas id="c"></canvas>
+<script type="module">
+// Art preview used while developing: the room plus every catalog item in all rotations.
+import { paintRoom } from '../www/js/art/room.js';
+import { IsoPainter, proj } from '../www/js/art/iso.js';
+import { CATALOG, SHOP_ORDER } from '../www/js/game/catalog.js';
+const S = 3, c = document.getElementById('c'), g = c.getContext('2d');
+c.width = 1700; c.height = 1100; g.imageSmoothingEnabled = false;
+const room = paintRoom(11, 9);
+const rc = room.pix.toCanvas();
+g.drawImage(rc, 20, 20, rc.width * 2, rc.height * 2);
+let x = 20, y = 700;
+for (const id of SHOP_ORDER) {
+  for (let r = 0; r < (CATALOG[id].rotates ? 4 : 1); r++) {
+    const p = new IsoPainter(...CATALOG[id].size, r);
+    CATALOG[id].paint(p);
+    const s = p.bake();
+    const cv = s.pix.toCanvas();
+    if (x + cv.width * S > 1680) { x = 20; y += 140; }
+    g.drawImage(cv, x, y + 120 - cv.height * S, cv.width * S, cv.height * S);
+    x += cv.width * S + 10;
+  }
+}
+window.done = true;
+</script>

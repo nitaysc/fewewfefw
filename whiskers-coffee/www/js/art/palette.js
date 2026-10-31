@@ -1,0 +1,21 @@
+// One warm palette for the whole café, so every sprite belongs to the same world.
+export const P = {
+  ink: '#24160f',
+  woodDark: '#5b3a26', wood: '#7a4e30', woodLight: '#9c6a42', woodPale: '#c08a55',
+  oak: ['#8a5a36', '#956240', '#7f532f', '#9b6944'], oakGap: '#5e3c24',
+  cream: '#ecdfc3', creamShade: '#dccaa6', creamDark: '#c8b28a',
+  wainscot: '#5b3a26', wainscotLight: '#6e4630',
+  leaf: ['#2f5228', '#3f6b35', '#5c8f3f', '#7fb04c'],
+  terracotta: '#b8623f', terracottaDark: '#8e4a2f',
+  metal: '#b8bec0', metalMid: '#8d9496', metalDark: '#5f6668', chrome: '#e3e8e8',
+  red: '#b5483c', redDark: '#8e3329',
+  mustard: '#d29b3a', sage: '#6d8a58', sageDark: '#4f6a40', rose: '#c9786f', navy: '#3d4a6b',
+  linen: '#e8d7b0', linenShade: '#cdb98f',
+  chalk: '#33463a', chalkLine: '#e6e2d3',
+  glass: '#cfe8ee66', glassEdge: '#e9f6f8aa',
+  sky: ['#36435c', '#46506b', '#5a6178', '#6e7187'],
+  lamp: '#ffd27a', lampHot: '#fff1c4',
+  sisal: '#c9a46b', sisalDark: '#a8834f',
+  cake: ['#f2d3c4', '#e7a0a6', '#8b5a3c', '#f6e7c7', '#c75a5a'],
+  book: ['#8e3329', '#3d4a6b', '#6d8a58', '#d29b3a', '#7a4e30', '#c9786f'],
+};

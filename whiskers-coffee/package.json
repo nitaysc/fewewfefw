@@ -1,0 +1,21 @@
+{
+  "name": "whiskers-coffee",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Whiskers & Coffee — cozy online co-op cat café",
+  "scripts": {
+    "sync": "cap sync android",
+    "test": "node test/logic.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.10"
+  }
+}
