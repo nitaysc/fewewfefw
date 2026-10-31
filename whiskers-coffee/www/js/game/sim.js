@@ -2,14 +2,14 @@
 // (or alone when playing solo); guests send requests and draw the snapshots it shares.
 import { CATALOG } from './catalog.js';
 import { CustomerSystem } from './customers.js';
-import { blockedGrid, findPath, nearestFree, walkable, ROOM_W, ROOM_H, tilesOf, applyBuild } from './world.js';
+import { blockedGrid, findPath, nearestFree, walkable, ROOM_W, ROOM_H, tilesOf, applyBuild, upgradeCafe } from './world.js';
 
 const PLAYER_SPEED = 2.8, CAT_SPEED = 1.5;
 export const SPAWN = [1.5, 5.5];
 
 export class Sim {
   constructor(cafe, emit = () => {}) {
-    this.cafe = cafe;
+    this.cafe = upgradeCafe(cafe);
     this.emit = emit; // (event, data) for effects and changes
     this.players = new Map();
     this.cats = new Map();
@@ -83,12 +83,28 @@ export class Sim {
       a.path = [];
     }
     this.shop.relayout();
+    this.syncCats();
     this.emit('cafe', { by });
     this.emit('save');
     return null;
   }
 
   // ---------- cats ----------
+  // a newly adopted cat walks in through the front door
+  syncCats() {
+    const ids = new Set(this.cafe.cats.map((c) => c.id));
+    for (const id of this.cats.keys()) if (!ids.has(id)) this.cats.delete(id);
+    for (const data of this.cafe.cats) {
+      if (this.cats.has(data.id)) continue;
+      this.cats.set(data.id, { id: data.id, x: 0.5, y: 5.5, z: 0, state: 'sit', t: 0, path: [], flip: false, mood: data.mood });
+      const c = this.cats.get(data.id);
+      const spot = nearestFree(this.catGrid, 3, 5.5, 0.5, 5.5);
+      if (spot) this.catGoTo(c, spot[0] + 0.5, spot[1] + 0.5, 'happy', 3);
+      this.emit('fx', { kind: 'adopted', x: 2, y: 5.5, z: 14, name: data.name });
+      this.emit('fx', { kind: 'bell' });
+    }
+  }
+
   spawnCat(data) {
     const free = [];
     for (let y = 2; y < ROOM_H; y++) for (let x = 2; x < ROOM_W; x++) if (walkable(this.catGrid, x, y)) free.push([x, y]);

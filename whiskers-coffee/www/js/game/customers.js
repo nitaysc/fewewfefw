@@ -3,24 +3,15 @@
 // head home. Nothing here ever fails or hurries the players.
 import { CATALOG } from './catalog.js';
 import { DRINKS } from '../art/drinks.js';
-import { findPath, nearestFree, walkable, footprint, ROOM_W } from './world.js';
+import { findPath, nearestFree, walkable, footprint, ROOM_W, seededRng } from './world.js';
+export { seededRng };
 
 const SPEED = 2.0;
 export const DOOR = [0.5, 5.5];
 const NAMES = ['Hana', 'Ollie', 'June', 'Milo', 'Rosa', 'Theo', 'Ivy', 'Sam', 'Nora', 'Eli', 'Lea', 'Ben', 'Maya', 'Kai', 'Iris', 'Jonah'];
-const SEAT_Z = { chair: 9, stool: 14, armchair: 9, sofa: 9 };
 // which way a seat faces for each rotation (chairs face +y when not rotated)
 const FACING = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 
-export function seededRng(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 export const customerName = (seed) => NAMES[seed % NAMES.length];
 
 let seq = 0;
@@ -38,7 +29,7 @@ export class CustomerSystem {
   // every seat in the café with where it is, how high and which way it faces
   seats() {
     const out = [];
-    const tables = this.sim.cafe.furniture.filter((f) => CATALOG[f.type].surface && !CATALOG[f.type].station);
+    const tables = this.sim.cafe.furniture.filter((f) => CATALOG[f.type].surface && !CATALOG[f.type].station && !CATALOG[f.type].seat);
     for (const it of this.sim.cafe.furniture) {
       const def = CATALOG[it.type];
       if (!def.seat) continue;
@@ -52,7 +43,7 @@ export class CustomerSystem {
           for (const t of tables) { const dd = Math.hypot(t.x + 0.5 - x - 0.5, t.y + 0.5 - y - 0.5); if (dd < bd) { bd = dd; best = t; } }
           if (best && bd < 2.5) { const dx = best.x - x, dy = best.y - y; face = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1]; }
         }
-        out.push({ key: `${it.id}:${i},${j}`, x, y, z: SEAT_Z[it.type] ?? 9, face });
+        out.push({ key: `${it.id}:${i},${j}`, x, y, z: def.seatZ ?? 9, face });
       }
     }
     return out;

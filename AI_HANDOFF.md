@@ -14,7 +14,8 @@ an AI. Each project has its own notes:
 - `README.md` (root): "שיחקת אותה!", a Hebrew party guessing game (web code in `www/`).
 
 Ground rules:
-- Develop on branch `claude/chat-session-alr9cs`.
+- Develop on the branch your session assigns (the last rounds used
+  `claude/chat-session-alr9cs` and then `claude/coffee-game-continue-i9dl5k`).
 - Each project builds an APK on push through `.github/workflows/`. The owner downloads
   it from the repo's Releases page.
 - Keep the committed debug keystores so updates install over existing apps.

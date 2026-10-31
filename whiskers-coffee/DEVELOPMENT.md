@@ -62,13 +62,13 @@ Godot 4. I chose otherwise for three practical reasons:
   - [x] Serving, coins and tips
   - [x] Recipe unlocks
   - [x] Order-claim conflict handling in co-op
-- [ ] **4. Customisation** — partly done:
+- [x] **4. Customisation**
   - [x] Shop with prices
   - [x] Storage
   - [x] Move, turn and store furniture
-  - [ ] Walls and floors
-  - [ ] Furniture collections
-  - [ ] Cat adoption
+  - [x] Walls and floors (7 wallpapers, 6 floors, try before you buy)
+  - [x] Furniture collections: Kyoto, Cottage, Autumn, Winter (16 pieces)
+  - [x] Cat adoption (up to 6 cats, 8 coats), renaming, collars
 - [ ] 5. Progression and story: economy loop, recipes, quests, grandmother's notebook
 - [ ] 6. Polish: music, weather and seasons, photo mode
 - [x] **7. Android**

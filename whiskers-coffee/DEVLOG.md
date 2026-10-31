@@ -21,9 +21,10 @@ code. Do not use emoji as game art.
 
 ## 2. Where things live
 
-The repo `nitaysc/fewewfefw` holds several of the owner's projects. **Work on branch
-`claude/chat-session-alr9cs`** and push there; every push that touches a project folder
-builds its APK on GitHub.
+The repo `nitaysc/fewewfefw` holds several of the owner's projects. **Work on the branch
+your session assigns** (rounds so far used `claude/chat-session-alr9cs`, then
+`claude/coffee-game-continue-i9dl5k`) and push there; every push that touches a project
+folder builds its APK on GitHub, from any branch.
 
 | Folder | Project | Notes |
 |---|---|---|
@@ -65,21 +66,24 @@ game/world.js  café data model (newCafe), placement rules (canPlace), grid,
                A* pathfinding, applyBuild (buy / move / store / place). Pure data, no DOM.
 game/sim.js    Sim: players and cats on the host. Cat AI states, petting, build
                (calls applyBuild, then re-grids), snapshot(), roster()
-game/catalog.js every furniture item: name, category, price, footprint, flags
-               (seat, surface, flat, bed, perch, station, rotates) and paint()
+game/catalog.js every furniture item: name, category, set, price, footprint, flags
+               (seat, seatZ, surface, table, flat, bed, perch, station, rotates,
+               glow, fire, twinkle) and paint(); SHOP_ORDER and SETS
+game/customers.js CustomerSystem (sim.shop): customers, orders, serving
 art/pix.js     Pix raster: set/rect/line/isoline/poly/ellipse/blit/outline/toCanvas,
                plus grid() (sprites from letter rows), shade(), hash()
 art/iso.js     IsoPainter: box()/cyl()/shape() in iso units (16 per tile, z = pixels),
                4 rotations, face details, parts ordered by 3D overlap
-art/room.js    paintRoom(): plank floor, the two back walls and their features
-               (windows, chalkboard, clock, painting, shelf, door), wall caps
-art/cats.js    hand-drawn cat frames (walk1/2, sit1/2, blink, groom, sleep1/2, happy)
-               and 6 coats via palette letters
+art/room.js    paintRoom(): floor, the two back walls and their features
+               (windows, chalkboard, clock, painting, shelf, door), wall caps.
+               WALL_STYLES / FLOOR_STYLES and styleSwatch() for the shop
+art/cats.js    hand-drawn cat frames (walk1/2, sit1/2, blink, groom, sleep1/2, happy),
+               8 coats via palette letters, COLLARS (cells per frame in COLLAR_AT)
 art/people.js  chibi people from parts: 6 hair styles, skin and outfits;
                frames 0-3 walk, 4-5 idle, 6 sit; front and back views, mirrored
 art/palette.js the shared colour palette
-art/drinks.js  NEW, not wired up yet: drink recipes (DRINKS), cup and glass sprites
-               with a fill level, speech bubbles and emote icons (see section 8)
+art/drinks.js  drink recipes (DRINKS), cup and glass sprites with a fill level,
+               speech bubbles and emote icons (see section 8)
 ui/icons.js    pixel UI icons (coin, paw, hammer, rotate, check, cross, box, move,
                friend, gear...) as data URLs
 ```
@@ -121,7 +125,7 @@ Tests and tools live in `whiskers-coffee/test/`:
   | guest → host | `hello` | name and look on joining |
   | guest → host | `move` | walk to a tile |
   | guest → host | `pet` | pet a cat |
-  | guest → host | `build` | `{op}` passed to `applyBuild` |
+  | guest → host | `build` | `{op}` passed to `applyBuild` (furniture, recipes, styles, cats) |
   | guest → host | `look` | changed name or look |
   | host → guest | `welcome` | `{you, cafe, roster, code}` |
   | host → guest | `snap` | about every 90 ms: `{time, p:[[id,x,y,back,flip,moving]], c:[[id,x,y,z,state,flip]], m: money}` |
@@ -141,7 +145,8 @@ Tests and tools live in `whiskers-coffee/test/`:
   - `wc-last`: the last café opened.
 
   The `cafe` object is the whole persistent state. Add new fields with defaults in
-  `newCafe()` and **tolerate older saves that lack them**.
+  `newCafe()` **and in `upgradeCafe()`** (world.js), which `Sim` runs on every café it
+  opens, so older saves pick them up.
 - **UI style.** Pixelify Sans, wooden panels (`.panel`), cream buttons (`.btn`) and
   lamp-yellow primary buttons. No emoji: use `iconImg(name)` from `ui/icons.js`, and
   add new icons there as letter grids.
@@ -194,7 +199,9 @@ link.
 - APK on CI.
 
 Confirmed by the owner on their phone: "It's working". Their feedback, *"there isn't
-much to do in this version"*, led to customers and coffee making (section 8, now done).
+much to do in this version"*, led to customers and coffee making (section 8, done) and
+then customisation (section 8b, done): wallpapers, floors, furniture sets and adopting
+cats give the coins from serving something to go towards.
 
 **Not verified:**
 - Two real phones over the internet. The public PeerJS server was unreachable from the
@@ -252,12 +259,40 @@ covers a guest making and serving a drink.
 **Ideas for this milestone not built yet:** regulars with names and stories,
 customer–customer chatting, customers petting cats, and putting cups on tables.
 
+## 8b. Customisation (milestone 4): done
+
+Everything here is an `applyBuild` op, so it reaches the host through the existing
+`build` message and both phones use the same rules. `Sim.build()` then calls
+`syncCats()` (spawns adopted cats at the door) and broadcasts the café.
+
+| op | fields | what it does |
+|---|---|---|
+| `style` | `kind: 'wall'\|'floor', id` | buys a style once (`cafe.decor.owned`), switching later is free |
+| `adopt` | `pick` (0–2), `id`, `name?` | adopts one of `strays(cafe)` for `adoptPrice(cafe)`; max `MAX_CATS` = 6 |
+| `catname` | `id, name` | renames a cat (12 chars) |
+| `collar` | `id, collar` | puts on a collar from `COLLARS` (costs its price; "none" is free) |
+
+- **Café fields:** `cafe.decor = {wall, floor, owned: [...]}`, `cafe.adoptSeed`
+  (the shelter's three cats come from it via `seededRng`, so both phones show the same
+  strays; it advances after each adoption), and `collar` on each cat.
+- **Walls & floors tab:** tapping a style sets `S.build.preview`, which the renderer
+  uses in `ensureRoom()` instead of the café's style, so players see it in their café
+  before buying. The room is repainted only when the style key changes.
+- **Collections:** catalog items have `set: 'kyoto' | 'cottage' | 'autumn' | 'winter'`
+  and each set is a shop tab (`SETS`). New flags: `table` (gets a pendant lamp),
+  `seatZ` (seat height for customers), `glow: z` (small lamp glow), `fire` (big
+  flickering orange glow), `twinkle` (blinking fairy lights drawn in `lights()`).
+- **Cats panel:** your cats with rename and collar swatches, then the shelter.
+- **Tests:** styles, all furniture painting in 4 rotations, adoption (price, limit,
+  same strays on both phones), renaming, collars, old saves, new seat types. The
+  two-browser test covered a guest buying a floor and a fireplace, adopting, putting
+  on a collar and renaming.
+
 ## 9. Later milestones (from the owner's brief)
 
-- **Customisation:**
-  - Wall and floor styles (`cafe.walls`/floors already flow into `paintRoom`).
-  - Furniture collections: Japanese, cottagecore, autumn, Christmas.
-  - Cat adoption with new coats from `COATS`; cats get names, moods and accessories.
+- **Customisation, next steps:** wall decorations players can place (`cafe.walls`
+  features), more collections, more cat accessories (hats, bandanas), cats that like
+  particular furniture (e.g. napping by the fireplace).
 - **Story:** inheriting grandma's café; her notebook with recipes, memories and photos.
   Chapters and gentle quests such as "find the missing toy" or "help a stray kitten".
 - **Atmosphere:** weather and seasons (the rain is already in the windows), seasonal

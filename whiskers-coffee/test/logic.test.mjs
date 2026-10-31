@@ -1,5 +1,7 @@
 // Checks the shared café rules without a browser: placement, pathfinding, building and cats.
-import { newCafe, canPlace, applyBuild, blockedGrid, findPath, ROOM_W, ROOM_H, tilesOf } from '../www/js/game/world.js';
+import { newCafe, canPlace, applyBuild, blockedGrid, findPath, ROOM_W, ROOM_H, tilesOf, strays, adoptPrice, MAX_CATS, upgradeCafe } from '../www/js/game/world.js';
+import { IsoPainter } from '../www/js/art/iso.js';
+import { paintRoom, WALL_ORDER, FLOOR_ORDER } from '../www/js/art/room.js';
 import { Sim } from '../www/js/game/sim.js';
 import { CATALOG } from '../www/js/game/catalog.js';
 
@@ -79,6 +81,79 @@ check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length 
   check('the customer leaves happily afterwards', !sim2.shop.list.has(cust.id));
   check('unlock a recipe', applyBuild(c2, { op: 'recipe', id: 'cappuccino' }) === null && c2.recipes.includes('cappuccino'));
   check('snapshot carries customers', Array.isArray(sim2.snapshot().u));
+}
+
+// walls and floors: buy once, switch back for free
+{
+  const c = newCafe('Decor');
+  c.money = 500;
+  check('café starts with cream walls and oak floor', c.decor.wall === 'cream' && c.decor.floor === 'oak');
+  check('buy rose wallpaper', applyBuild(c, { op: 'style', kind: 'wall', id: 'rose' }) === null && c.decor.wall === 'rose' && c.money === 380);
+  check('switch back to cream for free', applyBuild(c, { op: 'style', kind: 'wall', id: 'cream' }) === null && c.money === 380);
+  check('switch to rose again for free', applyBuild(c, { op: 'style', kind: 'wall', id: 'rose' }) === null && c.money === 380);
+  c.money = 5;
+  check('cannot buy a floor without coins', applyBuild(c, { op: 'style', kind: 'floor', id: 'tatami' }) === 'Not enough coins' && c.decor.floor === 'oak');
+  check('unknown styles are refused', applyBuild(c, { op: 'style', kind: 'wall', id: 'lava' }) !== null);
+  let painted = true;
+  for (const w of WALL_ORDER) for (const f of FLOOR_ORDER.slice(0, 1)) { try { paintRoom(ROOM_W, ROOM_H, undefined, f, w); } catch { painted = false; } }
+  for (const f of FLOOR_ORDER) { try { paintRoom(ROOM_W, ROOM_H, undefined, f, 'cream'); } catch { painted = false; } }
+  check('every wall and floor style paints', painted);
+}
+
+// every piece of furniture paints in all four rotations
+{
+  let ok = true;
+  for (const [id, def] of Object.entries(CATALOG)) for (let r = 0; r < 4; r++) {
+    try { const p = new IsoPainter(...def.size, def.rotates ? r : 0); def.paint(p); p.bake(); } catch (e) { ok = false; console.log('  paint failed', id, r, e.message); }
+  }
+  check('all furniture paints in every rotation', ok);
+}
+
+// adopting cats
+{
+  const c = newCafe('Cats');
+  const ev = [];
+  const s = new Sim(c, (t, d) => ev.push([t, d]));
+  c.money = 10000;
+  const first = strays(c);
+  check('three different strays at the shelter', first.length === 3 && new Set(first.map((k) => k.coat)).size === 3);
+  check('strays are the same on every phone', JSON.stringify(strays(JSON.parse(JSON.stringify(c)))) === JSON.stringify(first));
+  const price = adoptPrice(c), money = c.money;
+  check('adopt a cat', s.build({ op: 'adopt', pick: 1 }) === null && c.cats.length === 3 && c.money === money - price && c.cats[2].coat === first[1].coat);
+  check('the new cat walks into the café', s.cats.has(c.cats[2].id) && ev.some(([t, d]) => t === 'fx' && d.kind === 'adopted'));
+  check('the shelter has new cats afterwards', JSON.stringify(strays(c)) !== JSON.stringify(first));
+  check('adopting gets a little dearer', adoptPrice(c) > price);
+  while (c.cats.length < MAX_CATS) s.build({ op: 'adopt', pick: 0 });
+  check('no more than six cats', s.build({ op: 'adopt', pick: 0 }) !== null && c.cats.length === MAX_CATS);
+  const id = c.cats[0].id;
+  check('rename a cat', s.build({ op: 'catname', id, name: '  Momo<b>  ' }) === null && c.cats[0].name === 'Momob');
+  check('a cat needs a name', s.build({ op: 'catname', id, name: '   ' }) !== null);
+  const m2 = c.money;
+  check('buy a collar', s.build({ op: 'collar', id, collar: 'red' }) === null && c.cats[0].collar === 'red' && c.money < m2);
+  for (let i = 0; i < 200; i++) s.step(0.05);
+  check('snapshot carries every cat', s.snapshot().c.length === MAX_CATS);
+}
+
+// saves from before decor and adoption still open
+{
+  const old = newCafe('Old');
+  delete old.decor; delete old.adoptSeed; delete old.recipes;
+  const s = new Sim(old, () => {});
+  check('old saves get walls, floors and a shelter', old.decor?.wall === 'cream' && old.adoptSeed != null && old.recipes.length === 3 && strays(old).length === 3);
+}
+
+// new seats: customers can sit on cushions, hay bales and wicker chairs
+{
+  const c = newCafe('Seats');
+  c.money = 5000;
+  c.furniture = c.furniture.filter((f) => !CATALOG[f.type].seat);
+  applyBuild(c, { op: 'buy', type: 'chabudai', x: 6, y: 6 });
+  applyBuild(c, { op: 'buy', type: 'zabuton', x: 5, y: 6 });
+  applyBuild(c, { op: 'buy', type: 'hay_bale', x: 8, y: 7 });
+  const s = new Sim(c, () => {});
+  const seats = s.shop.seats();
+  check('cushion and hay bale are seats at their own heights', seats.length === 2 && seats.some((x) => x.z === 3) && seats.some((x) => x.z === 10));
+  check('a customer sits on the cushion or bale', s.shop.spawn());
 }
 
 process.exit(failed ? 1 : 0);

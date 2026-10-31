@@ -1,13 +1,14 @@
 // Whiskers & Coffee: screens, input, building, saving and the co-op session.
 import { Renderer } from './render.js';
 import { Sim } from './game/sim.js';
-import { newCafe, uid, footprint, canPlace, furnitureAt, ROOM_W, ROOM_H } from './game/world.js';
-import { CATALOG, SHOP_ORDER } from './game/catalog.js';
+import { newCafe, uid, footprint, canPlace, furnitureAt, ROOM_W, ROOM_H, strays, adoptPrice, MAX_CATS, upgradeCafe } from './game/world.js';
+import { CATALOG, SHOP_ORDER, SETS } from './game/catalog.js';
+import { WALL_STYLES, FLOOR_STYLES, WALL_ORDER, FLOOR_ORDER, styleSwatch } from './art/room.js';
 import { HostSession, GuestSession, makeCode, cleanCode } from './net.js';
 import { personSprite, randomLook, SKINS, HAIR_COLORS, HAIR_STYLES, OUTFIT_COLORS } from './art/people.js';
 import { DRINKS, DRINK_ORDER, cupCanvas } from './art/drinks.js';
 import { seededRng, customerName } from './game/customers.js';
-import { catFrame } from './art/cats.js';
+import { catFrame, COLLARS, COLLAR_ORDER } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
 
 const $ = (s) => document.querySelector(s);
@@ -166,6 +167,7 @@ function onSimEvent(type, data) {
     S.host?.broadcast({ t: 'cafe', cafe: S.cafe });
     refreshHud();
     if (S.build) renderTray();
+    if (S.screen === 'cats' && !catsUi.editing) renderCats();
   } else if (type === 'roster') {
     S.host?.broadcast({ t: 'roster', roster: S.sim.roster() });
     refreshHud();
@@ -210,6 +212,7 @@ function onGuestMessage(m) {
       saveCafe(S.cafe, { guestOf: S.code });
       refreshHud();
       if (S.build) { if (S.build.selectedId && !S.cafe.furniture.some((f) => f.id === S.build.selectedId)) S.build.selectedId = null; renderTray(); }
+      if (S.screen === 'cats' && !catsUi.editing) renderCats();
       break;
     case 'roster': S.roster = m.roster; refreshHud(); break;
     case 'fx':
@@ -225,6 +228,7 @@ function fxFeedback(f) {
   if (f.kind === 'bell') sfx.bell();
   if (f.kind === 'coins') { sfx.coin(); if (f.by === S.myId) { buzz(30); toast(`${f.name} loves it! +${f.amount}`); } }
   if (f.kind === 'flash') tone(2400, 0.05, 'square', 0.03);
+  if (f.kind === 'adopted') { sfx.meow(); buzz(30); toast(`Welcome home, ${f.name}!`); }
 }
 
 function leaveSession() {
@@ -263,7 +267,7 @@ function currentView(now) {
   let customers = [];
   if (S.sim) {
     players = [...S.sim.players.values()].map((p) => ({ ...p, carry: p.carry?.drink, me: p.id === S.myId }));
-    cats = [...S.sim.cats.values()].map((c) => ({ ...c, coat: catData.get(c.id)?.coat, name: catData.get(c.id)?.name }));
+    cats = [...S.sim.cats.values()].map((c) => ({ ...c, coat: catData.get(c.id)?.coat, name: catData.get(c.id)?.name, collar: catData.get(c.id)?.collar }));
     customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, order: u.order, emote: u.emote, claimed: u.claimedBy, moving: u.moving, look: lookFor(u.seed), name: u.name }));
   } else if (S.snaps.length) {
     // draw guests 120ms in the past and blend between the two snapshots around that moment
@@ -286,7 +290,7 @@ function currentView(now) {
     const ca = new Map(a.c.map((c) => [c[0], c]));
     for (const c of b.c) {
       const q = ca.get(c[0]) || c, d = catData.get(c[0]);
-      cats.push({ id: c[0], x: lerp(q[1], c[1]), y: lerp(q[2], c[2]), z: lerp(q[3], c[3]), state: c[4], flip: !!c[5], coat: d?.coat, name: d?.name });
+      cats.push({ id: c[0], x: lerp(q[1], c[1]), y: lerp(q[2], c[2]), z: lerp(q[3], c[3]), state: c[4], flip: !!c[5], coat: d?.coat, name: d?.name, collar: d?.collar });
     }
   }
   return { cafe, players, cats, customers, build: S.build, time: now / 1000 };
@@ -482,7 +486,7 @@ function stepSound(key) {
 setInterval(() => { if (brew.open && !brew.id) renderBrew(); }, 1000);
 
 // ---------- decorating ----------
-const TABS = [['all', 'All'], ['furniture', 'Furniture'], ['counter', 'Counter'], ['decor', 'Decor'], ['cat', 'For cats'], ['recipes', 'Recipes'], ['storage', 'Storage']];
+const TABS = [['all', 'All'], ['furniture', 'Furniture'], ['counter', 'Counter'], ['decor', 'Decor'], ['cat', 'For cats'], ...Object.entries(SETS), ['room', 'Walls & floors'], ['recipes', 'Recipes'], ['storage', 'Storage']];
 function openBuild() {
   S.build = { tab: 'all', ghost: null, selectedId: null };
   $('#tray').hidden = false;
@@ -493,6 +497,7 @@ function openBuild() {
   renderer.resize();
 }
 function closeBuild() {
+  if (S.build?.preview) S.build.preview = null;
   S.build = null;
   $('#tray').hidden = true;
   $('.dock').style.display = '';
@@ -533,7 +538,14 @@ function renderTray() {
   if (!b) return;
   const actions = $('#trayActions');
   const coin = iconImg('coin', 2);
-  if (b.ghost) {
+  if (b.preview) {
+    const kind = b.preview.wall ? 'wall' : 'floor', id = b.preview[kind];
+    const st = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[id];
+    const owned = S.cafe.decor.owned.includes(id), current = S.cafe.decor[kind] === id;
+    actions.innerHTML = `<div class="label">${st.name}${owned ? '' : ` · ${coin} ${st.price}`}<br><small>${current ? 'This is what your café has now' : owned ? 'You own this one' : 'Have a look before you buy'}</small></div>`
+      + `<button class="btn" data-a="unpreview">${iconImg('cross', 2)}</button>`
+      + (current ? '' : `<button class="btn primary" data-a="usestyle">${iconImg('check', 2)}${owned ? 'Use' : 'Buy'}</button>`);
+  } else if (b.ghost) {
     const def = CATALOG[b.ghost.type];
     const label = b.ghost.source === 'shop' ? `${def.name} · ${coin} ${def.price}` : b.ghost.source === 'storage' ? `${def.name} from storage` : `Moving ${def.name}`;
     actions.innerHTML = `<div class="label">${label}<br><small>Tap the floor to choose a spot</small></div>`
@@ -552,7 +564,22 @@ function renderTray() {
   } else {
     actions.innerHTML = `<div class="label">Pick something to buy, or tap furniture in the café to move it.</div><button class="btn primary" data-a="done">${iconImg('check', 2)}Done</button>`;
   }
-  $('#trayTabs').innerHTML = TABS.map(([k, n]) => `<button class="chip${b.tab === k ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
+  const tabs = $('#trayTabs'), scroll = tabs.scrollLeft;
+  tabs.innerHTML = TABS.map(([k, n]) => `<button class="chip${b.tab === k ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
+  tabs.scrollLeft = scroll;
+  if (b.tab === 'room') {
+    const card = (kind, id) => {
+      const st = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[id];
+      const owned = S.cafe.decor.owned.includes(id), current = S.cafe.decor[kind] === id;
+      const on = b.preview?.[kind] === id;
+      return `<button class="item${on ? ' on' : ''}${!owned && st.price > S.cafe.money ? ' poor' : ''}" data-style="${id}" data-kind="${kind}">
+        <div class="pic"><img src="${swatchFor(kind, id)}" alt=""></div><b>${st.name}</b>
+        <span>${current ? 'In use' : owned ? 'Owned' : `${iconImg('coin', 1)}${st.price}`}</span></button>`;
+    };
+    $('#trayItems').innerHTML = `<div class="group">Walls</div>` + WALL_ORDER.map((id) => card('wall', id)).join('')
+      + `<div class="group">Floors</div>` + FLOOR_ORDER.map((id) => card('floor', id)).join('');
+    return;
+  }
   if (b.tab === 'recipes') {
     const have = S.cafe.recipes || [];
     $('#trayItems').innerHTML = DRINK_ORDER.map((id) => {
@@ -564,7 +591,7 @@ function renderTray() {
   }
   let list;
   if (b.tab === 'storage') list = Object.entries(S.cafe.inventory || {}).map(([type, n]) => ({ type, n }));
-  else list = SHOP_ORDER.filter((t) => b.tab === 'all' || CATALOG[t].cat === b.tab).map((type) => ({ type }));
+  else list = SHOP_ORDER.filter((t) => b.tab === 'all' || CATALOG[t].cat === b.tab || CATALOG[t].set === b.tab).map((type) => ({ type }));
   $('#trayItems').innerHTML = list.length ? list.map(({ type, n }) => {
     const def = CATALOG[type];
     const poor = !n && def.price > S.cafe.money;
@@ -572,6 +599,13 @@ function renderTray() {
       <div class="pic"><img src="${iconFor(type)}" alt=""></div><b>${def.name}</b>
       <span>${n ? `×${n}` : `${iconImg('coin', 1)}${def.price}`}</span></button>`;
   }).join('') : '<p class="hint">Nothing in storage yet. Use "Store" on furniture to put it away.</p>';
+}
+
+const swatchCache = new Map();
+function swatchFor(kind, id) {
+  const k = kind + id;
+  if (!swatchCache.has(k)) swatchCache.set(k, styleSwatch(kind, id).toCanvas().toDataURL());
+  return swatchCache.get(k);
 }
 
 const iconCache = new Map();
@@ -591,7 +625,22 @@ $('#tray').addEventListener('click', (e) => {
   if (!btn) return;
   const b = S.build;
   sfx.click();
-  if (btn.dataset.tab) { b.tab = btn.dataset.tab; b.ghost = null; return renderTray(); }
+  if (btn.dataset.tab) { b.tab = btn.dataset.tab; b.ghost = null; b.preview = null; b.hideId = null; return renderTray(); }
+  if (btn.dataset.style) {
+    b.preview = { [btn.dataset.kind]: btn.dataset.style };
+    return renderTray();
+  }
+  if (btn.dataset.a === 'unpreview') { b.preview = null; return renderTray(); }
+  if (btn.dataset.a === 'usestyle') {
+    const kind = b.preview.wall ? 'wall' : 'floor', id = b.preview[kind];
+    const st = (kind === 'wall' ? WALL_STYLES : FLOOR_STYLES)[id], owned = S.cafe.decor.owned.includes(id);
+    if (!owned && S.cafe.money < st.price) { toast('Not enough coins yet'); sfx.nope(); return; }
+    act('build', { op: { op: 'style', kind, id } });
+    if (!owned) sfx.coin(); else sfx.place();
+    buzz(15);
+    b.preview = null;
+    return renderTray();
+  }
   if (btn.dataset.recipe) {
     const id = btn.dataset.recipe, d = DRINKS[id];
     if ((S.cafe.recipes || []).includes(id)) return toast(`${d.name} is already on the menu`);
@@ -649,7 +698,7 @@ $('#btnCats').innerHTML = `${iconImg('paw', 4)}Cats`;
 
 $('#btnBuild').addEventListener('click', () => { sfx.click(); openBuild(); });
 $('#btnCats').addEventListener('click', () => { sfx.click(); renderCats(); show('cats'); });
-$('#catsClose').addEventListener('click', () => { sfx.click(); show('hud'); });
+$('#catsClose').addEventListener('click', () => { sfx.click(); catsUi.editing = null; show('hud'); });
 $('#btnInvite').addEventListener('click', () => {
   sfx.click();
   if (S.role === 'guest') { toast(`You're visiting your friend's café (${S.code})`); return; }
@@ -667,16 +716,70 @@ $('#pauseSound').addEventListener('click', () => { prefs.sound = !prefs.sound; s
 $('#pauseChar').addEventListener('click', () => { sfx.click(); openCharacter('pause'); });
 $('#pauseLeave').addEventListener('click', () => { sfx.click(); leaveSession(); goMenu(); });
 
+const MOOD_TEXT = { sleepy: 'Sleepy, loves warm spots', playful: 'Playful, always exploring', shy: 'Shy, takes time to trust', calm: 'Calm and friendly' };
+const catsUi = { editing: null };
+function drawCatInto(cv, coat, collar) {
+  const s = catFrame('sit1', coat, false, collar || 'none');
+  cv.width = s.w; cv.height = s.h;
+  const g = cv.getContext('2d'); g.clearRect(0, 0, s.w, s.h); g.drawImage(s.canvas, 0, 0);
+}
 function renderCats() {
   const list = S.cafe.cats;
-  $('#catList').innerHTML = list.map((c, i) => `<div class="cat-card"><canvas data-cat="${i}" width="13" height="15"></canvas>
-    <div style="flex:1"><b>${escapeHtml(c.name)}</b><small>${{ sleepy: 'Sleepy, loves warm spots', playful: 'Playful, always exploring', shy: 'Shy, takes time to trust', calm: 'Calm and friendly' }[c.mood] || ''}</small>
-    <div class="meter"><i style="width:${c.affection || 0}%"></i></div></div></div>`).join('');
-  $$('#catList canvas').forEach((cv) => {
-    const c = list[+cv.dataset.cat], s = catFrame('sit1', c.coat);
-    const g = cv.getContext('2d'); g.clearRect(0, 0, 13, 15); g.drawImage(s.canvas, 0, 0);
-  });
+  upgradeCafe(S.cafe);
+  $('#catList').innerHTML = list.map((c) => {
+    const name = catsUi.editing === c.id
+      ? `<span class="rename"><input id="catName" maxlength="12" value="${escapeHtml(c.name)}" autocomplete="off"><button class="chip on" data-a="savename" data-cat="${c.id}">OK</button></span>`
+      : `<b>${escapeHtml(c.name)}</b><button class="chip mini" data-a="rename" data-cat="${c.id}">Rename</button>`;
+    const collars = COLLAR_ORDER.map((k) => {
+      const col = COLLARS[k], on = (c.collar || 'none') === k;
+      return `<button class="sw tiny${on ? ' on' : ''}${k === 'none' ? ' none' : ''}" style="background:${col.color || 'transparent'}" data-a="collar" data-cat="${c.id}" data-collar="${k}" aria-label="${col.name}">${col.bell ? '<i></i>' : ''}</button>`;
+    }).join('');
+    return `<div class="cat-card"><canvas data-coat="${c.coat}" data-collar="${c.collar || 'none'}"></canvas>
+      <div class="cat-info"><div class="cat-name">${name}</div><small>${MOOD_TEXT[c.mood] || ''}</small>
+      <div class="meter"><i style="width:${c.affection || 0}%"></i></div>
+      <div class="collars"><span>Collar</span>${collars}</div></div></div>`;
+  }).join('');
+  // the shelter: three cats looking for a home
+  const full = list.length >= MAX_CATS, price = adoptPrice(S.cafe);
+  $('#adoptList').innerHTML = full
+    ? '<p class="hint">Your café is full of cats and love. Every one of them is home.</p>'
+    : strays(S.cafe).map((c, i) => `<div class="cat-card stray"><canvas data-coat="${c.coat}" data-collar="none"></canvas>
+      <div class="cat-info"><b>${escapeHtml(c.name)}</b><small>${MOOD_TEXT[c.mood]}</small>
+      <button class="btn primary adopt${S.cafe.money < price ? ' poor' : ''}" data-a="adopt" data-pick="${i}">${iconImg('heart', 2)}Adopt ${iconImg('coin', 2)}${price}</button></div></div>`).join('');
+  $('#adoptHead').textContent = full ? 'The shelter' : `Adopt a cat (${list.length}/${MAX_CATS})`;
+  $$('#cats canvas[data-coat]').forEach((cv) => drawCatInto(cv, cv.dataset.coat, cv.dataset.collar));
+  if (catsUi.editing) { const inp = $('#catName'); inp?.focus(); inp?.select(); }
 }
+$('#cats').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-a]');
+  if (!btn) return;
+  const a = btn.dataset.a, id = btn.dataset.cat;
+  const cat = S.cafe.cats.find((c) => c.id === id);
+  sfx.click();
+  if (a === 'rename') { catsUi.editing = id; return renderCats(); }
+  if (a === 'savename') return saveCatName();
+  if (a === 'collar' && cat) {
+    const k = btn.dataset.collar, col = COLLARS[k];
+    if ((cat.collar || 'none') === k) return;
+    if (S.cafe.money < col.price) { toast('Not enough coins yet'); sfx.nope(); return; }
+    act('build', { op: { op: 'collar', id, collar: k } });
+    if (col.price) { sfx.coin(); toast(`${cat.name} looks lovely! -${col.price}`); }
+    return;
+  }
+  if (a === 'adopt') {
+    const price = adoptPrice(S.cafe), pick = +btn.dataset.pick;
+    if (S.cafe.money < price) { toast(`Adopting costs ${price} coins. Serve a few more drinks!`); sfx.nope(); return; }
+    act('build', { op: { op: 'adopt', pick, id: uid('c') } });
+    sfx.coin();
+  }
+});
+function saveCatName() {
+  const id = catsUi.editing, name = $('#catName')?.value.trim();
+  catsUi.editing = null;
+  if (id && name) act('build', { op: { op: 'catname', id, name } });
+  renderCats();
+}
+$('#cats').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'catName') saveCatName(); });
 
 // ---------- character creator ----------
 let charReturn = 'menu';

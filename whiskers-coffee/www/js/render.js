@@ -26,6 +26,7 @@ export class Renderer {
     this.roomKey = '';
     this.glow = makeGlow(46, 23, '#ffcf7a');
     this.smallGlow = makeGlow(22, 11, '#ffd99a');
+    this.fireGlow = makeGlow(44, 22, '#ff9a4a');
     this.heart = heartPix().toCanvas();
     this.zzz = zPix().toCanvas();
     this.resize();
@@ -72,10 +73,12 @@ export class Renderer {
     return this.sprites.get(key);
   }
 
-  ensureRoom(cafe) {
-    const key = JSON.stringify(cafe.walls);
+  // preview: { wall, floor } shown while trying a style in the shop
+  ensureRoom(cafe, preview) {
+    const wall = preview?.wall || cafe.decor?.wall || 'cream', floor = preview?.floor || cafe.decor?.floor || 'oak';
+    const key = JSON.stringify(cafe.walls) + wall + floor;
     if (key !== this.roomKey) {
-      const r = paintRoom(ROOM_W, ROOM_H, cafe.walls);
+      const r = paintRoom(ROOM_W, ROOM_H, cafe.walls, floor, wall);
       this.room = { canvas: r.pix.toCanvas(), ax: r.ax, ay: r.ay, windows: r.windows };
       this.roomKey = key;
     }
@@ -95,7 +98,7 @@ export class Renderer {
   draw(view) {
     const { cafe } = view;
     const g = this.g, t = view.time;
-    this.ensureRoom(cafe);
+    this.ensureRoom(cafe, view.build?.preview);
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#1d130d';
     g.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -228,7 +231,7 @@ export class Renderer {
       case 'perch': frame = Math.floor(t * 0.5 + phase) % 6 === 0 ? 'blink' : (Math.floor(t * 1.2) % 2 ? 'sit1' : 'sit2'); break;
       default: frame = Math.floor(t * 0.6 + phase) % 7 === 0 ? 'blink' : (Math.floor(t * 1.1 + phase) % 2 ? 'sit1' : 'sit2');
     }
-    const s = catFrame(frame, c.coat, !!c.flip);
+    const s = catFrame(frame, c.coat, !!c.flip, c.collar || 'none');
     const px = wx(c.x, c.y), py = wy(c.x, c.y, c.z || 0);
     if (!c.z) this.shadow(px, py, 6);
     this.blit(s.canvas, px - Math.floor(s.w / 2), py - s.h + 2, s.w, s.h);
@@ -268,14 +271,15 @@ export class Renderer {
     for (const it of cafe.furniture) {
       const def = CATALOG[it.type];
       const [fw, fd] = footprint(it);
-      if (it.type.startsWith('table')) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, hang: true });
-      if (def.station) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, hang: true });
-      if (it.type === 'floor_lamp') lamps.push({ x: it.x + 0.5, y: it.y + 0.5, z: 34, small: true });
+      if (def.table || def.station) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, hang: true });
+      if (def.glow) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, z: def.glow, small: true });
+      if (def.fire) lamps.push({ x: it.x + fw / 2, y: it.y + fd / 2, fire: true });
     }
     g.globalCompositeOperation = 'lighter';
     for (const l of lamps) {
-      const flick = 0.85 + Math.sin(t * 3 + l.x * 5) * 0.03 + Math.sin(t * 11 + l.y) * 0.02;
-      const glow = l.small ? this.smallGlow : this.glow;
+      let flick = 0.85 + Math.sin(t * 3 + l.x * 5) * 0.03 + Math.sin(t * 11 + l.y) * 0.02;
+      if (l.fire) flick = 0.8 + Math.sin(t * 7 + l.x) * 0.08 + Math.sin(t * 17) * 0.06;
+      const glow = l.fire ? this.fireGlow : l.small ? this.smallGlow : this.glow;
       const px = wx(l.x, l.y), py = wy(l.x, l.y);
       this.blit(glow.canvas, px - glow.w / 2, py - glow.h / 2 - (l.small ? 0 : 6), glow.w, glow.h, 0.42 * flick);
     }
@@ -291,6 +295,19 @@ export class Renderer {
       g.fillStyle = '#2f4a3a'; g.fillRect(sx - 3 * z, sy, 7 * z, 2 * z);
       g.fillStyle = '#3c5c48'; g.fillRect(sx - 4 * z, sy + 2 * z, 9 * z, 2 * z);
       g.fillStyle = '#fff1c4'; g.fillRect(sx - z, sy + 4 * z, 3 * z, z);
+    }
+    // fairy lights on holiday trees blink in turn
+    const TW = [[-6, 12], [5, 15], [-3, 21], [4, 26], [-2, 32], [2, 37], [7, 9], [0, 18], [-5, 27]];
+    const TWC = ['#ff6a6a', '#ffe08a', '#8fd1ff', '#9be37a'];
+    for (const it of cafe.furniture) {
+      if (!CATALOG[it.type].twinkle || view.build?.hideId === it.id) continue;
+      const bx = wx(it.x + 0.5, it.y + 0.5), by = wy(it.x + 0.5, it.y + 0.5);
+      TW.forEach(([dx, dz], i) => {
+        if ((Math.floor(t * 2.2) + i) % 3 === 0) return;
+        const [sx, sy] = this.toScreen(bx + dx, by - dz);
+        g.fillStyle = TWC[(i + Math.floor(t * 0.7)) % TWC.length];
+        g.fillRect(sx, sy, this.zoom, this.zoom);
+      });
     }
     // warm evening grade over everything
     g.fillStyle = 'rgba(255,170,90,0.05)';

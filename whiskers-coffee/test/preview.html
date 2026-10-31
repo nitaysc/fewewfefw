@@ -8,7 +8,7 @@ import { paintRoom } from '../www/js/art/room.js';
 import { IsoPainter, proj } from '../www/js/art/iso.js';
 import { CATALOG, SHOP_ORDER } from '../www/js/game/catalog.js';
 const S = 3, c = document.getElementById('c'), g = c.getContext('2d');
-c.width = 1700; c.height = 1100; g.imageSmoothingEnabled = false;
+c.width = 1700; c.height = 1500; g.imageSmoothingEnabled = false;
 const room = paintRoom(11, 9);
 const rc = room.pix.toCanvas();
 g.drawImage(rc, 20, 20, rc.width * 2, rc.height * 2);

@@ -1,8 +1,9 @@
 // The shared café: layout, cats and money, plus the walkable grid and pathfinding.
 // This is plain data so it can be saved, sent over the network and checked anywhere.
 import { CATALOG } from './catalog.js';
-import { DEFAULT_WALLS } from '../art/room.js';
+import { DEFAULT_WALLS, WALL_STYLES, FLOOR_STYLES } from '../art/room.js';
 import { DRINKS } from '../art/drinks.js';
+import { COATS, COLLARS } from '../art/cats.js';
 
 export const ROOM_W = 11, ROOM_H = 9;
 // tiles kept clear so the front door always works
@@ -36,7 +37,55 @@ export function newCafe(name = 'Our Café') {
     inventory: {},
     recipes: ['espresso', 'latte', 'hotchoc'],
     stats: { served: 0 },
+    decor: { wall: 'cream', floor: 'oak', owned: ['cream', 'oak'] },
+    adoptSeed: Math.floor(Math.random() * 1e9),
   };
+}
+
+// older saves come from before some features; fill in what they lack
+export function upgradeCafe(cafe) {
+  cafe.recipes = cafe.recipes || ['espresso', 'latte', 'hotchoc'];
+  cafe.stats = cafe.stats || { served: 0 };
+  cafe.decor = cafe.decor || { wall: 'cream', floor: 'oak', owned: ['cream', 'oak'] };
+  if (!cafe.decor.owned) cafe.decor.owned = ['cream', 'oak'];
+  if (cafe.adoptSeed == null) cafe.adoptSeed = Math.floor(Math.random() * 1e9);
+  cafe.inventory = cafe.inventory || {};
+  return cafe;
+}
+
+// a small seeded random generator, so every phone derives the same results from a seed
+export function seededRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- cat adoption ----------
+export const MAX_CATS = 6;
+export const CAT_MOODS = ['sleepy', 'playful', 'shy', 'calm'];
+const CAT_NAMES = ['Pudding', 'Miso', 'Tofu', 'Pepper', 'Maple', 'Sesame', 'Noodle', 'Clover', 'Waffle', 'Juniper', 'Pickles', 'Hazel', 'Toast', 'Plum', 'Ginger', 'Olive', 'Bean', 'Sprout', 'Cocoa', 'Nutmeg'];
+export const adoptPrice = (cafe) => 150 + 60 * Math.max(0, cafe.cats.length - 2);
+export const cleanName = (s, max = 12) => String(s || '').replace(/[<>]/g, '').trim().slice(0, max);
+
+// the cats waiting at the shelter right now; the same on every phone for the same café
+export function strays(cafe) {
+  const rng = seededRng(cafe.adoptSeed || 1);
+  // three different coats, preferring ones the café doesn't have yet
+  const have = new Set(cafe.cats.map((c) => c.coat));
+  const coats = Object.keys(COATS).map((k) => [k, rng() + (have.has(k) ? 1 : 0)]).sort((a, b) => a[1] - b[1]).map(([k]) => k);
+  const taken = new Set(cafe.cats.map((c) => c.name));
+  const out = [];
+  for (let i = 0; i < 3; i++) {
+    let name = CAT_NAMES[Math.floor(rng() * CAT_NAMES.length)];
+    for (let k = 0; taken.has(name) && k < 30; k++) name = CAT_NAMES[Math.floor(rng() * CAT_NAMES.length)];
+    taken.add(name);
+    out.push({ name, coat: coats[i], mood: CAT_MOODS[Math.floor(rng() * CAT_MOODS.length)] });
+  }
+  return out;
 }
 
 export const footprint = (it) => {
@@ -179,6 +228,43 @@ export function applyBuild(cafe, op) {
     if (cafe.money < d.unlock) return 'Not enough coins';
     cafe.money -= d.unlock;
     cafe.recipes.push(op.id);
+  } else if (op.op === 'style') {
+    // wallpaper or floor: buying it once keeps it, so switching back later is free
+    const list = op.kind === 'wall' ? WALL_STYLES : op.kind === 'floor' ? FLOOR_STYLES : null;
+    const st = list && list[op.id];
+    if (!st) return 'Unknown style';
+    upgradeCafe(cafe);
+    if (cafe.decor[op.kind] === op.id) return null;
+    if (!cafe.decor.owned.includes(op.id)) {
+      if (cafe.money < st.price) return 'Not enough coins';
+      cafe.money -= st.price;
+      cafe.decor.owned.push(op.id);
+    }
+    cafe.decor[op.kind] = op.id;
+  } else if (op.op === 'adopt') {
+    upgradeCafe(cafe);
+    if (cafe.cats.length >= MAX_CATS) return 'The café has all the cats it can love';
+    const s = strays(cafe)[op.pick | 0];
+    if (!s) return 'That cat already found a home';
+    const price = adoptPrice(cafe);
+    if (cafe.money < price) return 'Not enough coins';
+    cafe.money -= price;
+    cafe.cats.push({ id: op.id || uid('c'), name: cleanName(op.name) || s.name, coat: s.coat, mood: s.mood, affection: 0, collar: 'none' });
+    cafe.adoptSeed = (cafe.adoptSeed * 7 + 13) % 1e9;
+  } else if (op.op === 'catname') {
+    const c = cafe.cats.find((k) => k.id === op.id);
+    const name = cleanName(op.name);
+    if (!c) return 'That cat is gone';
+    if (!name) return 'Cats need a name';
+    c.name = name;
+  } else if (op.op === 'collar') {
+    const c = cafe.cats.find((k) => k.id === op.id);
+    const col = COLLARS[op.collar];
+    if (!c || !col) return 'Unknown collar';
+    if ((c.collar || 'none') === op.collar) return null;
+    if (cafe.money < col.price) return 'Not enough coins';
+    cafe.money -= col.price;
+    c.collar = op.collar;
   } else return 'Unknown action';
   cafe.modified = Date.now();
   return null;
