@@ -301,4 +301,11 @@ export const RU = {
   'Trousers': 'Брюки', 'Shorts': 'Шорты', 'Skirt': 'Юбка',
   'Beret': 'Берет', 'Cap': 'Кепка', 'Beanie': 'Шапка', 'Bow': 'Бант', 'Flower': 'Цветок', 'Headband': 'Ободок', 'Square': 'Квадратные', 'Sunglasses': 'Солнечные',
   'Barista': 'Бариста',
+  'Character': 'Персонаж', 'Custom': 'Свой', 'Cat-ear barista': 'Бариста с ушками', 'Hoodie': 'Худи', 'Pink coat': 'Розовое пальто',
+  'Green jacket': 'Зелёная куртка', 'White sweater': 'Белый свитер', 'Olive jacket': 'Оливковая куртка', 'Cap and apron': 'Кепка и фартук', 'Black apron': 'Чёрный фартук',
+  'Pick a ready-made barista, or Custom to build your own on the other tabs.': 'Выберите готового бариста или «Свой», чтобы собрать персонажа на других вкладках.',
+  'Cozy': 'Уют', 'Grey sofa': 'Серый диван', 'Pink armchair': 'Розовое кресло', 'Green stool': 'Зелёный табурет', 'Cream stool': 'Кремовый табурет',
+  'Table with cake': 'Столик с тортом', 'Coffee table': 'Журнальный столик', 'Coffee table with treats': 'Столик со сладостями', 'Potted fern': 'Папоротник в горшке',
+  'Cat house': 'Кошачий домик', 'Menu board': 'Доска с меню', 'Welcome sign': 'Табличка «Добро пожаловать»', 'Hanging plant': 'Подвесное растение', 'Paw print mat': 'Коврик с лапкой',
+  'Leather sofa': 'Кожаный диван',
 };

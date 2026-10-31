@@ -9,6 +9,7 @@ import { personSprite } from './art/people.js';
 import { cupCanvas, bubbleCanvas, bubblePix, cupPix, emotePix } from './art/drinks.js';
 import { plateCanvas, platePix } from './art/foods.js';
 import { t as tr } from './i18n.js';
+import { refImg, refsReady, personPose, personScale, catPose, furniturePic, PERSON_HEIGHT } from './art/refsprites.js';
 import { icon } from './ui/icons.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
@@ -64,9 +65,18 @@ export class Renderer {
   }
 
   sprite(type, rot) {
-    const key = type + ':' + rot;
+    const key = type + ':' + rot + (refsReady() ? ':ref' : '');
     if (!this.sprites.has(key)) {
       const def = CATALOG[type];
+      // art from the reference sheets, standing on the front of its footprint
+      const pic = furniturePic(type, def.rotates ? rot : 0);
+      if (pic) {
+        const [fw, fd] = def.size, [w0, d0] = (def.rotates ? rot : 0) % 2 ? [fd, fw] : [fw, fd];
+        const w = pic.w * pic.scale, h = pic.h * pic.scale;
+        const bx = (w0 / 2 - d0 / 2) * 16, by = (w0 / 2 + d0 / 2) * 8 + (w0 + d0) * (def.flat ? 0 : 4) - (def.flat ? 0 : 3);
+        this.sprites.set(key, { canvas: pic.canvas, ax: w / 2 - bx, ay: h - by + pic.lift, w, h });
+        return this.sprites.get(key);
+      }
       const p = new IsoPainter(def.size[0], def.size[1], def.rotates ? rot : 0);
       def.paint(p);
       // painted at the café's base size, then doubled with smooth edges and a soft outline
@@ -220,6 +230,7 @@ export class Renderer {
   }
 
   drawPerson(p, t) {
+    if (p.look?.model && this.drawRefPerson(p, t)) return;
     const frame = p.sitting ? 6 : p.moving ? Math.floor(t * 8) % 4 : (Math.floor(t * 1.5 + (p.x * 3)) % 2) + 4;
     const s = personSprite(p.look, p.view || 'front', frame, !!p.flip);
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
@@ -241,10 +252,39 @@ export class Renderer {
     }
   }
 
+  // people from the reference sheets
+  drawRefPerson(p, t) {
+    const pose = personPose(p.look.model, p, t);
+    const im = pose && refImg(pose.name, pose.flip);
+    if (!im) return false;
+    const sc = personScale(p.look.model), w = im.w * sc, h = im.h * sc;
+    const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0), floor = wy(p.x, p.y, 0);
+    if (!p.z) this.shadow(px, py, 8);
+    const g = this.g;
+    if (pose.sit) this.blit(im.canvas, px - w / 2, floor + 3 - h, w, h);
+    else if (pose.cut) {
+      // seated without a sitting picture: the top of them shows above the seat
+      const part = 0.6, [sx, sy] = this.toScreen(px - w / 2, py + 4 - h * part);
+      g.drawImage(im.canvas, 0, 0, im.w, Math.round(im.h * part), sx, sy, Math.round(w * this.zoom), Math.round(h * part * this.zoom));
+    } else {
+      const bob = pose.bob ? (Math.floor(t * 8) % 2 ? -1 : 0) : 0;
+      this.blit(im.canvas, px - w / 2, py + 2 - h + bob, w, h);
+    }
+    let thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
+    if (!thing && p.state === 'drink' && p.items && !p.table && !pose.sit) { const d = p.items.find((i) => i.kind === 'drink'); if (d) thing = cupCanvas(d.id, d.extra); }
+    if (thing) {
+      const hx = (p.flip ? -1 : 1) * w * 0.3;
+      const hy = pose.sit || pose.cut ? py - h * 0.25 : py - h * 0.42;
+      this.blit(thing, px + hx - thing.width / 2, hy - thing.height / 2, thing.width, thing.height);
+    }
+    return true;
+  }
+
   // order bubbles: every item still wanted, who's making it, and ticks for what has arrived
   bubble(u, t) {
     const bob = Math.round(Math.sin(t * 2.5 + u.x) * 1);
-    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + (u.z ? 25 : 31) + bob);
+    const tall = u.look?.model ? PERSON_HEIGHT - 27 : 0;
+    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + (u.z ? 25 : 31) + tall + bob);
     if (u.emote) { const c = bubbleCanvas(u.emote); this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height); return; }
     if (u.state !== 'order' || !u.items?.length) return;
     const key = JSON.stringify(u.items.map((i) => [i.kind, i.id, i.extra, i.byColor, i.done]));
@@ -285,7 +325,7 @@ export class Renderer {
   personAt(list, sx, sy) {
     let best = null, bd = 16 * this.zoom;
     for (const u of list) {
-      const [cx, cy] = this.toScreen(wx(u.x, u.y), wy(u.x, u.y, (u.z || 0) + 12));
+      const [cx, cy] = this.toScreen(wx(u.x, u.y), wy(u.x, u.y, (u.z || 0) + (u.look?.model ? 20 : 12)));
       const d = Math.hypot(cx - sx, cy - sy);
       if (d < bd) { bd = d; best = u; }
     }
@@ -303,8 +343,17 @@ export class Renderer {
       case 'perch': frame = Math.floor(t * 0.5 + phase) % 6 === 0 ? 'blink' : (Math.floor(t * 1.2) % 2 ? 'sit1' : 'sit2'); break;
       default: frame = Math.floor(t * 0.6 + phase) % 7 === 0 ? 'blink' : (Math.floor(t * 1.1 + phase) % 2 ? 'sit1' : 'sit2');
     }
-    const s = catFrame(frame, c.coat, !!c.flip, c.collar || 'none');
     const px = wx(c.x, c.y), py = wy(c.x, c.y, c.z || 0);
+    // cats from the reference sheets where there is a picture for that coat
+    const cp = catPose(c.coat, c.state, t, phase), ci = cp && refImg(cp.name, !!c.flip);
+    if (ci) {
+      const w = ci.w * cp.scale, h = ci.h * cp.scale;
+      if (!c.z) this.shadow(px, py, 7);
+      this.blit(ci.canvas, px - w / 2, py + 2 - h, w, h);
+      if (c.state === 'sleep' && Math.floor(t * 0.7 + phase) % 2) { const k = (t * 0.7 + phase) % 1; this.blit(this.zzz, px + 6 + k * 4, py - h - 2 - k * 8, 5, 5, 1 - k); }
+      return;
+    }
+    const s = catFrame(frame, c.coat, !!c.flip, c.collar || 'none');
     if (!c.z) this.shadow(px, py, 6);
     this.blit(s.canvas, px - Math.floor(s.w / 2), py - s.h + 2, s.w, s.h);
     if (c.state === 'sleep' && Math.floor(t * 0.7 + phase) % 2) {
@@ -324,7 +373,7 @@ export class Renderer {
 
   nameTag(p) {
     if (!p.name) return;
-    const g = this.g, [sx, sy] = this.toScreen(wx(p.x, p.y), wy(p.x, p.y) - 34);
+    const g = this.g, [sx, sy] = this.toScreen(wx(p.x, p.y), wy(p.x, p.y) - (p.look?.model ? PERSON_HEIGHT + 6 : 34));
     const size = Math.max(10, Math.round(this.zoom * 3.2));
     g.font = `600 ${size}px "Pixelify Sans", monospace`;
     g.textAlign = 'center';

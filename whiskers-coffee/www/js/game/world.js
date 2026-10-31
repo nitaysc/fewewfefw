@@ -27,9 +27,10 @@ export function newCafe(name = 'Our Café') {
       f('espresso', 4, 2), f('counter', 6, 2), f('pastry', 7, 2),
       f('rug', 6, 5),
       f('table_round', 6, 6), f('chair', 5, 6, 3), f('chair', 7, 6, 1),
-      f('table_square', 3, 6), f('chair', 3, 5, 0), f('chair', 3, 7, 2),
+      f('table_cake', 3, 6), f('chair', 3, 5, 0), f('chair', 3, 7, 2),
       f('armchair', 9, 4, 1), f('plant_big', 10, 2), f('plant_small', 0, 1),
       f('bookshelf', 10, 0), f('cat_tree', 9, 7), f('cat_bed', 1, 8), f('floor_lamp', 10, 4),
+      f('sofa_grey', 6, 8, 0), f('menu_board', 2, 2), f('potted_fern', 10, 8), f('cattree_small', 1, 1),
     ],
     cats: [
       { id: uid('c'), name: 'Mochi', coat: 'cream', mood: 'sleepy', affection: 0 },

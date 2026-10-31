@@ -14,6 +14,7 @@ import { seededRng, customerName, clockText, OPEN_AT } from './game/customers.js
 import { catFrame, COLLARS, COLLAR_ORDER } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
 import { t, tr, setLang, getLang, LANGUAGES, translatePage } from './i18n.js';
+import { loadRefs, refImg, MODELS, MODEL_ORDER, CUSTOMER_MODELS, catPose } from './art/refsprites.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -27,7 +28,7 @@ const store = {
 const prefs = Object.assign({
   id: uid('p'),
   name: 'Barista',
-  look: { skin: SKINS[2], hair: HAIR_COLORS[1], style: 'bob', eyes: 'dot', eyeColor: EYE_COLORS[0], top: 'tee', shirt: OUTFIT_COLORS[2], bottom: 'pants', pants: '#2f3f4a', shoes: SHOE_COLORS[0], apron: true, apronColor: '#e8d7b0' },
+  look: { model: 'catear', skin: SKINS[2], hair: HAIR_COLORS[1], style: 'bob', eyes: 'dot', eyeColor: EYE_COLORS[0], top: 'tee', shirt: OUTFIT_COLORS[2], bottom: 'pants', pants: '#2f3f4a', shoes: SHOE_COLORS[0], apron: true, apronColor: '#e8d7b0' },
   sound: true,
   lang: (navigator.language || '').startsWith('ru') ? 'ru' : 'en',
 }, store.get('wc-prefs', {}));
@@ -309,7 +310,12 @@ $('#dayNext').addEventListener('click', () => { sfx.click(); act('nextDay'); if 
 // ---------- the view each frame ----------
 const lookCache = new Map();
 function lookFor(seed) {
-  if (!lookCache.has(seed)) lookCache.set(seed, randomLook(seededRng(seed)));
+  if (!lookCache.has(seed)) {
+    // most customers are characters from the reference art; some are mixed from parts
+    const rng = seededRng(seed), L = randomLook(rng);
+    if (rng() < 0.8) L.model = CUSTOMER_MODELS[Math.floor(rng() * CUSTOMER_MODELS.length)];
+    lookCache.set(seed, L);
+  }
   return lookCache.get(seed);
 }
 function whoIs(id) {
@@ -878,6 +884,8 @@ function relabel() {
 const MOOD_TEXT = { sleepy: 'Sleepy, loves warm spots', playful: 'Playful, always exploring', shy: 'Shy, takes time to trust', calm: 'Calm and friendly' };
 const catsUi = { editing: null };
 function drawCatInto(cv, coat, collar) {
+  const cp = catPose(coat, 'sit', 0, 0), ri = cp && refImg(cp.name);
+  if (ri) { cv.width = ri.w; cv.height = ri.h; const g = cv.getContext('2d'); g.clearRect(0, 0, ri.w, ri.h); g.drawImage(ri.canvas, 0, 0); return; }
   const s = catFrame('sit1', coat, false, collar || 'none');
   cv.width = s.canvas.width; cv.height = s.canvas.height;
   const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(s.canvas, 0, 0);
@@ -940,8 +948,8 @@ function saveCatName() {
 $('#cats').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'catName') saveCatName(); });
 
 // ---------- character creator ----------
-let charReturn = 'menu', charTab = 'face', charView = 'front';
-const CHAR_TABS = [['face', 'Face'], ['hair', 'Hair'], ['clothes', 'Clothes'], ['extras', 'Extras']];
+let charReturn = 'menu', charTab = 'model', charView = 'front';
+const CHAR_TABS = [['model', 'Character'], ['face', 'Face'], ['hair', 'Hair'], ['clothes', 'Clothes'], ['extras', 'Extras']];
 const NAMES = { dot: 'Dot', round: 'Round', happy: 'Happy', sleepy: 'Sleepy', lashes: 'Lashes', sparkle: 'Sparkly', short: 'Short', bob: 'Bob', long: 'Long', bun: 'Bun', curly: 'Curly', spiky: 'Spiky', ponytail: 'Ponytail', twintails: 'Twin tails', afro: 'Afro', sidepart: 'Side part', buzz: 'Buzz cut', wavy: 'Wavy', tee: 'T-shirt', sweater: 'Sweater', hoodie: 'Hoodie', shirt: 'Shirt', stripes: 'Stripes', dress: 'Dress', pants: 'Trousers', shorts: 'Shorts', skirt: 'Skirt', beret: 'Beret', cap: 'Cap', beanie: 'Beanie', bow: 'Bow', flower: 'Flower', headband: 'Headband', square: 'Square', sun: 'Sunglasses' };
 function openCharacter(ret) {
   charReturn = ret;
@@ -957,6 +965,7 @@ function renderCharOptions() {
   const opt = (label, body) => `<div class="opt"><span>${t(label)}</span>${body}</div>`;
   $('#charTabs').innerHTML = CHAR_TABS.map(([k, n]) => `<button class="chip${charTab === k ? ' on' : ''}" data-ctab="${k}">${t(n)}</button>`).join('');
   let html = '';
+  if (charTab === 'model') html = `<p class="hint">${t('Pick a ready-made barista, or Custom to build your own on the other tabs.')}</p>` + `<div class="chips">${['', ...MODEL_ORDER].map((m) => `<button class="chip${(L.model || '') === m ? ' on' : ''}" data-key="model" data-val="${m}">${m ? t(MODELS[m].name) : t('Custom')}</button>`).join('')}</div>`;
   if (charTab === 'face') html = opt('Skin', sw(SKINS, 'skin')) + opt('Eyes', chips(EYE_STYLES, 'eyes')) + opt('Eye colour', sw(EYE_COLORS, 'eyeColor')) + opt('Details', `<div class="chips">${toggle('freckles', 'Freckles')}<button class="chip${L.blush !== false ? ' on' : ''}" data-key="blush" data-toggle="1">${t('Blush')}</button></div>`) + opt('Glasses', chips(GLASSES, 'glasses'));
   if (charTab === 'hair') html = opt('Hair', chips(HAIR_STYLES, 'style')) + opt('Hair colour', sw(HAIR_COLORS, 'hair'));
   if (charTab === 'clothes') html = opt('Top', chips(TOPS, 'top')) + opt('Top colour', sw(OUTFIT_COLORS, 'shirt')) + opt('Bottom', chips(BOTTOMS, 'bottom')) + opt('Bottom colour', sw(PANTS_COLORS, 'pants')) + opt('Shoes', sw(SHOE_COLORS, 'shoes'));
@@ -988,9 +997,13 @@ $('#charDone').addEventListener('click', () => {
 function drawCharPreview(now) {
   if (S.screen !== 'character') return;
   const cv = $('#charPreview'), g = cv.getContext('2d');
-  const s = personSprite(prefs.look, charView, Math.floor(now / 160) % 4, false);
+  g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cv.width, cv.height);
-  g.drawImage(s.canvas, 0, 0);
+  const M = prefs.look.model && MODELS[prefs.look.model];
+  const im = M && refImg(charView === 'back' && M.back ? M.back : M.front);
+  if (im) { const k = Math.min(cv.width / im.w, cv.height / im.h); g.drawImage(im.canvas, (cv.width - im.w * k) / 2, cv.height - im.h * k, im.w * k, im.h * k); return; }
+  const s = personSprite(prefs.look, charView, Math.floor(now / 160) % 4, false);
+  g.drawImage(s.canvas, (cv.width - 32 * 2) / 2, cv.height - 58 * 2, 64, 116);
 }
 (function loop(now) { requestAnimationFrame(loop); drawCharPreview(now); })(0);
 
@@ -1069,6 +1082,14 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S.c
 translatePage();
 labelHud();
 goMenu();
+// the reference art loads in the background; redraw furniture and icons once it's here
+loadRefs().then(() => {
+  renderer.sprites.clear(); iconCache.clear();
+  if (S.build) renderTray();
+  if (S.screen === 'cats') renderCats();
+  const lc = refImg('orange_sit');
+  if (lc) { const c = $('#logoCat'); c.width = lc.w; c.height = lc.h; c.getContext('2d').drawImage(lc.canvas, 0, 0); }
+});
 requestAnimationFrame(frame);
 
 // hooks for automated tests

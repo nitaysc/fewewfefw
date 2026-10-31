@@ -514,6 +514,49 @@ round moved the whole game a big step toward that style.
 - Cats: hand-drawn 2× frames with stripes and calico patches like the reference sheet.
 - People: a longer walk cycle (the references show 4–5 frames) and an idle blink.
 
+## 8h. Round 9: the art now comes from the owner's reference sheets
+
+The owner wanted the art "exactly like the references". There is no image generator in
+this environment, so the sprites were **cut out of the reference sheets themselves**
+(`docs/art-references/*.jpg`, which the owner supplied for this game) and are used directly.
+
+**Pipeline (re-runnable):**
+1. `python3 tools/extract.py www/img/ref` (needs numpy, pillow, scipy): for each named box in
+   `S` (coordinates in half-size preview pixels of a sheet), flood-fills the paper
+   background from the edges, drops specks, finds the art's pixel grid (cell about 4.5–4.8
+   sheet pixels) by minimising the colour spread inside cells, takes each cell's median
+   colour, reduces to a 40-colour palette and saves a PNG plus `manifest.json`.
+2. `python3 tools/clean.py`: removes the pale halo left by the paper, turns the pale
+   shadows under furniture into soft dark shadows and drops stray scraps.
+3. Copy the manifest into `www/js/art/refmanifest.js` (a one-line Python snippet in the
+   commit that added it; any JSON-to-JS export works).
+
+**In the game** (`www/js/art/refsprites.js`):
+- `loadRefs()` loads every PNG at startup (main.js), then clears the sprite caches so
+  furniture redraws. Until they load, or for anything without a picture, the code-drawn art
+  is used.
+- People: `MODELS` (barista, cat-ear barista, hoodie, pink coat, green and olive jacket,
+  white sweater, cap & apron, black apron). `look.model` selects one, and the character creator has
+  a Character tab with a Custom option that keeps the parts-based look. Customers are 80%
+  models. `personPose()` picks front, back, side-walk frames or the seated-with-cup picture;
+  models without a seated picture show their top 60% above the seat (`cut`). Everyone is
+  scaled to `PERSON_HEIGHT` (46 world px), so bubbles and name tags sit higher for models.
+- Cats: `catPose()` for orange/tabby, calico, grey, black and tuxedo (sit, walk cycle, sleep,
+  groom, happy); cream and siamese still use the code-drawn cats.
+- Furniture: `FURNITURE` maps catalog types to pictures per quarter turn (mirrored for the
+  other facing) with a width in world px; `render.sprite()` anchors them on the front of
+  their footprint. New "Cozy" set in the catalog: grey sofa, pink armchair, green and
+  cream stools, table with cake, coffee tables, potted fern, cat house, menu board,
+  welcome sign, hanging plant, paw mat. Seat heights and table surfaces were raised
+  to match the pictures (chair 13, sofa/armchair 11, stool 15, round table 20).
+- New cafés start with some Cozy pieces.
+
+**What still uses code-drawn art:** walls, floor, windows, the espresso bar, counters,
+pastry case, bookshelf, lamps, the Kyoto/Cottage/Autumn/Winter sets, cream/siamese cats,
+the drink and food counters, bubbles and UI. The reference scene's counter and display case
+are front-on and don't match the isometric counters, so they weren't used. More pictures can be added by
+adding boxes to `tools/extract.py` and entries in `refsprites.js`.
+
 ## 9. Later milestones (from the owner's brief)
 
 - **Customisation, next steps:** wall decorations players can place (`cafe.walls`
