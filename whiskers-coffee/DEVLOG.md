@@ -557,6 +557,15 @@ the drink and food counters, bubbles and UI. The reference scene's counter and d
 are front-on and don't match the isometric counters, so they weren't used. More pictures can be added by
 adding boxes to `tools/extract.py` and entries in `refsprites.js`.
 
+**New art from the owner:** `tools/ART_PROMPTS.md` holds the style block and ready prompts
+the owner uses to generate new sheets in the same style (counter pieces, seated
+characters, seats from all four sides, new characters, cats, decor, seasonal sets).
+`tools/auto_extract.py <sheet> <prefix>` cuts any such sheet automatically (no boxes
+needed if sprites are well spaced on a flat background), writes a numbered contact sheet,
+and updates both manifests. Priorities when sheets arrive: counter/espresso/cake case
+(replace the code-drawn counters), seated poses for every model (replace the `cut`
+fallback), and all four facings for seats (replace the mirrored pictures).
+
 ## 9. Later milestones (from the owner's brief)
 
 - **Customisation, next steps:** wall decorations players can place (`cafe.walls`

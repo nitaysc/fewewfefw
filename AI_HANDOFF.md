@@ -31,3 +31,6 @@ Working notes for the café game:
 - After each push, give the owner the release link:
   `https://github.com/nitaysc/fewewfefw/releases/tag/whiskers-coffee-v0.1.<run number>`
   (the build takes about two minutes).
+- The owner makes new art with the prompts in `whiskers-coffee/tools/ART_PROMPTS.md`. When
+  they send a sheet, cut it with `tools/auto_extract.py` and map the sprites in
+  `www/js/art/refsprites.js` (dev log section 8h).
