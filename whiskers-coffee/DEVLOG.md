@@ -14,8 +14,10 @@ online together in the same café. Players walk around, pet autonomous cats, dec
 with furniture bought with shared coins, and (next) serve patient customers by making
 drinks.
 
-There is **no stress, no timers, no failure**. That is a hard design rule from the
-owner. The art direction comes from warm, dark-wood pixel cafés: cream walls, wood
+It stays **cozy: no angry customers, no game over**. The original rule was "no failure
+at all"; in round 5 the owner asked for real mistakes (spills, toppled cream, orders
+that have to be remade) and a day/closing cycle, so those exist now, but customers
+are always patient and nothing is ever lost for good. The art direction comes from warm, dark-wood pixel cafés: cream walls, wood
 paneling, rainy windows, warm lamps and plants. All assets are original and drawn in
 code. Do not use emoji as game art.
 
@@ -85,8 +87,14 @@ art/palette.js the shared colour palette
 art/drinks.js  recipes (DRINKS), EXTRAS, stars and tips, the layered "build" of a
                drink, drawDrink() for big and small cups, surfaceMap() (the top seen
                from above: latte art, cocoa, cream...), bubbles and emotes
-brew/station.js the barista station: full-screen counter scene, STEPS (one
-               minigame per recipe step), scoring (see section 8c)
+brew/station.js the drink counter: TOOLS on shelves (cups, coffee, milk, cold,
+               sweet, toppings), pouring/spills/wipe/bin, judging (section 8c)
+brew/kitchen.js the food counter: plate bases, ingredients placed freely, sauces,
+               shakers, undo/bin, scoring (section 8d)
+art/foods.js   FOODS recipes, INGREDIENTS / SAUCES / SHAKERS / BASES and their art,
+               scorePlate(), idealPlate(), plateCanvas()
+i18n.js        t(), msg()/tr() for host messages, translatePage(); lang/ru.js
+               holds Russian keyed by the English text (section 8e)
 ui/icons.js    pixel UI icons (coin, paw, hammer, rotate, check, cross, box, move,
                friend, gear...) as data URLs
 ```
@@ -334,6 +342,74 @@ float up over the customer).
 **Testing the station.** `window.__wc.station` exposes the station; the Playwright
 driver used in development reads `station.cur` and plays each mechanic with real
 pointer events (hold until the band, click on the beat, circles, swipes, traces).
+
+## 8c. Drinks, round 3: tools, free-form making, mistakes
+
+The owner's partner played it: still too samey, wanted more detail, freedom and real
+mistakes. So the counter is now **tool-driven** (`brew/station.js`):
+
+- Pick a cup (`VESSELS`), then any tool from six shelves (`TOOLS[k].tab`). Nothing
+  forces an order; a glowing tool (`suggest()`) and the recipe card guide you.
+- Mechanics per tool: `hold` (shot, water, cold milk/water, pour milk, cream, steam/
+  froth heat), `tap` (ice, syrups, fruit, tea bag, marshmallows, mint), `circle`
+  (grinder crank, melting chocolate), `timing` (tamp), `shake` (cocoa, cinnamon,
+  matcha whisk, the wiping rag), `trace` (latte art, drizzles; drawing freely works).
+- The espresso needs grinding first; a tamped shot scores higher (`shotQ`).
+- Steam or froth fills the jug with what the drink needs (`release()`): steaming gives
+  silky milk plus a little foam, frothing gives lots of foam. Picking the wrong one
+  leaves the wrong ratio. Overheating burns the milk; past 1.25 it boils over.
+- **Mistakes:** `pour()` returns what spilled over the rim; spills and toppled cream
+  set `b.messy` and serving is blocked until the rag wipes it. The bin restarts.
+- **Judging** (`judge()` in `art/drinks.js`): each `need` key is scored (amounts with a
+  tolerance, counts, toppings), extra ingredients and the wrong cup cost points, and
+  the card shows notes ("Too much: Cold milk"). `q < 0.35` means the customer kindly
+  asks for a remake (`deliver()` sends a `refused` effect and keeps the claim).
+- 16 drinks (`DRINK_ORDER`); `START_DRINKS` are free, the rest unlock in the Menu tab.
+  Extras: cream, caramel (drizzle), cinnamon, vanilla.
+
+## 8d. Food
+
+`art/foods.js` and `brew/kitchen.js`. Ten dishes (cakes, salads, toast, pancakes,
+croissant, cookies, fruit bowl). Choose a base, then tap the plate to place an
+ingredient, drag things to arrange them, drag them off the plate to drop them (they
+fall and count as `dropped`), draw sauces, swipe shakers. Undo and bin. A recipe only
+asks for a few things (`need`); anything else is decoration and earns a small bonus.
+
+## 8e. Orders, tips, days, languages, customisation, decorating
+
+- **Orders** are `c.items = [{kind: 'drink'|'food', id, extra, by, done}]`; a customer
+  may want one or two things. Claims are per item (`claim(pid, id, idx)`), so two
+  players can each make a part. Bubbles show every item, the claimer's colour tag,
+  a "<name> is making it" label, and a tick for what has arrived.
+- **Tips** go on the customer's table when they leave (`cafe.tips`); tap the coins to
+  collect (`tip` action). Snapshot `tp`.
+- **Days:** `cafe.day = {n, min, phase: open|closing|closed, rain, today}`. 8:00–20:00
+  in about 9 real minutes (`MIN_PER_SEC`). Busier at lunch. At closing no one new comes;
+  when the last guest leaves the summary screen appears on both phones and either
+  player opens the next day (`nextDay`). Pause menu: close early. Windows follow the
+  time of day (`skyFor()` → renderer `rain()` tint, sun, evening dimming).
+- **Sitting:** seated people are drawn 6 px lower (hips on the seat, legs hanging).
+- **Languages:** English and Russian (pause menu and title screen). Pixelify Sans's
+  Cyrillic subset is bundled. Add strings with `t('English text')`; host errors use
+  `msg()` so the guest translates them. `npm test` checks every Russian line keeps
+  the same `{placeholders}`.
+- **Character:** tabs Face / Hair / Clothes / Extras: 6 eye styles and 7 colours,
+  freckles, blush, glasses, 12 hairstyles and 14 colours, 6 tops, trousers/shorts/
+  skirt, shoes, apron, 6 hats with colours. Customers use the same parts.
+- **Decorating:** hold furniture (or just drag it) to pick it up and drop it; drag an
+  item straight out of the shop into the café; the tray is smaller and folds away,
+  and the café keeps its zoom.
+
+**Messages added this round:** `claim/unclaim/brewed {id, idx, q}`, `drop`, `tip {id}`,
+`nextDay`, `closeEarly`. Snapshot: `p[6]` = carried id (`f:` prefix for food),
+`p[7]` = extra; `u = [id, x, y, z, back, flip, state, seed, items, emote, moving]`
+with items as `[isFood, id, extra, by, done]`; `d = [n, min, phase, rain]`; `tp`.
+
+**Tested:** 73+ logic checks; every drink and dish made by its recipe gets 3 stars; a
+latte made by hand in the browser (grind, tamp, shot, steam, pour, art) scored 0.95;
+spill → blocked → wipe → serve; a cake plated by dragging; furniture moved by hold and
+drag and dragged in from the shop; tips; a two-browser co-op run with an English host
+and a Russian guest (claims, the "is making it" label, serving, tips, day end, next day).
 
 ## 9. Later milestones (from the owner's brief)
 

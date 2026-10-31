@@ -1,10 +1,12 @@
-// The barista station: a close-up of the counter where a drink is made by hand. Each
-// recipe step is a small hands-on moment (turn the grinder crank, tamp on the beat, hold
-// to pull the shot, steam milk to the warm zone, trace latte art, dust cocoa...). Steps
-// are scored for a star rating that adds to the tip, but nothing can go wrong: every
-// drink gets finished and every customer is happy with it.
+// The barista station: a close-up of the counter where drinks are made by hand, your
+// own way. Pick a cup, then use any tool on the shelves below (grind, tamp, pull a shot,
+// steam or froth milk, pour, pump syrups, drop in ice, swirl cream, trace latte art...).
+// Pour too long and it spills over, pile on too much cream and it topples: wipe it up or
+// bin the drink and start again. When it's ready, serve it: the drink is judged against
+// the recipe (amounts, cup, toppings) for a star rating that decides the tip.
 import { Pix, shade, mix, hash } from '../art/pix.js';
-import { DRINKS, EXTRAS, C, INK, VESSELS, newBuild, addLayer, fillOf, applyIdeal, drawDrink, surfaceMap, guideShape, stepsFor, starsFor, orderName, MAP_SIZE } from '../art/drinks.js';
+import { DRINKS, EXTRAS, C, INK, VESSELS, VESSEL_ORDER, COMPONENT_NAMES, COUNTED, TOPPINGS, newBuild, pour, fillOf, drawDrink, surfaceMap, guideShape, needFor, starsFor, judge, orderName, MAP_SIZE } from '../art/drinks.js';
+import { t } from '../i18n.js';
 
 const SW = 180, SH = 100;
 const CUP = { x: 86, by: 80 };
@@ -13,31 +15,50 @@ const CRANK = { x: 33, y: 33, r: 6 };
 const SPOUT = { x: 86, y: 51 };
 const JUG_HOME = { x: 140, by: 79 };
 const SLOT = { x: 156, by: 80 };
+export const REFUSE_BELOW = 0.35;
 
-// what every step is called, how it plays and what it says
-export const STEPS = {
-  grind: { name: 'Grind the beans', mech: 'circle', view: 'bar', turns: 3, hint: 'Turn the crank in circles to grind the beans' },
-  tamp: { name: 'Tamp', mech: 'timing', view: 'bar', hint: 'Tap when the marker reaches the middle' },
-  shot: { name: 'Pull the shot', mech: 'hold', view: 'bar', band: [0.8, 0.95], speed: 0.42, hint: 'Hold to pull the shot, let go in the gold zone' },
-  milk: { name: 'Steam the milk', mech: 'hold', view: 'bar', band: [0.6, 0.77], speed: 0.33, temp: true, hint: 'Hold to steam the milk, let go when it is warm' },
-  foam: { name: 'Froth the milk', mech: 'hold', view: 'bar', band: [0.6, 0.78], speed: 0.33, temp: true, hint: 'Hold to froth the milk, let go at a fluffy foam' },
-  pour: { name: 'Pour the milk', mech: 'hold', view: 'bar', band: [0.82, 0.95], speed: 0.3, hint: 'Hold to pour, stop in the gold zone' },
-  cream: { name: 'Whipped cream', mech: 'hold', view: 'bar', band: [0.66, 0.88], speed: 0.45, hint: 'Hold to swirl the cream, let go in the gold zone' },
-  art: { name: 'Latte art', mech: 'trace', view: 'top', hint: 'Trace the dots with your finger to pour the art' },
-  caramel: { name: 'Caramel drizzle', mech: 'trace', view: 'top', shape: 'zigzag', color: C.caramel, width: 0.045, z: 1, hint: 'Trace the zigzag to drizzle caramel' },
-  choc: { name: 'Melt the chocolate', mech: 'circle', view: 'top', turns: 2.5, hint: 'Stir in circles to melt the chocolate' },
-  whisk: { name: 'Whisk the matcha', mech: 'shake', view: 'top', count: 10, hint: 'Swipe back and forth to whisk' },
-  cocoa: { name: 'Dust with cocoa', mech: 'shake', view: 'top', count: 6, dust: C.cocoa, hint: 'Swipe back and forth over the cup to dust cocoa' },
-  cinnamon: { name: 'Cinnamon', mech: 'shake', view: 'top', count: 5, dust: C.cinnamon, hint: 'Swipe back and forth over the cup to shake cinnamon' },
-  marsh: { name: 'Marshmallows', mech: 'tap', view: 'top', count: 3, hint: 'Tap the drink to drop in marshmallows' },
-  ice: { name: 'Add ice', mech: 'tap', view: 'bar', count: 3, hint: 'Tap to drop in ice cubes' },
-  berry: { name: 'Mash strawberries', mech: 'tap', view: 'bar', count: 5, hint: 'Tap to mash the strawberries' },
+// every tool on the counter: which shelf it's on, what it's called and how it plays
+export const TOOLS = {
+  demi: { tab: 'cups', vessel: 'demi' }, cup: { tab: 'cups', vessel: 'cup' }, mug: { tab: 'cups', vessel: 'mug' }, glass: { tab: 'cups', vessel: 'glass' }, tall: { tab: 'cups', vessel: 'tall' },
+  grind: { tab: 'coffee', name: 'Grind', mech: 'circle', view: 'bar', turns: 3, hint: 'Turn the crank in circles to grind the beans' },
+  tamp: { tab: 'coffee', name: 'Tamp', mech: 'timing', view: 'bar', hint: 'Tap when the marker reaches the middle' },
+  shot: { tab: 'coffee', name: 'Pull shot', mech: 'hold', view: 'bar', pour: 'espresso', rate: 0.26, hint: 'Hold to pull the shot. Let go in the gold zone' },
+  water: { tab: 'coffee', name: 'Hot water', mech: 'hold', view: 'bar', pour: 'water', rate: 0.32, hint: 'Hold to pour hot water. Let go in the gold zone' },
+  teabag: { tab: 'coffee', name: 'Tea bag', mech: 'tap', view: 'bar', count: 'teabag', max: 1, hint: 'Tap to drop in a tea bag' },
+  steam: { tab: 'milk', name: 'Steam milk', mech: 'hold', view: 'bar', heat: 'steam', hint: 'Hold to steam the milk. Let go when it is warm' },
+  froth: { tab: 'milk', name: 'Froth milk', mech: 'hold', view: 'bar', heat: 'froth', hint: 'Hold to froth the milk into a thick foam. Let go when warm' },
+  pourmilk: { tab: 'milk', name: 'Pour milk', mech: 'hold', view: 'bar', pour: 'jug', rate: 0.28, hint: 'Hold to pour the milk, then the foam. Let go in the gold zone' },
+  art: { tab: 'milk', name: 'Latte art', mech: 'trace', view: 'top', hint: 'Trace the dots with your finger to pour the art' },
+  ice: { tab: 'cold', name: 'Ice', mech: 'tap', view: 'bar', count: 'ice', max: 4, hint: 'Tap to drop in ice cubes' },
+  coldmilk: { tab: 'cold', name: 'Cold milk', mech: 'hold', view: 'bar', pour: 'coldmilk', rate: 0.3, hint: 'Hold to pour cold milk. Let go in the gold zone' },
+  coldwater: { tab: 'cold', name: 'Cold water', mech: 'hold', view: 'bar', pour: 'coldwater', rate: 0.32, hint: 'Hold to pour cold water. Let go in the gold zone' },
+  berry: { tab: 'cold', name: 'Strawberries', mech: 'tap', view: 'bar', each: ['berry', 0.044], hint: 'Tap to mash strawberries into the glass' },
+  lemon: { tab: 'cold', name: 'Lemon', mech: 'tap', view: 'bar', each: ['lemon', 0.06], hint: 'Tap to squeeze a lemon' },
+  orange: { tab: 'cold', name: 'Orange', mech: 'tap', view: 'bar', each: ['orange', 0.11], hint: 'Tap to squeeze an orange' },
+  icecream: { tab: 'cold', name: 'Ice cream', mech: 'tap', view: 'bar', count: 'icecream', max: 2, hint: 'Tap to add a scoop of ice cream' },
+  vanilla: { tab: 'sweet', name: 'Vanilla syrup', mech: 'tap', view: 'bar', each: ['vanilla', 0.04], hint: 'Tap to pump vanilla syrup' },
+  caramelsyrup: { tab: 'sweet', name: 'Caramel syrup', mech: 'tap', view: 'bar', each: ['caramelsyrup', 0.04], hint: 'Tap to pump caramel syrup' },
+  chocsyrup: { tab: 'sweet', name: 'Chocolate sauce', mech: 'tap', view: 'bar', each: ['chocsyrup', 0.04], hint: 'Tap to pump chocolate sauce' },
+  chai: { tab: 'sweet', name: 'Chai syrup', mech: 'tap', view: 'bar', each: ['chai', 0.04], hint: 'Tap to pump chai syrup' },
+  choc: { tab: 'sweet', name: 'Chocolate', mech: 'circle', view: 'top', turns: 2.5, hint: 'Stir in circles to melt the chocolate' },
+  matcha: { tab: 'sweet', name: 'Matcha', mech: 'shake', view: 'top', count: 10, hint: 'Swipe back and forth to whisk the matcha' },
+  cream: { tab: 'top', name: 'Whipped cream', mech: 'hold', view: 'bar', cream: true, hint: 'Hold to swirl the cream. Let go in the gold zone, more topples over' },
+  drizzle: { tab: 'top', name: 'Caramel drizzle', mech: 'trace', view: 'top', color: C.caramel, top: 'drizzle', hint: 'Draw a drizzle over the drink (the zigzag is a good start)' },
+  chocdrizzle: { tab: 'top', name: 'Chocolate drizzle', mech: 'trace', view: 'top', color: C.chocsyrup, top: 'chocdrizzle', hint: 'Draw a chocolate drizzle over the drink' },
+  cocoa: { tab: 'top', name: 'Cocoa', mech: 'shake', view: 'top', count: 6, dust: C.cocoa, top: 'cocoa', hint: 'Swipe back and forth to dust cocoa' },
+  cinnamon: { tab: 'top', name: 'Cinnamon', mech: 'shake', view: 'top', count: 5, dust: C.cinnamon, top: 'cinnamon', hint: 'Swipe back and forth to shake cinnamon' },
+  marsh: { tab: 'top', name: 'Marshmallows', mech: 'tap', view: 'top', count: 'marsh', max: 6, hint: 'Tap the drink to drop in marshmallows' },
+  mint: { tab: 'top', name: 'Mint', mech: 'tap', view: 'top', top: 'mint', max: 3, hint: 'Tap to add a mint leaf' },
 };
-const GRADED = new Set(['hold', 'timing', 'trace']);
-const praise = (s) => (s >= 0.85 ? 'Perfect!' : s >= 0.55 ? 'Nice!' : 'Good');
+export const TABS = [['cups', 'Cups'], ['coffee', 'Coffee'], ['milk', 'Milk'], ['cold', 'Cold'], ['sweet', 'Sweet'], ['top', 'Toppings']];
+const HEAT_BAND = [0.6, 0.8];
+
+// which tool makes each part of a recipe
+const MAKES = { espresso: 'shot', water: 'water', tea: 'water', teabag: 'teabag', coldmilk: 'coldmilk', coldwater: 'coldwater', berry: 'berry', lemon: 'lemon', orange: 'orange', icecream: 'icecream', ice: 'ice', vanilla: 'vanilla', caramelsyrup: 'caramelsyrup', chocsyrup: 'chocsyrup', chai: 'chai', choc: 'choc', matcha: 'matcha', cream: 'cream', drizzle: 'drizzle', chocdrizzle: 'chocdrizzle', cocoa: 'cocoa', cinnamon: 'cinnamon', marsh: 'marsh', mint: 'mint', art: 'art', milk: 'pourmilk', foam: 'pourmilk' };
 
 export class Station {
-  // els: { root, canvas, title, for, steps, end, hint, close }, hooks: { sound(name), done(quality), close() }
+  // els: { root, canvas, title, for, needs, end, hint, close, tabs, tools, serve, wipe, bin }
+  // hooks: { sound(name), done(quality), close(), toast(text) }
   constructor(els, hooks) {
     this.el = els; this.hooks = hooks;
     this.small = document.createElement('canvas'); this.small.width = SW; this.small.height = SH;
@@ -45,6 +66,9 @@ export class Station {
     this.g = els.canvas.getContext('2d');
     this.open = false;
     this.bar = paintBar();
+    this.tops = {};
+    this.tab = 'cups';
+    this.icons = new Map();
     const c = els.canvas;
     const pt = (e) => {
       const r = c.getBoundingClientRect(), dpr = this.dpr || 1;
@@ -55,27 +79,36 @@ export class Station {
     const up = (e) => { if (!this.down) return; this.down = false; this.input('up', ...pt(e)); };
     c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
     els.close.addEventListener('click', () => { this.hide(); hooks.close(); });
-    els.end.addEventListener('click', (e) => { if (e.target.closest('[data-serve]')) { this.hide(); hooks.done(this.quality); } });
-    window.addEventListener('resize', () => this.open && this.resize());
+    els.tabs.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { this.tab = b.dataset.tab; this.hooks.sound('click'); this.renderTools(); } });
+    els.tools.addEventListener('click', (e) => { const b = e.target.closest('[data-tool]'); if (b) this.pick(b.dataset.tool); });
+    els.serve.addEventListener('click', () => this.trySERVE());
+    els.wipe.addEventListener('click', () => this.pick('wipe'));
+    els.bin.addEventListener('click', () => this.binIt());
+    els.end.addEventListener('click', (e) => {
+      if (e.target.closest('[data-serve]')) { this.hide(); hooks.done(this.quality); }
+      if (e.target.closest('[data-keep]')) { this.result = null; this.el.end.innerHTML = ''; this.renderCard(); }
+    });
+    // the shelf below can change height, so follow the stage's real size
+    new ResizeObserver(() => this.open && this.resize()).observe(c.parentElement);
   }
 
   start(drink, extra, forName) {
     this.drink = drink; this.extra = extra || ''; this.forName = forName;
-    this.b = newBuild(drink, this.extra);
-    this.keys = stepsFor(drink, this.extra);
-    this.results = [];
-    this.i = -1;
-    this.pf = { at: 'grinder', grounds: 0, tamped: 0 };
+    this.need = needFor(drink, this.extra);
+    this.b = newBuild(drink, this.extra, null);
+    this.pf = { at: 'grinder', grounds: 0, tamped: 0, tampQ: 0.6, left: 0 };
+    this.jug = null;
     this.beans = 1; this.crank = -Math.PI / 2;
-    this.fx = []; this.popup = null; this.finished = false;
-    this.topBg = paintTop(this.b.vessel);
+    this.fx = []; this.popup = null; this.result = null; this.puddle = 0;
+    this.tool = null; this.cur = null; this.tab = 'cups';
     this.open = true;
     this.el.root.hidden = false;
-    this.el.title.textContent = orderName(drink, this.extra);
-    this.el.for.textContent = forName ? `for ${forName}` : '';
+    this.el.title.textContent = t(DRINKS[drink].name) + (this.extra ? ' + ' + t(EXTRAS[this.extra].name) : '');
+    this.el.for.textContent = forName ? t('for {name}', { name: forName }) : '';
     this.el.end.innerHTML = '';
     this.resize();
-    this.next();
+    this.renderCard(); this.renderTools();
+    this.el.hint.textContent = t('Pick a cup to start');
     const loop = (now) => { if (!this.open) return; requestAnimationFrame(loop); this.frame(now / 1000); };
     this.last = performance.now() / 1000;
     requestAnimationFrame(loop);
@@ -90,66 +123,147 @@ export class Station {
     this.ox = Math.round((c.width - SW * this.scale) / 2); this.oy = Math.round((c.height - SH * this.scale) / 2);
   }
 
-  // ---------- step flow ----------
-  next() {
-    this.i++;
-    if (this.i >= this.keys.length) return this.finish();
-    const key = this.keys[this.i], cfg = STEPS[key];
-    this.cur = { key, cfg, t: 0, v: 0, held: false, acc: 0, count: 0, covered: new Set(), lastAng: null, lastX: null, dir: 0, travel: 0, anim: null, stroke: null };
-    const b = this.b, d = DRINKS[b.id];
-    // things each step sets up before the player starts
-    if (key === 'shot') { this.pf.at = 'machine'; this.cur.base = fillOf(b); }
-    if (key === 'pour') { this.cur.base = fillOf(b); this.cur.layer = d.pour; }
-    if (key === 'choc') { addLayer(b, 'choc', 0.4); b.top = '#3a1a10'; b.chunks = 1; }
-    if (key === 'whisk') { addLayer(b, 'matcha', 0.3); b.top = '#4f7a33'; b.froth = 0; }
-    if (key === 'art') this.cur.guide = guideShape(d.art);
-    if (key === 'caramel') this.cur.guide = guideShape('zigzag');
-    this.el.hint.textContent = cfg.hint;
-    this.renderCard();
+  // ---------- choosing tools ----------
+  pick(key) {
+    const b = this.b;
+    this.hooks.sound('click');
+    if (this.result) return;
+    if (key === 'wipe') { this.tool = 'wipe'; this.cur = { key: 'wipe', cfg: { mech: 'shake', view: 'bar', count: 6 }, count: 0, t: 0 }; this.el.hint.textContent = t('Swipe back and forth to wipe up'); return this.renderTools(); }
+    const cfg = TOOLS[key];
+    if (cfg.vessel) {
+      if (b.vessel && fillOf(b) + b.ice + (b.counts.icecream || 0) > 0) { this.say('Put this drink in the bin first to change the cup'); return; }
+      b.vessel = cfg.vessel; b.dirty = true; this.hooks.sound('clink');
+      this.tool = null; this.cur = null;
+      this.el.hint.textContent = t('Now choose what goes in. The glowing tool is a good next step');
+      this.tab = this.suggest() ? TOOLS[this.suggest()].tab : this.tab;
+      this.renderCard(); return this.renderTools();
+    }
+    if (!b.vessel) { this.say('Pick a cup first'); return; }
+    if (key === 'shot' && this.pf.grounds < 0.95) { this.say('Grind the beans first'); return; }
+    if (key === 'tamp' && this.pf.grounds < 0.95) { this.say('Grind the beans first'); return; }
+    if (key === 'grind' && this.pf.grounds >= 0.95) { this.say('The coffee is ground. Tamp it, then pull the shot'); return; }
+    if (key === 'pourmilk' && !this.jug?.ready) { this.say('Steam or froth the milk first'); return; }
+    if (key === 'art' && !b.amt.milk) { this.say('Pour the milk first'); return; }
+    this.tool = key;
+    this.cur = { key, cfg, t: 0, v: 0, held: false, acc: 0, count: 0, covered: new Set(), lastAng: null, lastX: null, dir: 0, travel: 0, stroke: null };
+    if (key === 'shot') this.pf.at = 'machine';
+    if (key === 'art') this.cur.guide = DRINKS[this.drink].art ? guideShape(DRINKS[this.drink].art) : null;
+    if (cfg.top === 'drizzle' || cfg.top === 'chocdrizzle') this.cur.guide = guideShape('zigzag');
+    if (cfg.heat) this.jug = { kind: cfg.heat, temp: this.jug?.ready ? 0.3 : 0.1, ready: false };
+    if (key === 'choc') { pour(b, 'choc', 0); b.chunks = 1; b.top = '#3a1a10'; this.cur.choc = 0; }
+    if (key === 'matcha') { if (!b.amt.matcha) pour(b, 'matcha', 0.3); b.top = '#4f7a33'; b.froth = 0; }
+    this.el.hint.textContent = t(cfg.hint);
+    this.renderTools();
   }
 
-  complete(score) {
-    const c = this.cur;
-    if (c.done) return;
-    c.done = true;
-    const graded = GRADED.has(c.cfg.mech);
-    this.results[this.i] = { score, graded };
-    this.popup = { text: graded ? praise(score) : 'Done!', t: 0, stars: graded ? starsFor(score) : 0 };
-    this.hooks.sound(graded && score >= 0.85 ? 'perfect' : 'step');
-    this.renderCard();
-    setTimeout(() => { if (this.open && this.cur === c) this.next(); }, 750);
+  say(text) { this.hooks.toast(t(text)); this.hooks.sound('nope'); }
+
+  binIt() {
+    if (this.result) return;
+    if (!this.b.vessel) return;
+    if (!this.binArmed || performance.now() - this.binArmed > 2500) { this.binArmed = performance.now(); this.hooks.toast(t('Tap the bin again to throw this drink away')); return; }
+    this.binArmed = 0;
+    this.b = newBuild(this.drink, this.extra, null);
+    this.puddle = 0; this.jug = null; this.tool = null; this.cur = null; this.tab = 'cups';
+    this.hooks.sound('bin');
+    this.el.hint.textContent = t('Fresh start! Pick a cup');
+    this.renderCard(); this.renderTools();
   }
 
-  finish() {
-    this.finished = true;
-    this.b.straw = VESSELS[this.b.vessel].straw;
-    this.b.dirty = true;
-    const g = this.results.filter((r) => r.graded);
-    this.quality = g.length ? g.reduce((a, r) => a + r.score, 0) / g.length : 1;
-    const stars = starsFor(this.quality);
-    this.cur = null;
-    this.el.hint.textContent = stars === 3 ? 'A perfect drink!' : stars === 2 ? 'Looks lovely!' : 'Made with love!';
-    this.el.end.innerHTML = `<div class="st-rating">${starRow(stars)}</div><button class="btn primary" data-serve>Take it to ${escapeHtml(this.forName || 'the customer')}</button>`;
-    this.renderCard();
-    this.hooks.sound('done');
+  // the next tool that would help, following the recipe
+  suggest() {
+    const b = this.b, need = this.need;
+    if (!b.vessel) return DRINKS[this.drink].vessel;
+    for (const [k, want] of Object.entries(need)) {
+      if (this.done(k, want)) continue;
+      if (k === 'espresso') return this.pf.grounds < 0.95 ? 'grind' : !this.pf.tamped ? 'tamp' : 'shot';
+      if (k === 'tea' && !b.counts.teabag) return 'teabag';
+      if (k === 'milk' || k === 'foam') {
+        if (b.amt.milk && k === 'foam' && b.amt.foam === undefined && !this.jug?.ready) return need.foam > 0.3 ? 'froth' : 'steam';
+        if (!this.jug?.ready) return (need.foam || 0) > 0.3 ? 'froth' : 'steam';
+        return 'pourmilk';
+      }
+      return MAKES[k];
+    }
+    return null;
+  }
+  done(k, want) {
+    const b = this.b;
+    if (k === 'ice') return b.ice >= want;
+    if (k === 'marsh') return b.marsh.length >= want;
+    if (COUNTED.has(k)) return (b.counts[k] || 0) >= want;
+    if (k === 'cream') return b.cream >= 0.6;
+    if (k === 'art') return b.artScore > 0;
+    if (TOPPINGS.has(k)) return (b.tops[k] || 0) >= 0.99;
+    return Math.abs((b.amt[k] || 0) - want) <= Math.max(0.08, want * 0.45) * 0.4;
+  }
+
+  trySERVE() {
+    if (this.result) return;
+    const b = this.b;
+    if (!b.vessel) { this.say('Pick a cup first'); return; }
+    if (b.messy) { this.say('Wipe up the spill first'); return; }
+    if (this.cur?.held) return;
+    const r = judge(b, this.drink, this.extra);
+    this.quality = r.q; this.result = r; this.tool = null; this.cur = null;
+    b.straw = VESSELS[b.vessel].straw; b.dirty = true;
+    const stars = starsFor(r.q), bad = r.q < REFUSE_BELOW;
+    const notes = r.notes.slice(0, 3).map(([s, k]) => `<li>${t(s, { thing: k ? (k.startsWith('v:') ? t(VESSELS[k.slice(2)].name) : t(COMPONENT_NAMES[k] || k)) : '' })}</li>`).join('');
+    this.el.end.innerHTML = `<div class="st-rating">${bad ? `<b class="oops">${t('Oops!')}</b>` : starRow(stars)}</div>`
+      + (notes ? `<ul class="st-notes">${notes}</ul>` : `<p class="st-good">${t('Just like the recipe!')}</p>`)
+      + (bad ? `<p class="st-warn">${t('This does not look like {drink}. They may ask for a new one.', { drink: t(DRINKS[this.drink].name) })}</p>` : '')
+      + `<button class="btn primary" data-serve>${t('Take it to {name}', { name: this.forName || t('the customer') })}</button>`
+      + `<button class="btn" data-keep>${t('Keep working')}</button>`;
+    this.el.hint.textContent = bad ? t('Something went wrong. You can keep working, bin it, or serve it anyway') : stars === 3 ? t('A perfect drink!') : stars === 2 ? t('Looks lovely!') : t('Made with love!');
+    this.hooks.sound(bad ? 'nope' : 'done');
+    this.renderCard(); this.renderTools();
   }
 
   renderCard() {
-    this.el.steps.innerHTML = this.keys.map((k, i) => {
-      const r = this.results[i], cls = r ? 'done' : i === this.i ? 'now' : '';
-      const mark = r ? (r.graded ? starRow(starsFor(r.score), true) : '<span class="tick"></span>') : '';
-      return `<li class="${cls}"><span>${STEPS[k].name}</span>${mark}</li>`;
+    const b = this.b, sug = this.suggest();
+    const rows = [];
+    rows.push(`<li class="${b.vessel === DRINKS[this.drink].vessel ? 'done' : b.vessel ? 'off' : ''}"><span>${t(VESSELS[DRINKS[this.drink].vessel].name)}</span>${b.vessel === DRINKS[this.drink].vessel ? '<span class="tick"></span>' : ''}</li>`);
+    for (const [k, want] of Object.entries(this.need)) {
+      const ok = this.done(k, want);
+      let bar = '';
+      if (!COUNTED.has(k) && !TOPPINGS.has(k)) {
+        const have = b.amt[k] || 0, w = Math.min(100, (have / Math.max(want, 0.01)) * 66);
+        bar = `<i class="amt"><i style="width:${w}%" class="${have > want + Math.max(0.08, want * 0.45) * 0.4 ? 'over' : ''}"></i><em></em></i>`;
+      } else if (COUNTED.has(k)) {
+        const have = k === 'ice' ? b.ice : k === 'marsh' ? b.marsh.length : (b.counts[k] || 0);
+        bar = `<small>${have}/${want}</small>`;
+      }
+      rows.push(`<li class="${ok ? 'done' : ''}"><span>${t(COMPONENT_NAMES[k] || k)}</span>${bar}${ok ? '<span class="tick"></span>' : ''}</li>`);
+    }
+    this.el.needs.innerHTML = rows.join('');
+    this.el.wipe.hidden = !b.messy;
+    this.el.serve.disabled = !!this.result;
+    this.sug = sug;
+  }
+
+  renderTools() {
+    const sug = this.result ? null : this.suggest(), sugTab = sug && sug !== 'wipe' ? TOOLS[sug]?.tab : null;
+    this.el.tabs.innerHTML = TABS.map(([k, n]) => `<button class="chip${this.tab === k ? ' on' : ''}${sugTab === k && this.tab !== k ? ' glow' : ''}" data-tab="${k}">${t(n)}</button>`).join('');
+    this.el.tools.innerHTML = Object.entries(TOOLS).filter(([, c]) => c.tab === this.tab).map(([k, c]) => {
+      const name = c.vessel ? t(VESSELS[c.vessel].name) : t(c.name);
+      return `<button class="tool${this.tool === k ? ' on' : ''}${sug === k ? ' glow' : ''}${c.vessel && this.b.vessel === c.vessel ? ' on' : ''}" data-tool="${k}"><img src="${this.icon(k)}" alt=""><span>${name}</span></button>`;
     }).join('');
+    this.renderCard();
+  }
+
+  icon(k) {
+    if (!this.icons.has(k)) this.icons.set(k, toolIcon(k).toCanvas(3).toDataURL());
+    return this.icons.get(k);
   }
 
   // ---------- input ----------
   input(kind, x, y) {
     const c = this.cur;
+    this.pointer = [x, y];
     if (!c || c.done || c.anim) return;
     const cfg = c.cfg, b = this.b;
-    this.pointer = [x, y];
     if (cfg.mech === 'hold') {
-      if (kind === 'down') { c.held = true; this.hooks.sound('start-' + c.key); }
+      if (kind === 'down') { c.held = true; c.t = 0; this.hooks.sound('start-' + c.key); }
       if (kind === 'up' && c.held) this.release();
     } else if (cfg.mech === 'timing') {
       if (kind === 'down') {
@@ -172,9 +286,14 @@ export class Station {
         c.acc += Math.abs(da);
         if (Math.floor(c.acc / (Math.PI / 2)) > before) this.hooks.sound(c.key === 'grind' ? 'grind' : 'stir');
         const k = Math.min(1, c.acc / (cfg.turns * Math.PI * 2));
-        if (c.key === 'grind') { this.crank = ang; this.beans = 1 - k * 0.55; this.pf.grounds = k; if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: 19 + Math.random() * 2, y: 49, t: 0 }); }
-        else { this.spoon = [x, y]; b.chunks = 1 - k; b.top = mix('#3a1a10', C.choc, k); b.dirty = true; }
-        if (k >= 1) this.complete(1);
+        if (c.key === 'grind') { this.crank = ang; this.beans = Math.max(0.3, this.beans - Math.abs(da) * 0.01); this.pf.grounds = k; this.pf.tamped = 0; this.pf.left = 0.45; if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: 19 + Math.random() * 2, y: 49, t: 0 }); }
+        else {
+          // melting the chocolate pieces: they turn into a smooth layer as you stir
+          this.spoon = [x, y];
+          const add = 0.4 * k - c.choc; if (add > 0) { pour(b, 'choc', add); c.choc += add; }
+          b.chunks = 1 - k; b.top = mix('#3a1a10', C.choc, k); b.dirty = true;
+        }
+        if (k >= 1) this.finishTool(1, c.key === 'grind' ? 'Ground!' : 'Melted!');
       } else if (kind === 'up') c.lastAng = null;
     } else if (cfg.mech === 'shake') {
       if (kind === 'down') { c.lastX = x; c.dir = 0; c.travel = 0; }
@@ -187,101 +306,194 @@ export class Station {
       }
     } else if (cfg.mech === 'tap') {
       if (kind !== 'down') return;
+      if (cfg.max && this.countOf(c.key) >= cfg.max) { this.say('That is plenty'); return; }
       c.count++;
       if (c.key === 'marsh') {
         let nx = (x - TOP.x) / TOP.r, ny = (y - TOP.y) / TOP.r;
         const r = Math.hypot(nx, ny); if (r > 0.6) { nx *= 0.6 / r; ny *= 0.6 / r; }
         b.marsh.push([nx, ny]); b.dirty = true; this.hooks.sound('plop');
+      } else if (c.key === 'mint') {
+        let nx = (x - TOP.x) / TOP.r, ny = (y - TOP.y) / TOP.r;
+        const r = Math.hypot(nx, ny); if (r > 0.7) { nx *= 0.7 / r; ny *= 0.7 / r; }
+        b.dots.push([nx, ny, '#5c9a48'], [nx + 0.06, ny - 0.05, '#5c9a48'], [nx - 0.05, ny + 0.03, '#3f6b35'], [nx + 0.02, ny, '#7fb04c']);
+        b.tops.mint = 1; b.dirty = true; this.hooks.sound('plop');
       } else if (c.key === 'ice') { this.fx.push({ kind: 'ice', t: 0 }); this.hooks.sound('ice'); }
-      else if (c.key === 'berry') { addLayer(b, 'berry', 0.044); this.fx.push({ kind: 'mash', t: 0 }); this.hooks.sound('mash'); }
-      if (c.count >= c.cfg.count) setTimeout(() => this.complete(1), c.key === 'ice' ? 450 : 150);
+      else if (cfg.count) { b.counts[cfg.count] = (b.counts[cfg.count] || 0) + 1; b.dirty = true; this.hooks.sound('plop'); }
+      else if (cfg.each) {
+        const spilled = pour(b, cfg.each[0], cfg.each[1]);
+        this.fx.push({ kind: c.key === 'berry' ? 'mash' : 'drip', t: 0, c: C[cfg.each[0]] });
+        this.hooks.sound(c.key === 'berry' ? 'mash' : 'pump');
+        if (spilled > 0) this.spilled();
+      }
+      this.renderCard();
     } else if (cfg.mech === 'trace') {
       const nx = (x - TOP.x) / TOP.r, ny = (y - TOP.y) / TOP.r;
       const r = Math.hypot(nx, ny), k = r > 0.92 ? 0.92 / r : 1, px = nx * k, py = ny * k;
       if (kind === 'down') {
-        c.stroke = { c: cfg.color || (b.id === 'matcha' ? '#f4f9e8' : C.foam), w: cfg.width || 0.085, pts: [[px, py]], z: cfg.z || 0 };
+        c.stroke = { c: cfg.color || (b.amt.matcha ? '#f4f9e8' : C.foam), w: cfg.color ? 0.045 : 0.085, pts: [[px, py]], z: cfg.top ? 1 : 0 };
         b.strokes.push(c.stroke); this.hooks.sound('pour');
       } else if (kind === 'move' && c.stroke) {
         const [lx, ly] = c.stroke.pts[c.stroke.pts.length - 1];
-        if (Math.hypot(px - lx, py - ly) > 0.03) { c.stroke.pts.push([px, py]); b.dirty = true; }
+        if (Math.hypot(px - lx, py - ly) > 0.03) { c.stroke.pts.push([px, py]); b.dirty = true; c.drawn = (c.drawn || 0) + Math.hypot(px - lx, py - ly); }
       }
-      if (c.stroke) c.guide.forEach(([gx, gy], i) => { if (Math.hypot(gx - px, gy - py) < 0.14) c.covered.add(i); });
-      const cov = c.covered.size / c.guide.length;
-      if (kind === 'up') c.stroke = null;
-      if (cov >= 0.95 || (kind === 'up' && cov >= 0.5)) this.complete(Math.min(1, cov / 0.9));
+      if (c.stroke && c.guide) c.guide.forEach(([gx, gy], i) => { if (Math.hypot(gx - px, gy - py) < 0.14) c.covered.add(i); });
+      if (kind === 'up') {
+        c.stroke = null;
+        const cov = c.guide ? c.covered.size / c.guide.length : 1;
+        // free drawing counts too: the guide just earns the best marks for latte art
+        const score = c.key === 'art' ? (c.guide ? Math.max(0.5, Math.min(1, cov / 0.9)) : 1) : 1;
+        if ((c.drawn || 0) > 0.6) {
+          if (c.key === 'art') b.artScore = Math.max(b.artScore, score); else b.tops[cfg.top] = 1;
+          if (cov >= 0.95 || !c.guide || c.key !== 'art') this.finishTool(score, score >= 0.85 ? 'Perfect!' : 'Nice!');
+          else this.renderCard();
+        }
+      }
+      if (c.guide && c.covered.size / c.guide.length >= 0.95 && c.key === 'art' && c.stroke) { b.artScore = 1; c.stroke = null; this.finishTool(1, 'Perfect!'); }
     }
   }
 
-  shook(x, y) {
+  countOf(key) {
+    const b = this.b;
+    if (key === 'ice') return b.ice + this.fx.filter((f) => f.kind === 'ice' && !f.landed).length;
+    if (key === 'marsh') return b.marsh.length;
+    if (key === 'mint') return b.dots.length / 4;
+    return b.counts[TOOLS[key].count] || 0;
+  }
+
+  shook(x) {
     const c = this.cur, b = this.b;
     c.count++;
-    this.hooks.sound('shake');
-    if (c.key === 'whisk') { b.froth = Math.min(1, c.count / c.cfg.count); b.top = mix('#4f7a33', C.matcha, b.froth); }
+    this.hooks.sound(c.key === 'wipe' ? 'wipe' : 'shake');
+    const k = Math.min(1, c.count / c.cfg.count);
+    if (c.key === 'wipe') {
+      this.puddle *= 0.75;
+      if (k >= 1) { b.messy = false; this.puddle = 0; if (b.cream > 1.2) b.cream = 0.9; b.dirty = true; this.finishTool(1, 'Clean!'); this.renderCard(); }
+      return;
+    }
+    if (c.key === 'matcha') { b.froth = k; b.top = mix('#4f7a33', C.matcha, k); }
     else {
       const nx = (x - TOP.x) / TOP.r;
-      for (let i = 0; i < 8; i++) {
-        const dx = nx + (Math.random() - 0.5) * 0.7, dy = (Math.random() - 0.5) * 1.5;
-        if (Math.hypot(dx, dy) < 0.85) b.dots.push([dx, dy, c.cfg.dust]);
-      }
+      for (let i = 0; i < 8; i++) { const dx = nx + (Math.random() - 0.5) * 0.7, dy = (Math.random() - 0.5) * 1.5; if (Math.hypot(dx, dy) < 0.85) b.dots.push([dx, dy, c.cfg.dust]); }
+      b.tops[c.cfg.top] = k;
     }
     b.dirty = true;
-    if (c.count >= c.cfg.count) this.complete(1);
+    if (k >= 1) this.finishTool(1, 'Done!');
   }
 
   release() {
-    const c = this.cur, cfg = c.cfg, [lo, hi] = cfg.band;
+    const c = this.cur, cfg = c.cfg;
     c.held = false;
-    const v = c.v, dist = v < lo ? lo - v : v > hi ? v - hi : 0;
-    const score = Math.max(0.3, 1 - dist * 3.2);
     this.hooks.sound('stop');
-    if (c.key === 'milk' || c.key === 'foam') {
-      // pour the steamed milk into the drink
-      c.anim = { t: 0, dur: 1.2, kind: 'pourMilk', score, base: this.b.layers.map((l) => ({ ...l })) };
-      this.hooks.sound('pour');
-    } else this.complete(score);
+    if (cfg.heat) {
+      const j = this.jug, [lo, hi] = HEAT_BAND;
+      // the jug holds about what this drink needs: steaming makes silky milk with a
+      // little foam, frothing makes lots of foam (the right choice depends on the drink)
+      const need = this.need, wantsFoamy = (need.foam || 0) > 0.3;
+      if (j.kind === 'steam') { j.milk = need.milk || 0.55; j.foam = wantsFoamy ? 0.1 : (need.foam ?? 0.08); }
+      else { j.milk = wantsFoamy ? need.milk || 0.22 : 0.25; j.foam = wantsFoamy ? need.foam : 0.4; }
+      j.ready = true;
+      this.b.burnt = this.b.burnt || j.temp > hi + 0.12;
+      const sc = j.temp < lo ? Math.max(0.4, 1 - (lo - j.temp) * 3) : j.temp > hi ? Math.max(0.3, 1 - (j.temp - hi) * 3) : 1;
+      j.q = sc;
+      this.finishTool(sc, j.temp > hi + 0.12 ? 'Too hot!' : sc >= 0.85 ? 'Perfect!' : j.temp < lo ? 'A bit cool' : 'Nice!', 'pourmilk');
+      return;
+    }
+    if (c.key === 'shot') { this.pf.left = Math.max(0, this.pf.left); if (this.pf.left <= 0.01) { this.pf.grounds = 0; this.pf.tamped = 0; this.pf.at = 'grinder'; } }
+    this.renderCard();
+    // a little praise when they stop in the band
+    const band = this.band();
+    if (band && !cfg.cream) { const f = fillOf(this.b); this.pop(f >= band[0] && f <= band[1] ? 'Perfect!' : f > band[1] ? 'A bit much' : 'Good'); }
+    if (cfg.cream) this.pop(this.b.cream > 1.2 ? 'It toppled!' : this.b.cream >= 0.6 ? 'Lovely!' : 'A little more?');
+  }
+
+  pop(text, stars = 0) { this.popup = { text: t(text), t: 0, stars }; }
+  finishTool(score, text, next) {
+    this.pop(text, score >= 0.85 ? 3 : 0);
+    this.hooks.sound(score >= 0.85 ? 'perfect' : 'step');
+    const c = this.cur;
+    if (c) c.done = true;
+    setTimeout(() => { if (this.cur === c) { this.cur = null; this.tool = null; if (next && this.open && !this.result) this.pick(next); else { this.renderTools(); this.el.hint.textContent = t(this.suggest() ? 'Nice! The glowing tool is a good next step' : 'Ready? Tap Serve, or keep decorating'); } } }, 650);
+    if (c?.key === 'tamp') { this.pf.tamped = 1; this.pf.tampQ = score; }
+  }
+
+  spilled() {
+    if (!this.spillNoted) { this.say('It is overflowing! Wipe it up, or bin it and start again'); this.spillNoted = true; setTimeout(() => (this.spillNoted = false), 2500); }
+    this.hooks.sound('spill');
+    this.renderCard();
+  }
+
+  // the gold zone on the fill meter: where the cup should be after this pour
+  band() {
+    const c = this.cur, need = this.need;
+    if (!c || c.cfg.mech !== 'hold' || c.cfg.heat || c.cfg.cream) return null;
+    const keys = c.key === 'pourmilk' ? ['milk', 'foam'] : c.key === 'water' ? ['water', 'tea'] : [c.cfg.pour];
+    if (!keys.some((k) => need[k])) return null;
+    let target = 0;
+    const order = Object.keys(need);
+    const lastIdx = Math.max(...keys.map((k) => order.indexOf(k)));
+    for (let i = 0; i <= lastIdx; i++) { const k = order[i]; if (!COUNTED.has(k) && !TOPPINGS.has(k)) target += need[k]; }
+    // a macchiato's shot goes on top of the milk, so count what's already in
+    target = Math.max(target, fillOf(this.b) - (this.b.amt[keys[0]] || 0) + keys.reduce((a, k) => a + (need[k] || 0), 0));
+    target = Math.min(1, target);
+    return [Math.max(0, target - 0.05), Math.min(1, target + 0.04)];
   }
 
   // ---------- update and draw ----------
   frame(now) {
     const dt = Math.min(0.05, now - this.last); this.last = now;
-    const c = this.cur, b = this.b, d = DRINKS[b.id];
+    const c = this.cur, b = this.b;
     if (c) {
       c.t += dt;
       if (c.cfg.mech === 'hold' && c.held && !c.done) {
-        c.v += c.cfg.speed * dt * (0.8 + c.v * 0.5);
-        if (c.key === 'shot') { const l = b.layers.find((x) => x.key === 'espresso'); const amt = Math.min(1 - c.base, d.shot * c.v / 0.875); if (l) l.amt = amt; else addLayer(b, 'espresso', amt); if (b.vessel === 'demi' || b.vessel === 'cup') b.top = C.crema; b.dirty = true; }
-        if (c.key === 'pour') { const amt = Math.min(1 - c.base, (0.9 - c.base) * c.v / 0.885); const l = b.layers.find((x) => x.key === c.layer); if (l) l.amt = amt; else addLayer(b, c.layer, amt); b.top = C[c.layer]; b.dirty = true; }
-        if (c.key === 'cream') { b.cream = Math.min(1.25, c.v / 0.77); b.dirty = true; }
-        if (Math.floor(c.t * 7) !== Math.floor((c.t - dt) * 7)) this.hooks.sound('tick-' + c.key);
-        if (c.v >= 1.15) this.release();
+        const cfg = c.cfg;
+        if (cfg.heat) {
+          const j = this.jug;
+          j.temp += dt * 0.28 * (0.8 + j.temp * 0.4);
+          if (j.temp >= 1.25) { this.puddle += dt * 0.5; b.messy = true; b.burnt = true; if (!this.spillNoted) this.spilled(); }
+        } else if (cfg.cream) {
+          b.cream += dt * 0.55; b.dirty = true;
+          if (b.cream > 1.25 && !b.messy) { b.messy = true; this.spilled(); }
+        } else {
+          let amt = (cfg.rate || 0.3) * dt;
+          let spilled = 0;
+          if (c.key === 'shot') {
+            const take = Math.min(amt, this.pf.left); this.pf.left -= take; amt = take;
+            b.shotQ = this.pf.tamped ? this.pf.tampQ : 0.6;
+            if (amt <= 0) { this.release(); this.pop('The shot is done'); }
+          }
+          if (c.key === 'pourmilk') {
+            const j = this.jug;
+            const m = Math.min(amt, j.milk); j.milk -= m; spilled += pour(b, 'milk', m);
+            const f = Math.min(amt - m, j.foam); j.foam -= f; spilled += pour(b, 'foam', f);
+            if (j.milk + j.foam <= 0.001) { this.jug = null; this.release(); this.pop('The jug is empty'); }
+          } else if (amt > 0) spilled += pour(b, cfg.pour, amt);
+          if (spilled > 0) { this.puddle += spilled; this.spilled(); }
+        }
+        if (Math.floor(c.t * 7) !== Math.floor((c.t - dt) * 7)) { this.hooks.sound('tick-' + c.key); this.renderCard(); }
       }
       if (c.anim) {
         const a = c.anim;
         a.t += dt;
-        const k = Math.min(1, a.t / a.dur);
-        if (a.kind === 'pourMilk') {
-          b.layers = a.base.map((l) => ({ ...l }));
-          if (d.milk === 'mix' && c.key === 'milk') { const l = b.layers.find((x) => x.key === 'choc'); if (l) { l.amt = 0.4 + 0.46 * k; l.c = mix(C.choc, C.hotchoc, k); } b.top = l?.c; b.chunks = 0; }
-          else for (const [key, amt] of c.key === 'milk' ? d.milk : d.foam) addLayer(b, key, amt * k);
-          if (k >= 1) { b.top = c.key === 'foam' ? C.foam : d.milk === 'mix' ? C.hotchoc : d.top || b.top; }
-          b.dirty = true;
-          if (k >= 1) { c.anim = null; this.complete(a.score); }
-        } else if (a.kind === 'tamp') {
+        if (a.kind === 'tamp') {
           this.pf.tamped = Math.min(1, a.t / 0.2);
-          if (k >= 1) { c.anim = null; this.complete(c.result); }
+          if (a.t >= a.dur) { c.anim = null; this.finishTool(c.result, c.result >= 0.85 ? 'Perfect!' : 'Nice!'); }
         }
       }
     }
     for (const f of this.fx) f.t += dt;
+    for (const f of this.fx) if (f.kind === 'ice' && f.t > 0.4 && !f.landed) {
+      f.landed = true;
+      if (b.ice < 4) { b.ice++; b.dirty = true; this.hooks.sound('clink'); this.renderCard(); }
+    }
     this.fx = this.fx.filter((f) => f.t < 1);
-    for (const f of this.fx) if (f.kind === 'ice' && f.t > 0.4 && !f.landed) { f.landed = true; b.ice = Math.min(4, b.ice + 1); b.dirty = true; this.hooks.sound('clink'); }
     if (this.popup) { this.popup.t += dt; if (this.popup.t > 1.1) this.popup = null; }
     this.draw(now);
   }
 
   draw(now) {
-    const view = this.cur ? this.cur.cfg.view : 'bar';
-    const top = view === 'top' && !this.finished;
+    const view = this.cur && !this.result ? this.cur.cfg.view : 'bar';
+    const top = view === 'top';
+    if (top && this.topVessel !== this.b.vessel) { this.topBg = paintTop(this.b.vessel || 'cup'); this.topVessel = this.b.vessel; }
     const p = new Pix(SW, SH);
     p.data.set((top ? this.topBg : this.bar).data);
     if (top) this.drawTop(p, now); else this.drawBar(p, now);
@@ -295,9 +507,9 @@ export class Station {
     if (this.popup) {
       const k = this.popup.t, a = k < 0.15 ? k / 0.15 : k > 0.8 ? (1.1 - k) / 0.3 : 1;
       g.globalAlpha = Math.max(0, a);
-      const size = Math.round(s * 9);
+      const size = Math.round(s * 8);
       g.font = `700 ${size}px "Pixelify Sans", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      const x = this.ox + SW * s / 2, y = this.oy + (22 - k * 6) * s;
+      const x = this.ox + SW * s / 2, y = this.oy + (18 - k * 6) * s;
       g.fillStyle = INK; g.fillText(this.popup.text, x + s, y + s);
       g.fillStyle = this.popup.stars === 3 ? '#ffd27a' : '#fbf6ea'; g.fillText(this.popup.text, x, y);
       g.globalAlpha = 1;
@@ -320,103 +532,152 @@ export class Station {
     p.rect(CRANK.x - 1, CRANK.y - 1, 3, 3, INK);
     // portafilter: under the grinder, then locked into the machine
     const pfAt = this.pf.at === 'machine' ? [SPOUT.x, 46] : [19, 57];
-    drawPortafilter(p, pfAt[0], pfAt[1], this.pf.grounds, this.pf.tamped);
-    if (key === 'tamp' || (c?.anim?.kind === 'tamp')) {
+    drawPortafilter(p, pfAt[0], pfAt[1], this.pf.grounds * (this.pf.at === 'machine' ? Math.min(1, this.pf.left / 0.45 + 0.3) : 1), this.pf.tamped);
+    if (key === 'tamp') {
       const press = c.anim ? Math.sin(Math.min(1, c.anim.t / c.anim.dur) * Math.PI) * 4 : 0;
       const ty = pfAt[1] - 12 + press;
       p.rect(pfAt[0] - 4, ty + 6, 9, 3, '#8d9496'); p.hline(pfAt[0] - 4, pfAt[0] + 4, ty + 6, '#c9cfd1');
       p.rect(pfAt[0] - 1, ty - 2, 3, 8, '#7a4e30'); p.rect(pfAt[0] - 2, ty - 4, 5, 3, '#9c6a42');
       p.hline(pfAt[0] - 5, pfAt[0] + 5, ty + 9, INK);
     }
-    // the jug: resting, steaming under the wand, or pouring into the cup
-    const cupTop = CUP.by - VESSELS[b.vessel].big.h;
-    const surfaceY = Math.round(CUP.by - 1 - Math.min(1, fillOf(b)) * (VESSELS[b.vessel].big.h - 2));
-    const steaming = (key === 'milk' || key === 'foam') && !c.anim;
-    const pouring = (c?.anim?.kind === 'pourMilk') || (key === 'pour' && c.held);
-    const jugMilk = key === 'pour' ? C[DRINKS[b.id].pour] : C.milk;
-    if (steaming) {
-      drawJug(p, 136, 66, 0, c.v);
-      // the wand dips into the milk
-      p.line(126, 34, 133, 56, INK); p.line(127, 34, 134, 56, '#c9cfd1');
-      if (c.held) for (let i = 0; i < 4; i++) { const k = (now * 1.5 + i / 4) % 1; p.set(130 + Math.sin((now + i) * 5) * 3, 48 - k * 16, `#ffffff${Math.round((1 - k) * 200).toString(16).padStart(2, '0')}`); p.set(131 + Math.sin((now + i) * 4) * 3, 47 - k * 14, '#ffffff66'); }
-      if (c.held) for (let i = 0; i < 3; i++) p.set(133 + ((now * 20 + i * 3) % 6) - 3, 51 - (i % 2), '#ffffff');
-    } else {
-      p.line(126, 34, 129, 52, INK); p.line(127, 34, 130, 52, '#c9cfd1');
+    // spills on the counter
+    if (this.puddle > 0.005 || b.messy) {
+      const r = Math.min(26, 6 + this.puddle * 60), col = b.cream > 1.2 && !this.puddle ? C.cream : (b.layers[b.layers.length - 1]?.c || C.milk);
+      p.ellipse(CUP.x - 4, CUP.by + 2, Math.round(r), Math.max(2, Math.round(r / 5)), shade(col, 0.95));
+      p.ellipse(CUP.x - 7, CUP.by + 1, Math.round(r * 0.4), 1, shade(col, 1.1));
     }
-    if (pouring) {
+    // the jug: resting, steaming under the wand, or pouring into the cup
+    const cupH = b.vessel ? VESSELS[b.vessel].big.h : 12, cupTop = CUP.by - cupH;
+    const surfaceY = Math.round(CUP.by - 1 - Math.min(1, fillOf(b)) * (cupH - 2));
+    const steaming = c && c.cfg.heat;
+    const pouringMilk = key === 'pourmilk' && c.held;
+    const coldPour = c && c.held && (key === 'coldmilk' || key === 'coldwater');
+    const jugMilk = key === 'coldwater' ? '#d6ecf0' : key === 'coldmilk' ? C.coldmilk : C.milk;
+    if (steaming) {
+      drawJug(p, 136, 66, 0, 1);
+      p.line(126, 34, 133, 56, INK); p.line(127, 34, 134, 56, '#c9cfd1');
+      if (c.held) for (let i = 0; i < 5; i++) { const k = (now * 1.5 + i / 5) % 1; p.set(130 + Math.sin((now + i) * 5) * 3, 48 - k * 16, `#ffffff${Math.round((1 - k) * 200).toString(16).padStart(2, '0')}`); }
+      if (this.jug.temp > 1.15) for (let i = 0; i < 4; i++) p.set(130 + i * 2, 50 - (i % 2) + Math.round(Math.sin(now * 20 + i)), C.milk);
+    } else { p.line(126, 34, 129, 52, INK); p.line(127, 34, 130, 52, '#c9cfd1'); }
+    if (pouringMilk || coldPour) {
       const jx = CUP.x + 16, jy = cupTop - 2;
-      drawJug(p, jx, jy, -0.9, 0.6, jugMilk);
-      // milk stream into the cup
+      if (key === 'coldwater') drawPitcher(p, jx, jy); else if (key === 'coldmilk') drawCarton(p, jx, jy); else drawJug(p, jx, jy, -0.9, 0.6, jugMilk);
       for (let y = jy - 12; y < surfaceY; y++) { p.set(jx - 9 + Math.round(Math.sin(y * 0.8 + now * 20) * 0.5), y, jugMilk); p.set(jx - 8, y, shade(jugMilk, 0.92)); }
-    } else if (!steaming) drawJug(p, JUG_HOME.x, JUG_HOME.by, 0, key === 'pour' ? 0.9 : 0, jugMilk);
-    // the drink
-    drawDrink(p, CUP.x, CUP.by, b, 'big');
-    // espresso stream while pulling the shot
+    } else if (!steaming) drawJug(p, JUG_HOME.x, JUG_HOME.by, 0, this.jug?.ready ? 1 : 0, C.milk);
+    if (this.jug?.ready && !steaming && !pouringMilk) { for (let i = 0; i < 2; i++) { const k = (now + i / 2) % 1; p.set(JUG_HOME.x - 2 + i * 3, JUG_HOME.by - 20 - k * 8, '#ffffff88'); } }
+    // the drink, or an empty spot waiting for a cup
+    if (b.vessel) drawDrink(p, CUP.x, CUP.by, b, 'big');
+    else { p.ellipse(CUP.x, CUP.by, 12, 3, '#8a5a36'); if (Math.floor(now * 2) % 2) ring(p, CUP.x, CUP.by - 10, 6, '#ffd27a'); }
+    // pouring streams
     if (key === 'shot' && c.held) for (let y = SPOUT.y; y < surfaceY; y++) { p.set(SPOUT.x - 1, y, (y + Math.floor(now * 30)) % 4 ? C.espresso : '#5a3420'); p.set(SPOUT.x + 1, y, (y + Math.floor(now * 30) + 2) % 4 ? C.espresso : '#5a3420'); }
+    if (key === 'water' && c.held) { for (let y = 40; y < surfaceY; y++) p.set(120 - Math.round((y - 40) * 0.0), y, '#cfe8ee'); p.line(120, 36, 120, 40, '#8d9496'); for (let y = 40; y < surfaceY; y++) p.set(SPOUT.x + 4, y, '#dceef2'); }
     // tools for the current step
-    if (key === 'ice' || (this.fx.some((f) => f.kind === 'ice'))) drawBucket(p, SLOT.x, SLOT.by);
-    if (key === 'berry') drawBerries(p, SLOT.x, SLOT.by, c.count / c.cfg.count);
-    if (key === 'cream') drawCreamCan(p, CUP.x + 2, cupTop - 6 - Math.round(Math.min(1.2, b.cream) * 9), c.held);
+    if (key === 'ice' || this.fx.some((f) => f.kind === 'ice')) drawBucket(p, SLOT.x, SLOT.by);
+    if (key === 'berry') drawBerries(p, SLOT.x, SLOT.by, 0);
+    if (key === 'lemon' || key === 'orange') drawFruit(p, SLOT.x, SLOT.by, key === 'lemon' ? '#f6e070' : '#f29a3a');
+    if (key === 'icecream') drawTub(p, SLOT.x, SLOT.by);
+    if (key === 'teabag') drawTeaBox(p, SLOT.x, SLOT.by);
+    if (c?.cfg.each && key !== 'berry' && key !== 'lemon' && key !== 'orange') drawBottle(p, SLOT.x, SLOT.by, C[c.cfg.each[0]]);
+    if (key === 'cream') drawCreamCan(p, CUP.x + 2, cupTop - 6 - Math.round(Math.min(1.3, b.cream) * 9), c.held);
+    if (b.counts.teabag && b.vessel) { p.line(CUP.x + 4, cupTop - 1, CUP.x + 9, cupTop - 6, '#f4ecd6'); p.rect(CUP.x + 8, cupTop - 9, 4, 4, '#f6e070'); p.set(CUP.x + 9, cupTop - 8, '#b5483c'); }
     for (const f of this.fx) {
-      if (f.kind === 'ice') {
+      if (f.kind === 'ice' && f.t < 0.4) {
         const k = Math.min(1, f.t / 0.4), x = Math.round(SLOT.x + (CUP.x - SLOT.x) * k), y = Math.round(SLOT.by - 14 - Math.sin(k * Math.PI) * 14 + (cupTop + 4 - SLOT.by + 14) * k);
-        if (f.t < 0.4) { p.rect(x - 2, y - 2, 5, 5, '#eef9fb'); p.hline(x - 2, x + 2, y - 3, INK); p.vline(x + 3, y - 2, y + 2, '#a9d3dc'); }
+        p.rect(x - 2, y - 2, 5, 5, '#eef9fb'); p.hline(x - 2, x + 2, y - 3, INK); p.vline(x + 3, y - 2, y + 2, '#a9d3dc');
       }
       if (f.kind === 'mash') { const k = f.t; p.rect(CUP.x - 1, cupTop - 10 + Math.round(Math.sin(k * Math.PI) * 6), 3, 10, '#c08a55'); if (k < 0.4) for (let i = 0; i < 4; i++) p.set(CUP.x - 4 + i * 3, cupTop - 2 - Math.round(k * 10) - i % 2, C.berry); }
+      if (f.kind === 'drip' && f.t < 0.5) for (let y = cupTop - 8; y < cupTop - 8 + f.t * 30 && y < surfaceY; y++) p.set(CUP.x + 2, y, f.c);
       if (f.kind === 'ground' && f.t < 0.4) p.set(f.x, f.y + f.t * 20, '#3b2014');
     }
-    if (this.finished) {
+    if (this.result && this.result.q >= REFUSE_BELOW) {
       for (let i = 0; i < 6; i++) {
         const a = now * 1.2 + i * 1.05, r = 22 + Math.sin(now * 2 + i) * 2;
-        const x = CUP.x + Math.cos(a) * r, y = CUP.by - 16 + Math.sin(a) * r * 0.55;
-        sparkle(p, Math.round(x), Math.round(y), (i + Math.floor(now * 3)) % 2);
+        sparkle(p, Math.round(CUP.x + Math.cos(a) * r), Math.round(CUP.by - 16 + Math.sin(a) * r * 0.55), (i + Math.floor(now * 3)) % 2);
       }
-      if (DRINKS[b.id].vessel !== 'tall') for (let i = 0; i < 3; i++) { const k = (now * 0.6 + i / 3) % 1; p.set(CUP.x - 3 + i * 3 + Math.round(Math.sin(now * 2 + i) * 1.5), cupTop - 4 - k * 14, `#ffffff${Math.round((1 - k) * 170).toString(16).padStart(2, '0')}`); }
     }
     // meters
-    if (c && c.cfg.mech === 'hold') drawMeter(p, 168, 14, 46, c.v, c.cfg.band, c.cfg.temp);
-    if (c && c.cfg.mech === 'timing') {
-      const pos = c.frozen ?? (Math.sin(c.t * 2.6 - Math.PI / 2) + 1) / 2;
-      drawTimingBar(p, 46, 7, 90, pos);
+    if (c && c.cfg.mech === 'hold') {
+      if (c.cfg.heat) drawMeter(p, 168, 14, 46, this.jug.temp, HEAT_BAND, true);
+      else if (c.cfg.cream) drawMeter(p, 168, 14, 46, b.cream / 1.25, [0.6 / 1.25, 1.1 / 1.25]);
+      else drawMeter(p, 168, 14, 46, Math.min(1.15, fillOf(b) + Math.min(0.15, this.puddle)), this.band() || [2, 2]);
     }
-    if (c && c.cfg.mech === 'circle' && c.key === 'grind') {
-      const k = Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2));
-      drawProgress(p, 4, 92, 34, k);
-      // a hint arrow circling the crank until the player starts
-      if (c.acc === 0) { const a = now * 3; p.set(CRANK.x + Math.cos(a) * 10, CRANK.y + Math.sin(a) * 10, '#ffd27a'); p.set(CRANK.x + Math.cos(a - 0.3) * 10, CRANK.y + Math.sin(a - 0.3) * 10, '#ffd27a88'); }
+    if (c && c.cfg.mech === 'timing') drawTimingBar(p, 46, 7, 90, c.frozen ?? (Math.sin(c.t * 2.6 - Math.PI / 2) + 1) / 2);
+    if (key === 'grind') {
+      drawProgress(p, 4, 92, 34, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2)));
+      if (!c.acc) { const a = now * 3; p.set(CRANK.x + Math.cos(a) * 10, CRANK.y + Math.sin(a) * 10, '#ffd27a'); p.set(CRANK.x + Math.cos(a - 0.3) * 10, CRANK.y + Math.sin(a - 0.3) * 10, '#ffd27a88'); }
     }
-    if (c && c.cfg.mech === 'tap' && c.cfg.view === 'bar') drawCount(p, SLOT.x, 30, c.count, c.cfg.count, now);
+    if (key === 'wipe') {
+      drawProgress(p, 150, 92, 26, c.count / c.cfg.count);
+      if (this.pointer && this.down) drawRag(p, ...this.pointer);
+    }
   }
 
   drawTop(p, now) {
     const c = this.cur, b = this.b, key = c.key;
     const map = surfaceMap(b);
     p.blit(map, TOP.x - TOP.r, TOP.y - TOP.r);
-    if (c.cfg.mech === 'trace') {
-      // a faint dotted path, and a bead on each point still to reach
+    if (c.cfg.mech === 'trace' && c.guide) {
       for (let i = 1; i < c.guide.length; i++) {
         const [ax, ay] = c.guide[i - 1], [bx, by] = c.guide[i], n = Math.ceil(Math.hypot(bx - ax, by - ay) * TOP.r / 3);
-        for (let k = 0; k < n; k++) { const t = k / n; p.set(TOP.x + (ax + (bx - ax) * t) * TOP.r, TOP.y + (ay + (by - ay) * t) * TOP.r, '#fbf6ea66'); }
+        for (let k = 0; k < n; k++) { const tt = k / n; p.set(TOP.x + (ax + (bx - ax) * tt) * TOP.r, TOP.y + (ay + (by - ay) * tt) * TOP.r, '#fbf6ea66'); }
       }
       c.guide.forEach(([gx, gy], i) => {
         if (c.covered.has(i)) return;
         const x = Math.round(TOP.x + gx * TOP.r), y = Math.round(TOP.y + gy * TOP.r);
-        const blink = (i + Math.floor(now * 4)) % 8 === 0;
-        p.rect(x - 1, y - 1, 3, 3, INK); p.set(x, y, blink ? '#ffffff' : '#ffd27a');
+        p.rect(x - 1, y - 1, 3, 3, INK); p.set(x, y, (i + Math.floor(now * 4)) % 8 === 0 ? '#ffffff' : '#ffd27a');
       });
-      // the next dot to reach is marked
       const nextI = c.guide.findIndex((_, i) => !c.covered.has(i));
       if (nextI >= 0 && !c.stroke) { const [gx, gy] = c.guide[nextI]; ring(p, Math.round(TOP.x + gx * TOP.r), Math.round(TOP.y + gy * TOP.r), 3 + (Math.floor(now * 3) % 2), '#ffd27a'); }
-      if (this.down && this.pointer) drawPitcherTop(p, ...this.pointer, c.cfg.color || C.foam);
       drawProgress(p, 150, 92, 26, c.covered.size / c.guide.length);
     }
-    if (c.cfg.mech === 'shake' && this.pointer) {
-      if (key === 'whisk') drawWhisk(p, ...this.pointer); else drawShaker(p, ...this.pointer, key === 'cocoa' ? '#5b3a26' : '#a0602a');
-    }
+    if (c.cfg.mech === 'trace' && this.down && this.pointer) drawPitcherTop(p, ...this.pointer, c.cfg.color || C.foam);
+    if (c.cfg.mech === 'shake' && this.pointer) { if (key === 'matcha') drawWhisk(p, ...this.pointer); else drawShaker(p, ...this.pointer, key === 'cocoa' ? '#5b3a26' : '#a0602a'); }
     if (c.cfg.mech === 'shake') drawProgress(p, 150, 92, 26, c.count / c.cfg.count);
     if (key === 'choc') { if (this.spoon) drawSpoon(p, ...this.spoon); drawProgress(p, 150, 92, 26, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2))); if (!c.acc) { const a = now * 3; ring(p, Math.round(TOP.x + Math.cos(a) * 22), Math.round(TOP.y + Math.sin(a) * 22), 2, '#ffd27a'); } }
-    if (key === 'marsh') { drawJar(p, 22, 80); drawCount(p, 22, 40, c.count, c.cfg.count, now); }
+    if (key === 'marsh') drawJar(p, 22, 80);
+    if (key === 'mint') { p.ellipse(22, 70, 8, 5, '#3f6b35'); p.ellipse(22, 69, 7, 4, '#5c9a48'); }
   }
+}
+
+// ---------- tool icons for the shelves ----------
+export function toolIcon(k) {
+  const p = new Pix(16, 16), cfg = TOOLS[k];
+  if (cfg.vessel) { const b = newBuild(null, '', cfg.vessel); drawDrink(p, 8, 13, b, 'small'); return p; }
+  const drop = (c) => { p.ellipse(8, 10, 4, 4, INK); p.ellipse(8, 10, 3, 3, c); p.line(8, 3, 5, 8, INK); p.line(8, 3, 11, 8, INK); p.poly([[8, 4], [5, 9], [11, 9]], c); p.set(6, 9, '#ffffff'); };
+  const bottle = (c) => { p.rect(5, 5, 6, 10, INK); p.rect(6, 6, 4, 8, c); p.rect(7, 2, 2, 3, '#5f6668'); p.rect(6, 1, 4, 1, INK); p.rect(6, 9, 4, 2, '#fbf6ea'); };
+  const shaker = (c) => { p.rect(4, 5, 8, 10, INK); p.rect(5, 6, 6, 8, '#f4ecd6'); p.rect(4, 3, 8, 3, c); p.set(6, 4, INK); p.set(9, 4, INK); };
+  const fruit = (c) => { p.ellipse(8, 9, 5, 5, INK); p.ellipse(8, 9, 4, 4, c); p.set(6, 7, '#ffffff'); p.rect(8, 2, 2, 3, '#4f8a4a'); };
+  switch (k) {
+    case 'grind': p.rect(4, 2, 8, 6, '#d9eef2'); p.rect(5, 4, 6, 4, '#5a3420'); p.rect(5, 8, 6, 7, '#8e3329'); p.rect(11, 6, 4, 1, '#5f6668'); p.rect(14, 5, 1, 3, '#5b3a26'); p.rect(4, 15, 8, 1, INK); break;
+    case 'tamp': p.rect(7, 2, 3, 7, '#7a4e30'); p.rect(4, 9, 9, 3, '#8d9496'); p.rect(3, 12, 11, 2, INK); break;
+    case 'shot': p.rect(3, 2, 10, 4, '#5f6668'); p.rect(7, 6, 2, 2, '#3a3f41'); p.vline(7, 8, 11, C.espresso); p.vline(8, 8, 11, C.espresso); p.rect(4, 11, 8, 4, '#f7f1e6'); p.rect(5, 11, 6, 1, C.crema); break;
+    case 'water': drop('#cfe8ee'); break;
+    case 'teabag': p.rect(4, 6, 7, 8, '#f4ecd6'); p.rect(5, 8, 5, 5, '#b0642a'); p.line(8, 6, 11, 2, '#f4ecd6'); p.rect(11, 1, 3, 3, '#f6e070'); break;
+    case 'steam': case 'froth': p.poly([[4, 6], [12, 6], [11, 15], [5, 15]], '#c9cfd1'); p.rect(4, 6, 8, 1, '#eef2f2'); p.rect(12, 7, 2, 1, '#9aa2a4'); for (let i = 0; i < 3; i++) p.set(6 + i * 2, 3 - (i % 2), '#ffffff'); if (k === 'froth') { p.rect(5, 7, 6, 2, '#fbf6ea'); } break;
+    case 'pourmilk': p.poly([[3, 4], [10, 2], [12, 9], [5, 11]], '#c9cfd1'); p.vline(2, 6, 14, C.milk); p.rect(1, 14, 5, 1, C.milk); break;
+    case 'art': p.ellipse(8, 8, 7, 7, INK); p.ellipse(8, 8, 6, 6, C.latteTop); p.rect(5, 6, 2, 2, '#fbf6ea'); p.rect(9, 6, 2, 2, '#fbf6ea'); p.rect(6, 8, 4, 2, '#fbf6ea'); p.rect(7, 10, 2, 1, '#fbf6ea'); break;
+    case 'ice': p.rect(3, 4, 7, 7, '#a9d3dc'); p.rect(4, 5, 5, 5, '#eef9fb'); p.rect(8, 8, 6, 6, '#a9d3dc'); p.rect(9, 9, 4, 4, '#eef9fb'); break;
+    case 'coldmilk': p.rect(4, 4, 8, 11, INK); p.rect(5, 5, 6, 9, '#fbf6ea'); p.poly([[4, 4], [8, 1], [12, 4]], '#6f8fc9'); p.rect(5, 8, 6, 3, '#6f8fc9'); break;
+    case 'coldwater': drop('#e4f3f6'); p.rect(2, 12, 3, 3, '#a9d3dc'); break;
+    case 'berry': fruit('#d23a4a'); break;
+    case 'lemon': fruit('#f6e070'); break;
+    case 'orange': fruit('#f29a3a'); break;
+    case 'icecream': p.poly([[5, 9], [11, 9], [8, 15]], '#d4a860'); p.ellipse(8, 7, 4, 3, '#fbf3e0'); p.set(6, 6, '#ffffff'); break;
+    case 'vanilla': bottle(C.vanilla); break;
+    case 'caramelsyrup': bottle(C.caramel); break;
+    case 'chocsyrup': bottle(C.chocsyrup); break;
+    case 'chai': bottle(C.chai); break;
+    case 'choc': p.rect(3, 4, 10, 9, '#3a1a10'); p.rect(4, 5, 4, 3, '#5a3020'); p.rect(9, 5, 3, 3, '#5a3020'); p.rect(4, 9, 4, 3, '#5a3020'); p.rect(9, 9, 3, 3, '#5a3020'); break;
+    case 'matcha': p.ellipse(8, 10, 6, 4, '#f4ecd6'); p.ellipse(8, 9, 5, 2, C.matcha); p.rect(7, 1, 2, 7, '#c9a46b'); break;
+    case 'cream': p.rect(5, 4, 6, 11, '#eef2f2'); p.rect(5, 8, 6, 3, '#e7a0a6'); p.rect(7, 1, 2, 3, '#f7f1e6'); p.vline(4, 4, 14, INK); p.vline(11, 4, 14, INK); break;
+    case 'drizzle': case 'chocdrizzle': { const c = k === 'drizzle' ? C.caramel : C.chocsyrup; for (let i = 0; i < 5; i++) p.line(2 + i * 3, i % 2 ? 4 : 12, 5 + i * 3, i % 2 ? 12 : 4, c); break; }
+    case 'cocoa': shaker('#5b3a26'); break;
+    case 'cinnamon': shaker('#a0602a'); break;
+    case 'marsh': p.rect(3, 5, 5, 4, C.marsh); p.rect(3, 8, 5, 1, C.marshPink); p.rect(8, 8, 5, 4, C.marsh); p.rect(8, 11, 5, 1, C.marshPink); break;
+    case 'mint': p.ellipse(8, 8, 5, 3, '#5c9a48'); p.line(3, 9, 13, 7, '#3f6b35'); break;
+  }
+  p.outline(INK);
+  return p;
 }
 
 // ---------- the static scenes ----------
@@ -580,9 +841,15 @@ function drawJar(p, x, by) {
   for (let i = 0; i < 9; i++) { const mx = x - 7 + (i % 3) * 5, my = by - 6 - Math.floor(i / 3) * 5; p.rect(mx, my, 4, 4, i % 2 ? C.marshPink : C.marsh); }
 }
 
-const STAR = ['..o..', '.oyo.', 'oyyyo', '.oyo.', 'o.o.o'];
 function starRow(n, small = false) {
   return `<span class="stars${small ? ' small' : ''}">${[1, 2, 3].map((i) => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export { STAR, EXTRAS };
+
+function drawRag(p, x, y) { x = Math.round(x); y = Math.round(y); p.poly([[x - 7, y - 3], [x + 6, y - 5], [x + 8, y + 3], [x - 5, y + 5]], INK); p.poly([[x - 6, y - 2], [x + 5, y - 4], [x + 7, y + 2], [x - 4, y + 4]], '#6f8fc9'); p.line(x - 4, y, x + 5, y - 2, '#a9c0e8'); }
+function drawPitcher(p, x, by) { p.poly(rotPts([[-6, 8], [6, 8], [6, -8], [-6, -8]], x, by - 8, -0.9), INK); p.poly(rotPts([[-5, 7], [5, 7], [5, -7], [-5, -7]], x, by - 8, -0.9), '#d6ecf0'); p.poly(rotPts([[-5, 7], [5, 7], [5, 0], [-5, 0]], x, by - 8, -0.9), '#bfe0e8'); }
+function drawCarton(p, x, by) { p.poly(rotPts([[-5, 9], [5, 9], [5, -6], [0, -10], [-5, -6]], x, by - 8, -0.9), INK); p.poly(rotPts([[-4, 8], [4, 8], [4, -5], [0, -9], [-4, -5]], x, by - 8, -0.9), '#fbf6ea'); p.poly(rotPts([[-4, 2], [4, 2], [4, -2], [-4, -2]], x, by - 8, -0.9), '#6f8fc9'); }
+function drawFruit(p, x, by, c) { for (const [dx, dy] of [[-6, 0], [2, 0], [-2, -5]]) { p.ellipse(x + dx, by - 4 + dy, 4, 4, INK); p.ellipse(x + dx, by - 4 + dy, 3, 3, c); p.set(x + dx - 1, by - 6 + dy, '#ffffff'); } p.ellipse(x + 9, by - 3, 4, 3, INK); p.ellipse(x + 9, by - 3, 3, 2, shade(c, 1.1)); p.set(x + 9, by - 3, '#ffffff'); }
+function drawTub(p, x, by) { p.rect(x - 8, by - 10, 17, 10, INK); p.rect(x - 7, by - 9, 15, 8, '#e6eef0'); p.ellipse(x, by - 10, 7, 2, '#fbf3e0'); p.rect(x - 7, by - 6, 15, 2, '#e7a0a6'); p.line(x + 4, by - 14, x + 9, by - 20, '#8d9496'); p.ellipse(x + 3, by - 13, 2, 1, '#c9cfd1'); }
+function drawTeaBox(p, x, by) { p.rect(x - 9, by - 10, 18, 10, INK); p.rect(x - 8, by - 9, 16, 8, '#6d8a58'); p.rect(x - 6, by - 7, 12, 3, '#f4ecd6'); for (let i = 0; i < 3; i++) { p.rect(x - 6 + i * 5, by - 13, 3, 3, '#f4ecd6'); p.set(x - 5 + i * 5, by - 14, '#f6e070'); } }
+function drawBottle(p, x, by, c) { p.rect(x - 4, by - 16, 9, 16, INK); p.rect(x - 3, by - 15, 7, 14, c); p.rect(x - 3, by - 10, 7, 4, '#fbf6ea'); p.rect(x - 1, by - 22, 3, 6, '#5f6668'); p.rect(x - 3, by - 23, 7, 2, INK); p.rect(x + 2, by - 21, 4, 1, '#5f6668'); }

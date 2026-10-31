@@ -6,7 +6,9 @@ import { IsoPainter } from './art/iso.js';
 import { paintRoom, WALL_H } from './art/room.js';
 import { catFrame } from './art/cats.js';
 import { personSprite } from './art/people.js';
-import { cupCanvas, bubbleCanvas } from './art/drinks.js';
+import { cupCanvas, bubbleCanvas, bubblePix, cupPix, emotePix } from './art/drinks.js';
+import { plateCanvas, platePix } from './art/foods.js';
+import { t as tr } from './i18n.js';
 import { icon } from './ui/icons.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
@@ -39,7 +41,7 @@ export class Renderer {
     this.canvas.height = Math.round(window.innerHeight * dpr);
     // fit the whole room on screen at a whole-number zoom
     const roomW = (ROOM_W + ROOM_H) * 16 + 16, roomH = (ROOM_W + ROOM_H) * 8 + WALL_H + 6;
-    this.fitZoom = Math.max(2, Math.floor(Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY * 2) / roomH)));
+    this.fitZoom = Math.max(2, Math.floor(Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY) / roomH)));
     if (!this.userZoom) this.zoom = this.fitZoom;
     this.clampCam();
   }
@@ -105,7 +107,7 @@ export class Renderer {
     this.backdrop(t);
 
     this.blit(this.room.canvas, -this.room.ax, -this.room.ay, this.room.canvas.width, this.room.canvas.height);
-    this.rain(t);
+    this.rain(t, view.sky);
 
     // flat things (rugs) lie on the floor under everything
     const items = [];
@@ -120,6 +122,9 @@ export class Renderer {
     }
     if (view.build) this.drawBuildGrid(view.build, cafe);
 
+    for (const tp of view.tips || []) {
+      items.push({ x0: tp.x - 0.1, x1: tp.x + 0.1, y0: tp.y - 0.1, y1: tp.y + 0.1, z0: tp.z, z1: tp.z + 4, key: tp.x + tp.y, draw: () => this.drawTip(tp, t) });
+    }
     for (const p of view.players) {
       const r = 0.22;
       items.push({ x0: p.x - r, x1: p.x + r, y0: p.y - r, y1: p.y + r, z0: 0, z1: 30, key: p.x + p.y, draw: () => this.drawPerson(p, t) });
@@ -158,7 +163,8 @@ export class Renderer {
     g.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  rain(t) {
+  // the sky through the windows follows the time of day; rain only on rainy days
+  rain(t, sky = {}) {
     const g = this.g;
     for (const w of this.room.windows) {
       const pt = (u, z) => (w.side === 'north' ? [u, 0, z] : [0, u, z]);
@@ -170,17 +176,35 @@ export class Renderer {
       g.clip();
       const xs = corners.map((c) => c[0]), ys = corners.map((c) => c[1]);
       const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-      const z = this.zoom, n = Math.max(6, Math.round(((x1 - x0) / z) * 0.5));
-      g.fillStyle = 'rgba(170,190,220,0.45)';
-      for (let i = 0; i < n; i++) {
-        const seed = (i * 9301 + 49297) % 233280 / 233280;
-        const x = x0 + Math.floor((seed * (x1 - x0)) / z) * z;
-        const speed = 90 + seed * 60;
-        const y = y0 + ((t * speed * z + seed * 997) % (y1 - y0 + 6 * z)) - 3 * z;
-        g.fillRect(x, Math.floor(y / z) * z, z, z * 3);
+      if (sky.tint) { g.fillStyle = sky.tint; g.fillRect(x0, y0, x1 - x0, y1 - y0); }
+      if (sky.sun) { g.fillStyle = sky.sun; const z = this.zoom; g.fillRect(Math.round((x0 + x1) / 2 / z) * z, Math.round((y0 + (y1 - y0) * sky.sunY) / z) * z, z * 3, z * 3); }
+      if (sky.rain !== false) {
+        const z = this.zoom, n = Math.max(6, Math.round(((x1 - x0) / z) * 0.5));
+        g.fillStyle = 'rgba(170,190,220,0.45)';
+        for (let i = 0; i < n; i++) {
+          const seed = (i * 9301 + 49297) % 233280 / 233280;
+          const x = x0 + Math.floor((seed * (x1 - x0)) / z) * z;
+          const speed = 90 + seed * 60;
+          const y = y0 + ((t * speed * z + seed * 997) % (y1 - y0 + 6 * z)) - 3 * z;
+          g.fillRect(x, Math.floor(y / z) * z, z, z * 3);
+        }
       }
       g.restore();
     }
+  }
+
+  drawTip(tp, t) {
+    if (!this.tipImg) this.tipImg = coinPile().toCanvas();
+    const px = wx(tp.x, tp.y), py = wy(tp.x, tp.y, tp.z);
+    const bob = Math.floor(t * 2 + tp.x) % 2;
+    this.blit(this.tipImg, px - 4, py - 5, 9, 6);
+    // a little sparkle so tips are easy to spot
+    if (Math.floor(t * 3 + tp.y * 5) % 4 === 0) { const [sx, sy] = this.toScreen(px + 3, py - 7 - bob); this.g.fillStyle = '#fff6c4'; this.g.fillRect(sx, sy, this.zoom, this.zoom); }
+  }
+  tipAt(tips, sx, sy) {
+    let best = null, bd = 12 * this.zoom;
+    for (const tp of tips || []) { const [cx, cy] = this.toScreen(wx(tp.x, tp.y), wy(tp.x, tp.y, tp.z + 2)); const d = Math.hypot(cx - sx, cy - sy); if (d < bd) { bd = d; best = tp; } }
+    return best;
   }
 
   drawPerson(p, t) {
@@ -188,25 +212,60 @@ export class Renderer {
     const s = personSprite(p.look, p.view || 'front', frame, !!p.flip);
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
     if (!p.z) this.shadow(px, py, 6);
-    this.blit(s.canvas, px - 8, py - 27, s.w, s.h);
-    // a drink in hand: the barista carrying an order, or a customer sipping
-    const cup = p.carry || (p.state === 'drink' ? p.order : null);
-    if (cup) {
-      const c = cupCanvas(cup, p.carry ? p.carryExtra : p.extra);
+    // seated people rest their hips on the seat with their legs hanging down
+    const lift = p.sitting ? 21 : 27;
+    this.blit(s.canvas, px - 8, py - lift, s.w, s.h);
+    // something in hand: what a barista carries, or what a customer is enjoying
+    let thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
+    if (!thing && p.state === 'drink' && p.items) {
+      const d = p.items.find((i) => i.kind === 'drink'), f = p.items.find((i) => i.kind === 'food');
+      if (d) thing = cupCanvas(d.id, d.extra);
+      if (f) { const pc = plateCanvas(f.id); this.blit(pc, px - 7 + (p.flip ? -6 : 6), py - (p.sitting ? 8 : 12), pc.width, pc.height); }
+    }
+    if (thing) {
       const hx = p.view === 'back' ? (p.flip ? 3 : -11) : (p.flip ? -10 : 4);
-      this.blit(c, px + hx - Math.max(0, c.width - 11) / 2, py - (p.sitting ? 13 : 16) - Math.max(0, c.height - 11), c.width, c.height);
+      this.blit(thing, px + hx - Math.max(0, thing.width - 11) / 2, py - (p.sitting ? 8 : 16) - Math.max(0, thing.height - 11), thing.width, thing.height);
     }
   }
 
-  // order and mood bubbles over customers
+  // order bubbles: every item still wanted, who's making it, and ticks for what has arrived
   bubble(u, t) {
-    const kind = u.emote || (u.state === 'order' ? u.order : null);
-    if (!kind) return;
-    const c = bubbleCanvas(kind, u.emote ? '' : u.extra);
     const bob = Math.round(Math.sin(t * 2.5 + u.x) * 1);
-    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + 31 + bob);
-    const faded = !u.emote && u.claimed;
-    this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height, faded ? 0.55 : 1);
+    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + (u.z ? 25 : 31) + bob);
+    if (u.emote) { const c = bubbleCanvas(u.emote); this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height); return; }
+    if (u.state !== 'order' || !u.items?.length) return;
+    const key = JSON.stringify(u.items.map((i) => [i.kind, i.id, i.extra, i.byColor, i.done]));
+    this.bubbles ??= new Map();
+    if (!this.bubbles.has(key)) {
+      const parts = u.items.map((i) => {
+        const sp = i.kind === 'food' ? platePix(i.id) : cupPix(i.id, i.extra);
+        if (i.done) { sp.data = sp.data.map((v) => (v >>> 24 ? ((v & 0x00ffffff) | 0x55000000) >>> 0 : v)); const ck = emotePix('check'); sp.blit(ck, sp.w - ck.w, sp.h - ck.h); }
+        else if (i.byColor) { sp.rect(sp.w - 4, 0, 4, 4, '#24160f'); sp.rect(sp.w - 3, 1, 2, 2, i.byColor); }
+        return sp;
+      });
+      const w = parts.reduce((a, q) => a + q.w + 1, -1), h = Math.max(...parts.map((q) => q.h));
+      const inner = new Pix(w, h);
+      let x = 0;
+      for (const q of parts) { inner.blit(q, x, h - q.h); x += q.w + 1; }
+      this.bubbles.set(key, bubblePix(inner).toCanvas());
+      if (this.bubbles.size > 200) this.bubbles.delete(this.bubbles.keys().next().value);
+    }
+    const c = this.bubbles.get(key);
+    const faded = u.items.every((i) => i.done || i.by);
+    this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height, faded ? 0.75 : 1);
+    // whoever is making it, by name
+    const maker = u.items.find((i) => i.by && !i.done);
+    if (maker?.byName) this.label(px, py - c.height - 2, tr('{name} is making it', { name: maker.byName }), maker.byColor);
+  }
+
+  label(px, py, text, color) {
+    const g = this.g, [sx, sy] = this.toScreen(px, py);
+    const size = Math.max(9, Math.round(this.zoom * 2.6));
+    g.font = `600 ${size}px "Pixelify Sans", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const w = g.measureText(text).width + size;
+    g.fillStyle = 'rgba(36,22,15,0.85)'; g.fillRect(Math.round(sx - w / 2), Math.round(sy - size * 0.65), Math.round(w), Math.round(size * 1.3));
+    if (color) { g.fillStyle = color; g.fillRect(Math.round(sx - w / 2), Math.round(sy - size * 0.65), Math.max(2, Math.round(size * 0.3)), Math.round(size * 1.3)); }
+    g.fillStyle = '#fbf6ea'; g.fillText(text, sx, sy + 1);
   }
 
   // tap hit-test for people (customers)
@@ -266,6 +325,8 @@ export class Renderer {
 
   lights(cafe, t, view) {
     const g = this.g;
+    // evening dims the room so the lamps glow; morning is a touch brighter
+    if (view.sky?.dark) { g.fillStyle = `rgba(20,14,40,${view.sky.dark})`; g.fillRect(0, 0, this.canvas.width, this.canvas.height); }
     // pendant lamps hang over every table and over the counter
     const lamps = [];
     for (const it of cafe.furniture) {
@@ -450,6 +511,13 @@ function starPix() {
   const p = new Pix(7, 7);
   rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'o') p.set(x, y, '#24160f'); if (ch === 'y') p.set(x, y, '#ffd27a'); }));
   p.set(3, 2, '#fff6c4');
+  return p;
+}
+function coinPile() {
+  const rows = ['..ooooo..', '.oyyyyyo.', 'ooyyyyyoo', 'oyoyyyoyo', 'oyyoooyyo', '.ooooooo.'];
+  const p = new Pix(9, 6);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'o') p.set(x, y, '#8e5a1c'); if (ch === 'y') p.set(x, y, '#ffd27a'); }));
+  p.set(3, 1, '#fff6c4');
   return p;
 }
 function zPix() {

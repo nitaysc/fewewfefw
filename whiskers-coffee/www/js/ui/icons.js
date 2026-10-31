@@ -18,6 +18,13 @@ const ICONS = {
   heart: ['.oo.oo..', 'oppoppo.', 'opppppo.', '.opppo..', '..opo...', '...o....', '........', '........'],
   star: ['...oo...', '..oyyo..', 'ooyyyyoo', 'oyyyyyyo', '.oyyyyo.', '.oyyyyo.', 'oyyooyyo', 'ooo..ooo'],
   starOff: ['...oo...', '..oKKo..', 'ooKKKKoo', 'oKKKKKKo', '.oKKKKo.', '.oKKKKo.', 'oKKooKKo', 'ooo..ooo'],
+  sun: ['...yy...', '.y.yy.y.', '..yYYy..', 'yyYYYYyy', 'yyYYYYyy', '..yYYy..', '.y.yy.y.', '...yy...'],
+  moon: ['..oooo..', '.owwwo..', 'owwwo...', 'owwwo...', 'owwwo...', 'owwwwo.o', '.owwwwwo', '..oooooo'],
+  cup: ['.w.w.w..', '..w.w...', 'ooooooo.', 'owwwwwooo', 'owwwwwo.o', 'owwwwwooo', '.owwwo..', 'ooooooo.'],
+  rag: ['........', '.oooooo.', 'obbbbbbo', 'obwbbwbo', 'obbbbbbo', 'obbwbbbo', '.oooooo.', '........'],
+  bin: ['..oooo..', 'oooooooo', '.osssso.', '.osososo'.slice(0, 8), '.osososo'.slice(0, 8), '.osssso.', '.osssso.', '..oooo..'],
+  up: ['........', '...oo...', '..owwo..', '.owwwwo.', 'owwwwwwo', 'oooooooo', '........', '........'],
+  down: ['........', '........', 'oooooooo', 'owwwwwwo', '.owwwwo.', '..owwo..', '...oo...', '........'],
   back: ['...o....', '..owo...', '.owwoooo', 'owwwwwwo', '.owwoooo', '..owo...', '...o....', '........'],
 };
 

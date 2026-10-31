@@ -225,10 +225,12 @@ export class Sim {
   snapshot() {
     return {
       time: Math.round(this.t * 1000),
-      p: [...this.players.values()].map((p) => [p.id, +p.x.toFixed(3), +p.y.toFixed(3), p.view === 'back' ? 1 : 0, p.flip ? 1 : 0, p.moving ? 1 : 0, p.carry ? p.carry.drink : '', p.carry ? p.carry.extra : '']),
+      p: [...this.players.values()].map((p) => [p.id, +p.x.toFixed(3), +p.y.toFixed(3), p.view === 'back' ? 1 : 0, p.flip ? 1 : 0, p.moving ? 1 : 0, p.carry ? (p.carry.kind === 'food' ? 'f:' : '') + p.carry.id : '', p.carry ? p.carry.extra : '']),
       u: this.shop.snapshot(),
       c: [...this.cats.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.state, c.flip ? 1 : 0]),
       m: this.cafe.money,
+      d: [this.cafe.day.n, Math.round(this.cafe.day.min), this.cafe.day.phase, this.cafe.day.rain ? 1 : 0],
+      tp: this.cafe.tips.map((t) => [t.id, t.x, t.y, t.z, t.amount]),
     };
   }
   roster() { return [...this.players.values()].map((p) => ({ id: p.id, name: p.name, look: p.look })); }

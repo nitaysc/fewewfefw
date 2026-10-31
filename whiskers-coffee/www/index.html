@@ -15,7 +15,7 @@
     <div class="logo">
       <canvas id="logoCat" width="21" height="13"></canvas>
       <h1>Whiskers <span>&amp;</span> Coffee</h1>
-      <p>a cozy cat café for two</p>
+      <p data-t="a cozy cat café for two">a cozy cat café for two</p>
     </div>
     <div class="menu-buttons" id="menuButtons"></div>
   </section>
@@ -23,30 +23,27 @@
   <!-- character -->
   <section class="screen dim" id="character">
     <div class="panel wide">
-      <h2>Your barista</h2>
+      <h2 data-t="Your barista">Your barista</h2>
       <div class="char-layout">
-        <div class="char-preview"><canvas id="charPreview" width="16" height="29"></canvas></div>
+        <div class="char-preview"><canvas id="charPreview" width="16" height="29"></canvas><button class="chip" id="charSpin" data-t="Turn">Turn</button></div>
         <div class="char-options">
-          <label class="field">Name <input id="nameInput" maxlength="14" autocomplete="off"></label>
-          <div class="opt"><span>Skin</span><div class="swatches" id="skinRow"></div></div>
-          <div class="opt"><span>Hair</span><div class="chips" id="styleRow"></div></div>
-          <div class="opt"><span>Hair colour</span><div class="swatches" id="hairRow"></div></div>
-          <div class="opt"><span>Shirt</span><div class="swatches" id="shirtRow"></div></div>
-          <div class="opt"><span>Apron</span><div class="swatches" id="apronRow"></div></div>
+          <label class="field"><span data-t="Name">Name</span> <input id="nameInput" maxlength="14" autocomplete="off"></label>
+          <div class="chips" id="charTabs"></div>
+          <div id="charOpts" class="char-opts"></div>
         </div>
       </div>
-      <button class="btn primary" id="charDone">Done</button>
+      <button class="btn primary" id="charDone" data-t="Done">Done</button>
     </div>
   </section>
 
   <!-- join -->
   <section class="screen dim" id="join">
     <div class="panel">
-      <h2>Join a friend</h2>
-      <p class="hint">Ask your friend for the code shown under "Invite" in their café.</p>
+      <h2 data-t="Join a friend">Join a friend</h2>
+      <p class="hint" data-t="Ask your friend for the code shown under Invite in their café.">Ask your friend for the code shown under Invite in their café.</p>
       <input id="codeInput" class="code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCDE">
       <p class="status" id="joinStatus"></p>
-      <div class="row"><button class="btn" id="joinBack">Back</button><button class="btn primary" id="joinGo">Join</button></div>
+      <div class="row"><button class="btn" id="joinBack" data-t="Back">Back</button><button class="btn primary" id="joinGo" data-t="Join">Join</button></div>
     </div>
   </section>
 
@@ -55,6 +52,7 @@
     <div class="topbar">
       <div class="plate" id="cafeName"></div>
       <div class="plate coins"><img id="coinIcon" alt=""><b id="money">0</b></div>
+      <div class="plate clock" id="clock"></div>
       <div class="plate players" id="playerList"></div>
     </div>
     <div class="side">
@@ -62,6 +60,7 @@
       <button class="sq" id="btnInvite" aria-label="Invite a friend"></button>
     </div>
     <div class="dock">
+      <button class="big" id="btnOrders"></button>
       <button class="big" id="btnCats"></button>
       <button class="big" id="btnBuild"></button>
     </div>
@@ -75,46 +74,45 @@
     <div class="tray-items" id="trayItems"></div>
   </section>
 
-  <!-- espresso bar -->
+  <!-- order list -->
   <section class="brew" id="brew" hidden>
-    <div class="brew-head"><b id="brewTitle">Espresso bar</b><button class="sq small" id="brewClose" aria-label="Close"></button></div>
+    <div class="brew-head"><b id="brewTitle"></b><button class="sq small" id="brewClose" aria-label="Close"></button></div>
     <div id="brewBody"></div>
   </section>
 
-  <!-- barista station -->
-  <section class="station" id="station" hidden>
-    <aside class="st-card">
-      <b id="stTitle"></b>
-      <small id="stFor"></small>
-      <ol class="st-steps" id="stSteps"></ol>
-      <div id="stEnd"></div>
-    </aside>
-    <div class="st-main">
-      <canvas id="stCanvas"></canvas>
-      <div class="st-hint" id="stHint"></div>
-      <button class="sq small st-close" id="stClose" aria-label="Close"></button>
+  <!-- the barista station and the kitchen share one layout -->
+  <section class="station" id="station" hidden></section>
+  <section class="station" id="kitchen" hidden></section>
+
+  <!-- end of the day -->
+  <section class="screen dim" id="dayEnd">
+    <div class="panel">
+      <h2 id="dayTitle"></h2>
+      <div class="day-stats" id="dayStats"></div>
+      <p class="hint" id="dayHint"></p>
+      <button class="btn primary" id="dayNext"></button>
     </div>
   </section>
 
   <!-- invite -->
   <section class="screen dim" id="invite">
     <div class="panel">
-      <h2>Play together</h2>
-      <p class="hint">Your friend opens Whiskers &amp; Coffee, taps <b>Join a friend</b> and types this code:</p>
+      <h2 data-t="Play together">Play together</h2>
+      <p class="hint" data-t="Your friend opens Whiskers & Coffee, taps Join a friend and types this code:">Your friend opens Whiskers &amp; Coffee, taps Join a friend and types this code:</p>
       <div class="bigcode" id="inviteCode">·····</div>
       <p class="status" id="inviteStatus"></p>
-      <div class="row"><button class="btn" id="inviteShare">Share code</button><button class="btn primary" id="inviteClose">Back to café</button></div>
+      <div class="row"><button class="btn" id="inviteShare" data-t="Share code">Share code</button><button class="btn primary" id="inviteClose" data-t="Back to café">Back to café</button></div>
     </div>
   </section>
 
   <!-- cats -->
   <section class="screen dim" id="cats">
     <div class="panel wide">
-      <h2>Our cats</h2>
+      <h2 data-t="Our cats">Our cats</h2>
       <div class="cat-list" id="catList"></div>
-      <h3 id="adoptHead">Adopt a cat</h3>
+      <h3 id="adoptHead"></h3>
       <div class="cat-list" id="adoptList"></div>
-      <button class="btn primary" id="catsClose">Close</button>
+      <button class="btn primary" id="catsClose" data-t="Close">Close</button>
     </div>
   </section>
 
@@ -122,10 +120,12 @@
   <section class="screen dim" id="pause">
     <div class="panel">
       <h2 id="pauseTitle">Café</h2>
-      <button class="btn" id="pauseChar">Change my character</button>
-      <button class="btn" id="pauseSound">Sound: on</button>
-      <button class="btn" id="pauseLeave">Leave to title</button>
-      <button class="btn primary" id="pauseClose">Back to café</button>
+      <button class="btn" id="pauseChar" data-t="Change my character">Change my character</button>
+      <button class="btn" id="pauseSound"></button>
+      <div class="lang-row"><span data-t="Language">Language</span><div class="chips" id="langRow"></div></div>
+      <button class="btn" id="pauseClose2" data-t="Close the café early">Close the café early</button>
+      <button class="btn" id="pauseLeave" data-t="Leave to title">Leave to title</button>
+      <button class="btn primary" id="pauseClose" data-t="Back to café">Back to café</button>
     </div>
   </section>
 

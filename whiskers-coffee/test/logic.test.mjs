@@ -1,8 +1,11 @@
 // Checks the shared café rules without a browser: placement, pathfinding, building and cats.
 import { newCafe, canPlace, applyBuild, blockedGrid, findPath, ROOM_W, ROOM_H, tilesOf, strays, adoptPrice, MAX_CATS, upgradeCafe } from '../www/js/game/world.js';
 import { IsoPainter } from '../www/js/art/iso.js';
-import { DRINKS, DRINK_ORDER, finalBuild, cupPix, orderPrice, tipFor, starsFor, stepsFor, surfaceMap } from '../www/js/art/drinks.js';
-import { STEPS } from '../www/js/brew/station.js';
+import { DRINKS, DRINK_ORDER, finalBuild, cupPix, orderPrice, tipFor, starsFor, surfaceMap, judge, newBuild, pour, needFor } from '../www/js/art/drinks.js';
+import { FOODS, FOOD_ORDER, idealPlate, scorePlate, newPlate, platePix, INGREDIENTS, SAUCES, SHAKERS } from '../www/js/art/foods.js';
+import { TOOLS } from '../www/js/brew/station.js';
+import { DAY_MINUTES, MIN_PER_SEC } from '../www/js/game/customers.js';
+import { RU } from '../www/js/lang/ru.js';
 import { paintRoom, WALL_ORDER, FLOOR_ORDER } from '../www/js/art/room.js';
 import { Sim } from '../www/js/game/sim.js';
 import { CATALOG } from '../www/js/game/catalog.js';
@@ -61,29 +64,61 @@ check('cats move between behaviours', states.size >= 3);
 const snap = sim.snapshot();
 check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length === cafe.cats.length && !('t' in snap));
 
-// customers: arrive, sit, order, get a drink made and served, and pay
+// customers: arrive, sit, order, get it made and served, pay, and leave a tip on the table
 {
   const c2 = newCafe('Shop');
   const sim2 = new Sim(c2, () => {});
   sim2.addPlayer('me', 'Tester', {});
-  check('café starts with three recipes', c2.recipes.length === 3);
+  check('café starts with drinks and food on the menu', c2.recipes.length >= 3 && c2.foods.length >= 3);
   check('customer finds a seat', sim2.shop.spawn());
   const cust = [...sim2.shop.list.values()][0];
   for (let i = 0; i < 400 && cust.state === 'enter'; i++) sim2.step(0.05);
-  check('customer sits and orders', cust.state === 'order' && c2.recipes.includes(cust.order) && cust.z > 0);
-  check('claiming the order works', sim2.shop.claim('me', cust.id) === null);
+  check('customer sits and orders', cust.state === 'order' && cust.items.length >= 1 && cust.z > 0);
+  cust.items = [{ kind: 'drink', id: 'latte', extra: '', by: null, done: false }, { kind: 'food', id: 'shortcake', extra: '', by: null, done: false }];
+  check('claiming an item works', sim2.shop.claim('me', cust.id, 0) === null && cust.items[0].by === 'me');
   sim2.addPlayer('friend', 'Friend', {});
-  check('a friend cannot claim the same order', sim2.shop.claim('friend', cust.id) !== null);
-  check('drink is made', sim2.shop.brewed('me', cust.id, 1) === null && sim2.players.get('me').carry.drink === cust.order);
-  const money = c2.money, due = orderPrice(cust.order, cust.extra);
+  check('a friend cannot claim the same item', sim2.shop.claim('friend', cust.id, 0) !== null);
+  check('but the friend can make the food', sim2.shop.claim('friend', cust.id, 1) === null);
+  check('drink is made', sim2.shop.brewed('me', cust.id, 0, 1) === null && sim2.players.get('me').carry.id === 'latte');
+  const money = c2.money;
   sim2.shop.serve('me', cust.id);
-  for (let i = 0; i < 400 && cust.state === 'order'; i++) sim2.step(0.05);
-  check('serving pays for the drink', cust.state === 'drink' && !sim2.players.get('me').carry);
-  check('a perfect drink earns a 50% tip', c2.money - money >= due + Math.round(due * 0.5) && cust.stars === 3);
+  for (let i = 0; i < 400 && !cust.items[0].done; i++) sim2.step(0.05);
+  check('serving pays the price', cust.items[0].done && c2.money === money + orderPrice('latte') && !sim2.players.get('me').carry);
+  check('they keep waiting for the rest of the order', cust.state === 'order');
+  check('a perfect item earns a tip for later', cust.tip >= Math.round(orderPrice('latte') * 0.5));
+  // a badly made dish is politely refused and has to be made again
+  sim2.shop.brewed('friend', cust.id, 1, 0.1);
+  sim2.shop.serve('friend', cust.id);
+  for (let i = 0; i < 400 && sim2.players.get('friend').carry; i++) sim2.step(0.05);
+  check('a mix-up is refused and the item stays open', !cust.items[1].done && cust.items[1].by === 'friend');
+  sim2.shop.brewed('friend', cust.id, 1, 0.9);
+  sim2.shop.serve('friend', cust.id);
+  for (let i = 0; i < 400 && !cust.items[1].done; i++) sim2.step(0.05);
+  check('once everything arrives they enjoy it', cust.state === 'drink');
   for (let i = 0; i < 2000 && sim2.shop.list.has(cust.id); i++) sim2.step(0.05);
   check('the customer leaves happily afterwards', !sim2.shop.list.has(cust.id));
+  check('and leaves a tip on the table', c2.tips.length === 1 && c2.tips[0].amount > 0);
+  const m2 = c2.money, tipAmt = c2.tips[0].amount;
+  sim2.shop.collectTip('me', c2.tips[0].id);
+  check('tapping the tip collects it', c2.tips.length === 0 && c2.money === m2 + tipAmt && c2.day.today.tips === tipAmt);
   check('unlock a recipe', applyBuild(c2, { op: 'recipe', id: 'cappuccino' }) === null && c2.recipes.includes('cappuccino'));
-  check('snapshot carries customers', Array.isArray(sim2.snapshot().u));
+  c2.money = 1000;
+  check('unlock a dish', applyBuild(c2, { op: 'recipe', kind: 'food', id: 'pancakes' }) === null && c2.foods.includes('pancakes'));
+  const snap = sim2.snapshot();
+  check('snapshot carries customers, tips and the day', Array.isArray(snap.u) && Array.isArray(snap.tp) && snap.d.length === 4);
+}
+
+// the day: open, closing, closed, then the next morning
+{
+  const c = newCafe('Day');
+  const s = new Sim(c, () => {});
+  check('a café starts on day 1, open', c.day.n === 1 && c.day.phase === 'open');
+  for (let i = 0; i < (DAY_MINUTES / MIN_PER_SEC) * 20 + 20; i++) s.step(0.05);
+  check('at closing time no one new comes in', c.day.phase !== 'open');
+  for (let i = 0; i < 20000 && c.day.phase !== 'closed'; i++) s.step(0.05);
+  check('once everyone has left the day is over', c.day.phase === 'closed' && s.shop.list.size === 0);
+  check('the next day starts fresh', s.shop.nextDay() === null && c.day.n === 2 && c.day.phase === 'open' && c.day.today.served === 0);
+  check('closing early works', s.shop.closeEarly() === null && c.day.phase === 'closing');
 }
 
 // walls and floors: buy once, switch back for free
@@ -159,31 +194,50 @@ check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length 
   check('a customer sits on the cushion or bale', s.shop.spawn());
 }
 
-// drinks: recipes, extras and their looks
+// drinks: recipes, judging, spills and looks
 {
-  check('every recipe step has a minigame', DRINK_ORDER.every((id) => [...DRINKS[id].steps, 'cream', 'caramel', 'cinnamon'].every((k) => STEPS[k])));
+  const tools = new Set(Object.keys(TOOLS));
+  const makes = { espresso: 'shot', water: 'water', tea: 'water', milk: 'pourmilk', foam: 'pourmilk', drizzle: 'drizzle' };
+  check('every recipe ingredient has a tool', DRINK_ORDER.every((id) => Object.keys(needFor(id, DRINKS[id].extras[0] || '')).every((k) => tools.has(makes[k] || k))));
   let ok = true;
   for (const id of DRINK_ORDER) for (const ex of ['', ...DRINKS[id].extras]) {
-    try { const b = finalBuild(id, ex); surfaceMap(b); cupPix(id, ex); if (b.layers.reduce((a, l) => a + l.amt, 0) > 1.01) ok = false; } catch (e) { ok = false; console.log('  drink failed', id, ex, e.message); }
+    try {
+      const b = finalBuild(id, ex); surfaceMap(b); cupPix(id, ex);
+      if (b.layers.reduce((a, l) => a + l.amt, 0) > 1.01) ok = false;
+      const j = judge(b, id, ex);
+      if (j.q < 0.85) { ok = false; console.log('  ideal drink not perfect', id, ex, j.q.toFixed(2), JSON.stringify(j.notes)); }
+    } catch (e) { ok = false; console.log('  drink failed', id, ex, e.message); }
   }
-  check('every drink and extra draws and fits its cup', ok);
-  check('extras add a step and cost a little more', stepsFor('latte', 'caramel').length === DRINKS.latte.steps.length + 1 && orderPrice('latte', 'caramel') > orderPrice('latte'));
+  check('every drink made by the recipe gets 3 stars', ok);
+  const b = newBuild('latte', '', 'glass');
+  pour(b, 'espresso', 0.25);
+  check('a latte without milk is not a latte', judge(b, 'latte').q < 0.6);
+  const spilt = pour(b, 'milk', 0.9);
+  check('pouring too much spills over the rim', spilt > 0 && b.messy);
+  const wrongCup = finalBuild('latte'); wrongCup.vessel = 'mug';
+  check('the wrong cup costs a little', judge(wrongCup, 'latte').q < judge(finalBuild('latte'), 'latte').q);
   check('stars and tips grow with quality', starsFor(0.95) === 3 && starsFor(0.6) === 2 && starsFor(0.2) === 1 && tipFor(20, 0.95) > tipFor(20, 0.6) && tipFor(20, 0.2) === 0);
+  check('extras cost a little more', orderPrice('latte', 'caramel') > orderPrice('latte'));
+}
 
-  // an order with an extra needs that extra
-  const c3 = newCafe('Extras');
-  c3.stats.served = 10;
-  const s3 = new Sim(c3, () => {});
-  s3.addPlayer('me', 'Tester', {});
-  s3.shop.spawn();
-  const u = [...s3.shop.list.values()][0];
-  for (let i = 0; i < 400 && u.state === 'enter'; i++) s3.step(0.05);
-  u.order = 'latte'; u.extra = 'caramel';
-  s3.shop.claim('me', u.id); s3.shop.brewed('me', u.id, 0.6);
-  check('the drink carries its extra', s3.players.get('me').carry.extra === 'caramel');
-  s3.players.get('me').carry.extra = '';
-  check('a drink without the extra is not what they ordered', s3.shop.serve('me', u.id) !== null);
-  check('snapshot carries the extra', s3.snapshot().u[0][13] === 'caramel');
+// food: plating your own way
+{
+  let ok = true;
+  for (const id of FOOD_ORDER) { try { const pl = idealPlate(id); platePix(id); const r = scorePlate(id, pl); if (r.q < 0.85) { ok = false; console.log('  ideal plate not perfect', id, r.q); } } catch (e) { ok = false; console.log('  food failed', id, e.message); } }
+  check('every dish made by the recipe gets 3 stars', ok);
+  check('every dish asks only for things on the shelves', FOOD_ORDER.every((id) => Object.keys(FOODS[id].need).every((k) => INGREDIENTS[k] || SAUCES[k] || SHAKERS[k])));
+  const pl = newPlate('vanilla');
+  check('an empty cake slice is not a shortcake yet', scorePlate('shortcake', pl).q < 0.5);
+  pl.items.push({ k: 'cream', x: 0, y: 0 }, { k: 'cream', x: 0.2, y: 0 }, { k: 'strawberry', x: -0.2, y: 0 }, { k: 'strawberry', x: 0, y: 0.2 }, { k: 'mint', x: 0.3, y: 0.3 });
+  check('the right things make a lovely shortcake', scorePlate('shortcake', pl).q >= 0.85);
+  check('the wrong base is not that dish', scorePlate('salad', pl).q < 0.35);
+}
+
+// Russian: every translation keeps its placeholders
+{
+  const bad = Object.entries(RU).filter(([en, ru]) => (en.match(/\{\w+\}/g) || []).sort().join() !== (ru.match(/\{\w+\}/g) || []).sort().join());
+  if (bad.length) console.log('  placeholder mismatch:', bad.slice(0, 3));
+  check('Russian keeps every placeholder', bad.length === 0);
 }
 
 process.exit(failed ? 1 : 0);

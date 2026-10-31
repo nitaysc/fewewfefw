@@ -8,39 +8,67 @@ export const INK = '#24160f';
 export const C = {
   espresso: '#3b2014', crema: '#b0773f', milk: '#efe4cf', foam: '#fbf6ea', latteTop: '#c08a5a',
   choc: '#4a2416', hotchoc: '#7a4630', matcha: '#6f9f45', matchaTop: '#8fbf5a', matchaFoam: '#e4f0cf',
-  berry: '#d2405a', pinkmilk: '#f4c9d3', icedmilk: '#e6d3b6', cocoa: '#6b3a22', cinnamon: '#a0602a',
+  berry: '#d2405a', pinkmilk: '#f4c9d3', coldmilk: '#f2ead8', cocoa: '#6b3a22', cinnamon: '#a0602a',
   caramel: '#c9822f', cream: '#fffaf0', marsh: '#fff6f0', marshPink: '#f6c4d2',
+  water: '#dceef2', coldwater: '#e4f3f6', tea: '#b0642a', chai: '#a8683a', chailatte: '#d2a77a',
+  vanilla: '#f2e2b0', caramelsyrup: '#c9822f', chocsyrup: '#3a1a10', lemon: '#f6e070', orange: '#f29a3a', icecream: '#fbf3e0',
+  mocha: '#6b3f2a',
+};
+// what each ingredient is called on the recipe card
+export const COMPONENT_NAMES = {
+  espresso: 'Espresso', water: 'Hot water', milk: 'Steamed milk', foam: 'Milk foam', coldmilk: 'Cold milk', coldwater: 'Cold water',
+  choc: 'Melted chocolate', matcha: 'Matcha', berry: 'Strawberries', lemon: 'Lemon juice', orange: 'Orange juice', tea: 'Tea',
+  vanilla: 'Vanilla syrup', caramelsyrup: 'Caramel syrup', chocsyrup: 'Chocolate sauce', chai: 'Chai syrup',
+  ice: 'Ice', marsh: 'Marshmallows', icecream: 'Ice cream', teabag: 'Tea bag',
+  art: 'Latte art', cocoa: 'Cocoa', cinnamon: 'Cinnamon', drizzle: 'Caramel drizzle', chocdrizzle: 'Chocolate drizzle', cream: 'Whipped cream', mint: 'Mint',
 };
 
 // vessel shapes: size of the body, saucer and handle at the station (big) and in the café (small)
 export const VESSELS = {
-  demi: { ceramic: true, body: '#f7f1e6', big: { w: 16, h: 11, saucer: 26 }, small: { w: 6, h: 4, saucer: 9 }, handle: true, cap: 1 },
-  cup: { ceramic: true, body: '#f7f1e6', big: { w: 22, h: 14, saucer: 32 }, small: { w: 8, h: 5, saucer: 11 }, handle: true },
-  mug: { ceramic: true, body: '#d9826f', big: { w: 20, h: 21 }, small: { w: 7, h: 7 }, handle: true },
-  glass: { glass: true, big: { w: 18, h: 23 }, small: { w: 6, h: 8 }, handle: true },
-  tall: { glass: true, big: { w: 16, h: 30 }, small: { w: 6, h: 10 }, straw: true },
+  demi: { name: 'Espresso cup', ceramic: true, body: '#f7f1e6', big: { w: 16, h: 11, saucer: 26 }, small: { w: 6, h: 4, saucer: 9 }, handle: true },
+  cup: { name: 'Cup', ceramic: true, body: '#f7f1e6', big: { w: 22, h: 14, saucer: 32 }, small: { w: 8, h: 5, saucer: 11 }, handle: true },
+  mug: { name: 'Mug', ceramic: true, body: '#d9826f', big: { w: 20, h: 21 }, small: { w: 7, h: 7 }, handle: true },
+  glass: { name: 'Glass mug', glass: true, big: { w: 18, h: 23 }, small: { w: 6, h: 8 }, handle: true },
+  tall: { name: 'Tall glass', glass: true, big: { w: 16, h: 30 }, small: { w: 6, h: 10 }, straw: true },
 };
+export const VESSEL_ORDER = Object.keys(VESSELS);
 
+// extras a customer can ask for on top
 export const EXTRAS = {
-  cream: { name: 'whipped cream', short: 'cream', price: 4, step: 'cream' },
-  caramel: { name: 'caramel', short: 'caramel', price: 4, step: 'caramel' },
-  cinnamon: { name: 'cinnamon', short: 'cinnamon', price: 3, step: 'cinnamon' },
+  cream: { name: 'whipped cream', price: 4, need: { cream: 1 } },
+  caramel: { name: 'caramel', price: 4, need: { drizzle: 1 } },
+  cinnamon: { name: 'cinnamon', price: 3, need: { cinnamon: 1 } },
+  vanilla: { name: 'vanilla', price: 3, need: { vanilla: 0.08 } },
 };
 
+// recipes: the cup, the amount of each ingredient (as a share of the cup) and counted
+// things like ice cubes; toppings are 1 when they should be there
 export const DRINKS = {
-  espresso: { name: 'Espresso', price: 12, unlock: 0, vessel: 'demi', steps: ['grind', 'tamp', 'shot'], shot: 0.82, extras: [] },
-  latte: { name: 'Latte', price: 18, unlock: 0, vessel: 'glass', steps: ['grind', 'tamp', 'shot', 'milk', 'art'], shot: 0.25, milk: [['milk', 0.55], ['foam', 0.12]], top: C.latteTop, art: 'heart', extras: ['caramel', 'cinnamon'] },
-  hotchoc: { name: 'Hot chocolate', price: 15, unlock: 0, vessel: 'mug', steps: ['choc', 'milk', 'marsh'], milk: 'mix', extras: ['cream', 'cinnamon'] },
-  cappuccino: { name: 'Cappuccino', price: 20, unlock: 80, vessel: 'cup', steps: ['grind', 'tamp', 'shot', 'foam', 'cocoa'], shot: 0.3, foam: [['milk', 0.22], ['foam', 0.38]], extras: ['caramel', 'cinnamon'] },
-  iced: { name: 'Iced coffee', price: 18, unlock: 100, vessel: 'tall', steps: ['grind', 'tamp', 'shot', 'ice', 'pour'], shot: 0.24, pour: 'icedmilk', extras: ['caramel', 'cream'] },
-  strawberry: { name: 'Strawberry milk', price: 22, unlock: 120, vessel: 'tall', steps: ['berry', 'pour', 'ice'], pour: 'pinkmilk', extras: ['cream'] },
-  matcha: { name: 'Matcha latte', price: 24, unlock: 140, vessel: 'glass', steps: ['whisk', 'milk', 'art'], milk: [['milk', 0.5], ['matchaFoam', 0.12]], top: C.matchaTop, art: 'leaf', extras: ['cream'] },
+  espresso: { name: 'Espresso', price: 12, unlock: 0, vessel: 'demi', need: { espresso: 0.8 }, extras: [] },
+  americano: { name: 'Americano', price: 13, unlock: 0, vessel: 'cup', need: { espresso: 0.3, water: 0.6 }, extras: [] },
+  latte: { name: 'Latte', price: 18, unlock: 0, vessel: 'glass', need: { espresso: 0.25, milk: 0.55, foam: 0.12, art: 1 }, art: 'heart', extras: ['caramel', 'cinnamon', 'vanilla'] },
+  hotchoc: { name: 'Hot chocolate', price: 15, unlock: 0, vessel: 'mug', need: { choc: 0.4, milk: 0.46, marsh: 3 }, extras: ['cream', 'cinnamon'] },
+  cappuccino: { name: 'Cappuccino', price: 20, unlock: 80, vessel: 'cup', need: { espresso: 0.3, milk: 0.22, foam: 0.38, cocoa: 1 }, extras: ['caramel', 'cinnamon'] },
+  flatwhite: { name: 'Flat white', price: 19, unlock: 70, vessel: 'cup', need: { espresso: 0.38, milk: 0.5, foam: 0.05, art: 1 }, art: 'heart', extras: ['vanilla'] },
+  tea: { name: 'Black tea', price: 10, unlock: 40, vessel: 'mug', need: { teabag: 1, tea: 0.85 }, extras: [] },
+  iced: { name: 'Iced coffee', price: 18, unlock: 100, vessel: 'tall', need: { ice: 3, espresso: 0.24, coldmilk: 0.62 }, extras: ['caramel', 'cream', 'vanilla'] },
+  mocha: { name: 'Mocha', price: 22, unlock: 120, vessel: 'glass', need: { chocsyrup: 0.12, espresso: 0.25, milk: 0.45, foam: 0.1, chocdrizzle: 1 }, extras: ['cream'] },
+  strawberry: { name: 'Strawberry milk', price: 22, unlock: 120, vessel: 'tall', need: { berry: 0.22, coldmilk: 0.66, ice: 3 }, extras: ['cream'] },
+  lemonade: { name: 'Lemonade', price: 16, unlock: 90, vessel: 'tall', need: { lemon: 0.18, coldwater: 0.7, ice: 3, mint: 1 }, extras: [] },
+  orangejuice: { name: 'Orange juice', price: 14, unlock: 60, vessel: 'tall', need: { orange: 0.88 }, extras: [] },
+  chai: { name: 'Chai latte', price: 21, unlock: 130, vessel: 'mug', need: { chai: 0.16, milk: 0.62, foam: 0.12, cinnamon: 1 }, extras: ['cream'] },
+  macchiato: { name: 'Caramel macchiato', price: 24, unlock: 150, vessel: 'glass', need: { vanilla: 0.08, milk: 0.55, foam: 0.1, espresso: 0.2, drizzle: 1 }, extras: ['cream'] },
+  matcha: { name: 'Matcha latte', price: 24, unlock: 140, vessel: 'glass', need: { matcha: 0.3, milk: 0.5, foam: 0.12, art: 1 }, art: 'leaf', extras: ['cream', 'vanilla'] },
+  affogato: { name: 'Affogato', price: 20, unlock: 160, vessel: 'cup', need: { icecream: 1, espresso: 0.3 }, extras: ['caramel'] },
 };
-export const DRINK_ORDER = ['espresso', 'latte', 'hotchoc', 'cappuccino', 'iced', 'strawberry', 'matcha'];
+export const DRINK_ORDER = ['espresso', 'americano', 'latte', 'hotchoc', 'tea', 'orangejuice', 'flatwhite', 'cappuccino', 'lemonade', 'iced', 'mocha', 'strawberry', 'chai', 'matcha', 'macchiato', 'affogato'];
+export const START_DRINKS = ['espresso', 'americano', 'latte', 'hotchoc'];
+export const COUNTED = new Set(['ice', 'marsh', 'icecream', 'teabag']);
+export const TOPPINGS = new Set(['art', 'cocoa', 'cinnamon', 'drizzle', 'chocdrizzle', 'cream', 'mint']);
 
-export const orderName = (id, extra) => DRINKS[id].name + (extra ? ` with ${EXTRAS[extra].name}` : '');
+export const orderName = (id, extra) => DRINKS[id].name + (extra ? ` + ${EXTRAS[extra].name}` : '');
 export const orderPrice = (id, extra) => DRINKS[id].price + (extra ? EXTRAS[extra].price : 0);
-export const stepsFor = (id, extra) => [...DRINKS[id].steps, ...(extra ? [EXTRAS[extra].step] : [])];
+export const needFor = (id, extra) => ({ ...DRINKS[id].need, ...(extra ? EXTRAS[extra].need : {}) });
 // how a drink's quality (0..1) turns into stars and a tip on top of the price
 export const starsFor = (q) => (q >= 0.85 ? 3 : q >= 0.55 ? 2 : 1);
 export const tipFor = (price, q) => { const s = starsFor(q); return s === 3 ? Math.round(price * 0.5) : s === 2 ? Math.round(price * 0.2) : 0; };
@@ -55,7 +83,6 @@ export function guideShape(kind) {
       pts.push([x / 26, -y / 26 + 0.08]);
     }
   } else if (kind === 'leaf') {
-    // a rosetta: zigzag down the middle, then a line back up through it
     for (let i = 0; i <= 8; i++) { const y = -0.6 + i * 0.14, w = 0.5 * (1 - i / 10); pts.push([i % 2 ? w : -w, y]); }
     for (let i = 0; i <= 5; i++) pts.push([0, 0.55 - i * 0.24]);
   } else if (kind === 'zigzag') {
@@ -64,53 +91,94 @@ export function guideShape(kind) {
   return pts;
 }
 
-// ---------- building a drink ----------
-export function newBuild(id, extra = '') {
-  return { id, extra, vessel: DRINKS[id].vessel, layers: [], top: null, strokes: [], dots: [], marsh: [], chunks: 0, froth: 0, cream: 0, ice: 0, straw: false, map: null, dirty: true };
+// ---------- a drink being made ----------
+// amt: amounts of each liquid; layers: the same in the order poured (for drawing);
+// counts: ice cubes, marshmallows...; top: toppings that are on; messy: spilled
+export function newBuild(id = null, extra = '', vessel = null) {
+  return { id, extra, vessel, layers: [], amt: {}, counts: {}, tops: {}, top: null, strokes: [], dots: [], marsh: [], chunks: 0, froth: 0, cream: 0, ice: 0, straw: false, map: null, dirty: true, spill: 0, messy: false, artScore: 0, burnt: false, shotQ: 1 };
 }
 export const fillOf = (b) => b.layers.reduce((a, l) => a + l.amt, 0);
-export function addLayer(b, key, amt) {
-  const last = b.layers[b.layers.length - 1];
-  if (last && last.key === key) last.amt += amt; else b.layers.push({ key, c: C[key] || key, amt });
-  b.dirty = true;
+// how a liquid looks once it's in the cup, given what's already there
+function mixedKey(b, key) {
+  if (key === 'water' && b.counts.teabag) return 'tea';
+  if (key === 'milk' && b.amt.choc) return 'hotchoc';
+  if (key === 'milk' && b.amt.chai) return 'chailatte';
+  if (key === 'milk' && b.amt.chocsyrup) return 'mocha';
+  return key;
 }
-export function setLayer(b, key, amt) {
-  const l = b.layers.find((x) => x.key === key);
-  if (l) l.amt = amt; else b.layers.push({ key, c: C[key] || key, amt });
+// pour some of a liquid; returns how much spilled over the rim
+export function pour(b, key, amt) {
+  const room = Math.max(0, 1 - fillOf(b));
+  const put = Math.min(room, amt), spilled = amt - put;
+  const as = key === 'water' && b.counts.teabag ? 'tea' : key;
+  b.amt[as] = (b.amt[as] || 0) + put;
+  const look = mixedKey(b, key);
+  const last = b.layers[b.layers.length - 1];
+  if (put > 0) { if (last && last.key === look) last.amt += put; else b.layers.push({ key: look, c: C[look] || C[key], amt: put }); }
+  if (spilled > 0) { b.spill += spilled; b.messy = true; }
+  // the surface takes the colour of what was poured last
+  if (put > 0) b.top = key === 'espresso' && (b.vessel === 'demi' || b.vessel === 'cup') && !b.amt.milk ? C.crema : key === 'milk' && b.amt.espresso ? C.latteTop : key === 'milk' && b.amt.matcha ? C.matchaTop : key === 'foam' ? (b.amt.matcha ? C.matchaFoam : C.foam) : C[look] || C[key];
   b.dirty = true;
+  return spilled;
+}
+export const addLayer = (b, key, amt) => pour(b, key, amt);
+
+// ---------- judging a drink against its recipe ----------
+// returns { q: 0..1, notes: [text] }
+export function judge(b, id, extra = '') {
+  const need = needFor(id, extra), notes = [];
+  if (!b.vessel) return { q: 0, notes: ['There is no cup'] };
+  let total = 0, n = 0;
+  for (const [k, want] of Object.entries(need)) {
+    let sc;
+    if (COUNTED.has(k)) { const have = k === 'ice' ? b.ice : k === 'marsh' ? b.marsh.length : (b.counts[k] || 0); sc = have >= want ? Math.max(0.6, 1 - (have - want) * 0.1) : have / want; if (have < want) notes.push(['Not enough: {thing}', k]); }
+    else if (TOPPINGS.has(k)) {
+      const have = k === 'cream' ? b.cream : k === 'art' ? b.artScore : b.tops[k] || 0;
+      sc = k === 'cream' ? (have >= 0.6 && have <= 1.2 ? 1 : have > 0 ? 0.6 : 0) : Math.min(1, have);
+      if (!have) notes.push(['Missing: {thing}', k]);
+    } else {
+      const have = b.amt[k] || 0, tol = Math.max(0.08, want * 0.45);
+      sc = Math.max(0, 1 - Math.abs(have - want) / tol);
+      if (have < 0.01) notes.push(['Missing: {thing}', k]);
+      else if (have > want + tol * 0.4) notes.push(['Too much: {thing}', k]);
+      else if (have < want - tol * 0.4) notes.push(['A little more: {thing}', k]);
+      if (k === 'espresso') sc *= b.shotQ;
+      if (k === 'milk' && b.burnt) { sc *= 0.7; notes.push(['The milk got too hot', null]); }
+    }
+    total += sc; n++;
+  }
+  let q = n ? total / n : 0;
+  // things that shouldn't be in it
+  for (const [k, v] of Object.entries(b.amt)) if (!need[k] && v > 0.04) { q -= 0.15; notes.push(['Not in this recipe: {thing}', k]); }
+  if (b.ice && !need.ice) { q -= 0.15; notes.push(['Not in this recipe: {thing}', 'ice']); }
+  if (b.vessel !== DRINKS[id].vessel) { q *= 0.75; notes.push(['Usually served in: {thing}', 'v:' + DRINKS[id].vessel]); }
+  if (b.spill > 0.02) { q -= Math.min(0.2, b.spill); }
+  return { q: Math.max(0, Math.min(1, q)), notes };
 }
 
-// what each step does when done perfectly: used for the finished drink in the café and
-// as the end state the barista station animates towards
-export function applyIdeal(b, step) {
-  const d = DRINKS[b.id];
-  switch (step) {
-    case 'shot': addLayer(b, 'espresso', d.shot); if (b.vessel === 'demi' || b.vessel === 'cup') b.top = C.crema; break;
-    case 'milk':
-      if (d.milk === 'mix') { const l = b.layers.find((x) => x.key === 'choc'); if (l) { l.key = 'hotchoc'; l.c = C.hotchoc; l.amt = 0.86; } b.top = C.hotchoc; b.chunks = 0; }
-      else for (const [k, a] of d.milk) addLayer(b, k, a);
-      if (d.top) b.top = d.top;
-      break;
-    case 'foam': for (const [k, a] of d.foam) addLayer(b, k, a); b.top = C.foam; break;
-    case 'pour': addLayer(b, d.pour, Math.max(0, 0.9 - fillOf(b))); b.top = C[d.pour]; break;
-    case 'art': b.strokes.push({ c: b.id === 'matcha' ? '#f4f9e8' : C.foam, w: 0.085, pts: guideShape(d.art), z: 0 }); break;
-    case 'caramel': b.strokes.push({ c: C.caramel, w: 0.045, pts: guideShape('zigzag'), z: 1 }); break;
-    case 'cocoa': case 'cinnamon':
-      for (let i = 0; i < 46; i++) { const a = hash(i, 3, 7) * Math.PI * 2, r = Math.sqrt(hash(i, 5, 2)) * 0.8; b.dots.push([Math.cos(a) * r, Math.sin(a) * r, step === 'cocoa' ? C.cocoa : C.cinnamon]); }
-      break;
-    case 'choc': addLayer(b, 'choc', 0.4); b.top = C.choc; break;
-    case 'marsh': b.marsh.push([-0.3, -0.2], [0.3, -0.1], [0, 0.32]); break;
-    case 'whisk': addLayer(b, 'matcha', 0.3); b.top = C.matcha; b.froth = 1; break;
-    case 'berry': addLayer(b, 'berry', 0.22); break;
-    case 'ice': b.ice = 3; break;
-    case 'cream': b.cream = 1; break;
-  }
-  b.dirty = true;
-}
+// the drink as it looks when made perfectly (for the café sprites)
 export function finalBuild(id, extra = '') {
-  const b = newBuild(id, extra);
-  for (const s of stepsFor(id, extra)) applyIdeal(b, s);
+  const d = DRINKS[id], need = needFor(id, extra), b = newBuild(id, extra, d.vessel);
+  const order = ['teabag', 'chocsyrup', 'vanilla', 'chai', 'caramelsyrup', 'berry', 'lemon', 'orange', 'matcha', 'choc', 'icecream', 'ice', 'espresso', 'water', 'tea', 'coldwater', 'coldmilk', 'milk', 'foam'];
+  // a macchiato is milk first with the shot poured on top
+  const seq = id === 'macchiato' ? ['vanilla', 'milk', 'foam', 'espresso'] : order;
+  for (const k of seq) {
+    if (!need[k]) continue;
+    if (k === 'ice') b.ice = need.ice;
+    else if (k === 'teabag') b.counts.teabag = 1;
+    else if (k === 'icecream') b.counts.icecream = 1;
+    else pour(b, k === 'tea' ? 'water' : k, need[k]);
+  }
+  if (need.marsh) b.marsh.push([-0.3, -0.2], [0.3, -0.1], [0, 0.32]);
+  for (const k of ['drizzle', 'chocdrizzle', 'cocoa', 'cinnamon', 'mint']) if (need[k]) b.tops[k] = 1;
+  if (need.art) b.artScore = 1;
+  if (need.art) b.strokes.push({ c: id === 'matcha' ? '#f4f9e8' : C.foam, w: 0.085, pts: guideShape(d.art), z: 0 });
+  if (need.cream) b.cream = 1;
+  if (need.drizzle || need.chocdrizzle) b.strokes.push({ c: need.drizzle ? C.caramel : C.chocsyrup, w: 0.045, pts: guideShape('zigzag'), z: 1 });
+  for (const k of ['cocoa', 'cinnamon']) if (need[k]) for (let i = 0; i < 46; i++) { const a = hash(i, 3, 7) * Math.PI * 2, r = Math.sqrt(hash(i, 5, 2)) * 0.8; b.dots.push([Math.cos(a) * r, Math.sin(a) * r, C[k]]); }
+  if (need.mint) b.dots.push([0.3, -0.2, '#5c9a48'], [0.35, -0.25, '#5c9a48'], [0.25, -0.15, '#3f6b35']);
   b.straw = VESSELS[b.vessel].straw;
+  b.dirty = true;
   return b;
 }
 
@@ -198,12 +266,13 @@ function ellipseCols(pix, x0, x1, cy, ry, fn) {
 
 // draws the drink with its bottom centre at (cx, by). size: 'big' (station) or 'small' (café)
 export function drawDrink(pix, cx, by, b, size = 'big', opts = {}) {
+  if (!b.vessel) return;
   const V = VESSELS[b.vessel], d = V[size], big = size === 'big';
   const w = d.w, h = d.h, x0 = Math.round(cx - w / 2), x1 = x0 + w - 1;
   const ry = big ? Math.max(2, Math.round(w / 6)) : 1;
   const yt = by - h;
   const fill = Math.min(1, fillOf(b));
-  const map = b.layers.length || b.cream || b.marsh.length ? surfaceMap(b) : null;
+  const map = b.layers.length || b.cream || b.marsh.length || b.dots.length ? surfaceMap(b) : null;
   const glassC = '#d6ecf099', glassEdge = '#f4fbfccc';
 
   if (d.saucer) {
@@ -298,6 +367,17 @@ export function drawDrink(pix, cx, by, b, size = 'big', opts = {}) {
     pix.hline(Math.round(cx) - 1, Math.round(cx), yt - ch - 1, INK);
     if (b.strokes.some((s) => s.z)) for (let k = 1; k < ch; k += big ? 3 : 2) pix.hline(Math.round(cx) - 2 - (k % 2), Math.round(cx) + 1 + (k % 2), yt - k, C.caramel);
   }
+  // a scoop of ice cream sits in the cup
+  if (b.counts?.icecream) {
+    const r = big ? 6 : 2, sy = yt - (big ? 1 : 0);
+    ellipseCols(pix, Math.round(cx) - r - 1, Math.round(cx) + r, sy, big ? 4 : 1, () => INK);
+    ellipseCols(pix, Math.round(cx) - r, Math.round(cx) + r - 1, sy - (big ? 1 : 0), big ? 3 : 1, (nx, ny) => (ny < -0.3 && nx < 0 ? '#ffffff' : C.icecream));
+  }
+  // drips down the side after a spill
+  if (b.messy && big) {
+    const c = b.cream > 1.2 ? C.cream : topColor(b) || C.espresso;
+    for (const [fx, len] of [[0.2, 6], [0.55, 9], [0.8, 4]]) { const x = Math.round(x0 + fx * w); pix.vline(x, yt, yt + len, c); pix.set(x, yt + len + 1, shade(c, 0.85)); }
+  }
   // straw
   if (b.straw) {
     const sx = Math.round(cx + w * 0.2), top = yt - (big ? 10 : 4);
@@ -344,9 +424,10 @@ const EMOTES = {
   wow: ['.ooo.', '.oro.', '.oro.', '.oro.', '.ooo.', '.....', '.ooo.', '.oro.', '.ooo.'],
   coin: ['.ooo.', 'oyyyo', 'oywyo', 'oyyyo', '.ooo.'],
   smile: ['.ooooo.', 'oyyyyyo', 'oyoyoyo', 'oyyyyyo', 'oyoooyo', 'oyyyyyo', '.ooooo.'],
+  check: ['.....oo', '....ogo', 'oo.ogo.', 'ogoogo.', '.oggo..', '..oo...'],
   star: ['...o...', '..oyo..', 'ooyyyoo', 'oyyyyyo', '.oyyyo.', '.oyoyo.', '.oo.oo.'],
 };
-const EPAL = { o: INK, r: '#ff7a90', R: '#ffd0d8', w: '#f4efe6', y: '#ffd27a' };
+const EPAL = { o: INK, r: '#ff7a90', R: '#ffd0d8', w: '#f4efe6', y: '#ffd27a', g: '#8fd16a' };
 const bcache = new Map();
 export function bubbleCanvas(kind, extra = '') {
   const key = kind + '|' + extra;

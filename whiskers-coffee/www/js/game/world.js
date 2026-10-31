@@ -3,6 +3,7 @@
 import { CATALOG } from './catalog.js';
 import { DEFAULT_WALLS, WALL_STYLES, FLOOR_STYLES } from '../art/room.js';
 import { DRINKS } from '../art/drinks.js';
+import { FOODS, START_FOODS } from '../art/foods.js';
 import { COATS, COLLARS } from '../art/cats.js';
 
 export const ROOM_W = 11, ROOM_H = 9;
@@ -39,7 +40,15 @@ export function newCafe(name = 'Our Café') {
     stats: { served: 0 },
     decor: { wall: 'cream', floor: 'oak', owned: ['cream', 'oak'] },
     adoptSeed: Math.floor(Math.random() * 1e9),
+    foods: [...START_FOODS],
+    tips: [],
+    day: newDay(1),
   };
+}
+
+// a fresh day: the clock at opening time and nothing earned yet
+export function newDay(n) {
+  return { n, min: 0, phase: 'open', rain: n === 1 || Math.random() < 0.4, today: { served: 0, earned: 0, tips: 0, perfect: 0 } };
 }
 
 // older saves come from before some features; fill in what they lack
@@ -50,6 +59,11 @@ export function upgradeCafe(cafe) {
   if (!cafe.decor.owned) cafe.decor.owned = ['cream', 'oak'];
   if (cafe.adoptSeed == null) cafe.adoptSeed = Math.floor(Math.random() * 1e9);
   cafe.inventory = cafe.inventory || {};
+  cafe.foods = cafe.foods || [...START_FOODS];
+  cafe.tips = cafe.tips || [];
+  cafe.day = cafe.day || newDay(1);
+  cafe.recipes = cafe.recipes.filter((id) => DRINKS[id]);
+  cafe.foods = cafe.foods.filter((id) => FOODS[id]);
   return cafe;
 }
 
@@ -221,13 +235,14 @@ export function applyBuild(cafe, op) {
     if (!cafe.inventory[op.type]) delete cafe.inventory[op.type];
     cafe.furniture.push(it);
   } else if (op.op === 'recipe') {
-    const d = DRINKS[op.id];
-    cafe.recipes = cafe.recipes || ['espresso', 'latte', 'hotchoc'];
+    // add a drink or a dish to the menu
+    upgradeCafe(cafe);
+    const food = op.kind === 'food', d = food ? FOODS[op.id] : DRINKS[op.id], list = food ? cafe.foods : cafe.recipes;
     if (!d) return 'Unknown recipe';
-    if (cafe.recipes.includes(op.id)) return 'Already on the menu';
+    if (list.includes(op.id)) return 'Already on the menu';
     if (cafe.money < d.unlock) return 'Not enough coins';
     cafe.money -= d.unlock;
-    cafe.recipes.push(op.id);
+    list.push(op.id);
   } else if (op.op === 'style') {
     // wallpaper or floor: buying it once keeps it, so switching back later is free
     const list = op.kind === 'wall' ? WALL_STYLES : op.kind === 'floor' ? FLOOR_STYLES : null;

@@ -70,7 +70,15 @@ Godot 4. I chose otherwise for three practical reasons:
   - [x] Walls and floors (7 wallpapers, 6 floors, try before you buy)
   - [x] Furniture collections: Kyoto, Cottage, Autumn, Winter (16 pieces)
   - [x] Cat adoption (up to 6 cats, 8 coats), renaming, collars
-- [ ] 5. Progression and story: economy loop, recipes, quests, grandmother's notebook
+- [x] **5a. Café life (round 5)**
+  - [x] Day cycle with opening hours, closing time and a daily summary
+  - [x] Tips left on tables to collect
+  - [x] Food: ten dishes plated by hand
+  - [x] 16 drinks made with tools, with spills, wiping and remakes
+  - [x] Russian language
+  - [x] Much more character customisation
+  - [x] Hold-and-drag decorating
+- [ ] 5. Story: quests, grandmother's notebook
 - [ ] 6. Polish: music, weather and seasons, photo mode
 - [x] **7. Android**
   - [x] Landscape APK built by GitHub Actions, with a fixed signing key so updates install over each other
