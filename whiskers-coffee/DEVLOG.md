@@ -613,3 +613,19 @@ face right; flip for left), `c_<coat>_<sit0-2|walk0-3|sleep0-1|groom0-1|happy0>`
 the fallback). Catalog heights (`seatZ`, `surface`, `perch`, `glow`) were changed to match the
 models (world px = units x 19.6). Every person now uses one of the ready-made characters; a custom
 look maps to one of the baristas. HUD buttons were restyled (cream, rounded, coloured band).
+
+### 11b. Drinks, food and effects in the same style
+
+- `tools/art3d/food3d.py` models all 16 drinks (with their extras) and 10 dishes: ceramic cups
+  and saucers, mugs, glass mugs and tall glasses with visible layers, latte-art heart and
+  matcha leaf, cocoa/cinnamon dust, drizzles, whipped cream, marshmallows, ice, straws, fruit;
+  cake slices with layers, croissant, pancakes with syrup, salads in bowls, avocado toast.
+  Three sizes: `s` (café), `m` (order bubbles), `b` (menus). `r3.js` has `drink3`, `food3`,
+  `itemURL` (menu data URLs) and `orderBubble3` (rounded order bubbles).
+- Old-style effects replaced when the art is loaded: soft floor shadows, round steam puffs,
+  smooth gold tip coins, vector hearts, smooth lamp light pools, no hanging pendant drawings.
+- Still old art: the barista station and kitchen minigame screens (the cup/plate being built,
+  tools and shelves) are drawn by `art/drinks.js` / `art/foodart.js` / `brew/*.js`. The next
+  job is to give them the same rendered look (e.g. pre-rendered vessels and a shaded liquid
+  map tinted per layer at run time), as the owner wants every drink and dish to match.
+- Full how-to for adding art: `tools/art3d/README.md`.

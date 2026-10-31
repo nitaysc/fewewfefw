@@ -190,7 +190,7 @@ check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length 
   applyBuild(c, { op: 'buy', type: 'hay_bale', x: 8, y: 7 });
   const s = new Sim(c, () => {});
   const seats = s.shop.seats();
-  check('cushion and hay bale are seats at their own heights', seats.length === 2 && seats.some((x) => x.z === 3) && seats.some((x) => x.z === 10));
+  check('cushion and hay bale are seats at their own heights', seats.length === 2 && seats.some((x) => x.z === CATALOG.zabuton.seatZ) && seats.some((x) => x.z === CATALOG.hay_bale.seatZ) && CATALOG.zabuton.seatZ < CATALOG.hay_bale.seatZ);
   check('a customer sits on the cushion or bale', s.shop.spawn());
 }
 

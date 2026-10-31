@@ -5,9 +5,11 @@ an AI. Each project has its own notes:
 
 - **`whiskers-coffee/DEVLOG.md`**: the active project, a co-op cat café. It's the most
   detailed: architecture, conventions, network protocol, what's in progress and what's
-  next. **Start with sections 8f, 8g and 8h**: it lists what the owner asked for last and what is
-  still open. The biggest open job is richer pixel art matching
-  `whiskers-coffee/docs/art-references/`.
+  next. **Start with section 11** (the current art) and the end of the log for what is open.
+- **`whiskers-coffee/tools/art3d/README.md`: THE ART GUIDE.** Every picture in the café
+  (people, cats, furniture, room, drinks, food) is modelled and rendered by that pipeline.
+  Read it before adding or changing any art; it explains the style, units, cameras,
+  anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
@@ -31,6 +33,6 @@ Working notes for the café game:
 - After each push, give the owner the release link:
   `https://github.com/nitaysc/fewewfefw/releases/tag/whiskers-coffee-v0.1.<run number>`
   (the build takes about two minutes).
-- The owner makes new art with the prompts in `whiskers-coffee/tools/ART_PROMPTS.md`. When
-  they send a sheet, cut it with `tools/auto_extract.py` and map the sprites in
-  `www/js/art/refsprites.js` (dev log section 8h).
+- Art: do NOT cut sprites from AI images any more and do not hand-draw them in code; the owner
+  rejected both. Use `whiskers-coffee/tools/art3d` (see its README). The older sheet tools
+  (`ART_PROMPTS.md`, `auto_extract.py`, `refsprites.js`) are kept only as history/fallback.

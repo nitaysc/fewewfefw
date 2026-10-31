@@ -11,7 +11,7 @@ import { plateCanvas, platePix } from './art/foods.js';
 import { t as tr } from './i18n.js';
 import { refImg, refsReady, personPose, personScale, sitScale, catPose, furniturePic, PERSON_HEIGHT } from './art/refsprites.js';
 import { icon } from './ui/icons.js';
-import { r3, r3Ready, K3, furniture3, composeRoom3, modelFor, personFrame, catFrame3, PERSON3_H } from './art/r3.js';
+import { r3, r3Ready, K3, furniture3, composeRoom3, modelFor, personFrame, catFrame3, PERSON3_H, drink3, food3, orderBubble3 } from './art/r3.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
 
@@ -166,6 +166,15 @@ export class Renderer {
       if (u.state === 'drink' && u.table && u.items) {
         const [tx0, ty0, tz] = u.table;
         const cx = tx0 + 0.5 + (u.x - tx0 - 0.5) * 0.38, cy = ty0 + 0.5 + (u.y - ty0 - 0.5) * 0.38;
+        if (r3Ready()) {
+          u.items.forEach((i, n) => {
+            const im = i.kind === 'food' ? food3(i.id) : drink3(i.id, i.extra);
+            if (!im) return;
+            const ox = (n - (u.items.length - 1) / 2) * 0.24;
+            items.push({ x0: cx + ox - 0.1, x1: cx + ox + 0.1, y0: cy - 0.1, y1: cy + 0.1, z0: tz, z1: tz + 6, key: cx + cy, draw: () => this.blit(im.canvas, wx(cx + ox, cy) - im.ax / K3, wy(cx + ox, cy, tz) - im.ay / K3, im.w / K3, im.h / K3) });
+          });
+          continue;
+        }
         const things = u.items.map((i) => (i.kind === 'food' ? plateCanvas(i.id) : cupCanvas(i.id, i.extra)));
         things.forEach((c, n) => {
           const ox = (n - (things.length - 1) / 2) * 0.22;
@@ -228,6 +237,18 @@ export class Renderer {
   }
 
   drawTip(tp, t) {
+    if (r3Ready()) {
+      const g = this.g, [sx, sy] = this.toScreen(wx(tp.x, tp.y), wy(tp.x, tp.y, tp.z)), z = this.zoom;
+      for (let i = 0; i < 3; i++) {
+        const cx = sx + (i - 1) * 2.2 * z, cy = sy - i * 1.2 * z;
+        g.fillStyle = '#8e5a1c'; g.beginPath(); g.ellipse(cx, cy + 0.8 * z, 3 * z, 1.5 * z, 0, 0, 7); g.fill();
+        const gr = g.createLinearGradient(cx - 3 * z, cy, cx + 3 * z, cy); gr.addColorStop(0, '#ffe7a0'); gr.addColorStop(1, '#d9a33a');
+        g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy, 3 * z, 1.5 * z, 0, 0, 7); g.fill();
+      }
+      const s = (t * 1.5 + tp.x) % 2;
+      if (s < 0.4) { g.fillStyle = `rgba(255,250,220,${1 - s / 0.4})`; g.beginPath(); g.arc(sx + 2 * z, sy - 4 * z, z * (1 + s * 2), 0, 7); g.fill(); }
+      return;
+    }
     if (!this.tipImg) this.tipImg = coinPile().toCanvas();
     const px = wx(tp.x, tp.y), py = wy(tp.x, tp.y, tp.z);
     const bob = Math.floor(t * 2 + tp.x) % 2;
@@ -273,10 +294,10 @@ export class Renderer {
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
     if (!p.z) this.shadow(px, py, 5);
     this.blit(im.canvas, px - im.ax / K3, py - im.ay / K3, im.w / K3, im.h / K3);
-    const thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
-    if (thing) {
-      const back = p.view === 'back', hx = (p.flip ? -1 : 1) * (back ? 2 : 4);
-      this.blit(thing, px + hx - thing.width / 2, py - 15 - thing.height + 4, thing.width, thing.height);
+    const held = p.carry ? (p.carry.startsWith('f:') ? food3(p.carry.slice(2)) : drink3(p.carry, p.carryExtra)) : null;
+    if (held) {
+      const hx = (p.flip ? -1 : 1) * (p.view === 'back' ? 2 : 4);
+      this.blit(held.canvas, px + hx - held.ax / K3, py - 11 - held.ay / K3, held.w / K3, held.h / K3);
     }
     return true;
   }
@@ -317,6 +338,14 @@ export class Renderer {
     const bs = r3Ready() ? 0.5 : 1;
     if (u.emote) { const c = bubbleCanvas(u.emote); this.blit(c, px - Math.floor(c.width * bs / 2), py - c.height * bs, c.width * bs, c.height * bs); return; }
     if (u.state !== 'order' || !u.items?.length) return;
+    const b3 = r3Ready() && orderBubble3(u.items);
+    if (b3) {
+      const faded3 = u.items.every((i) => i.done || i.by);
+      this.blit(b3, px - b3.width / K3 / 2, py - b3.height / K3, b3.width / K3, b3.height / K3, faded3 ? 0.8 : 1);
+      const maker3 = u.items.find((i) => i.by && !i.done);
+      if (maker3?.byName) this.label(px, py - b3.height / K3 - 2, tr('{name} is making it', { name: maker3.byName }), maker3.byColor);
+      return;
+    }
     const key = JSON.stringify(u.items.map((i) => [i.kind, i.id, i.extra, i.byColor, i.done]));
     this.bubbles ??= new Map();
     if (!this.bubbles.has(key)) {
@@ -403,6 +432,13 @@ export class Renderer {
 
   shadow(px, py, r) {
     const g = this.g, [sx, sy] = this.toScreen(px, py), z = this.zoom;
+    if (r3Ready()) {
+      const rr = r * z;
+      const gr = g.createRadialGradient(sx, sy, 0, sx, sy, rr);
+      gr.addColorStop(0, 'rgba(40,20,10,0.42)'); gr.addColorStop(0.6, 'rgba(40,20,10,0.22)'); gr.addColorStop(1, 'rgba(40,20,10,0)');
+      g.save(); g.translate(sx, sy); g.scale(1, 0.5); g.translate(-sx, -sy); g.fillStyle = gr; g.fillRect(sx - rr, sy - rr, rr * 2, rr * 2); g.restore();
+      return;
+    }
     g.fillStyle = 'rgba(30,15,8,0.35)';
     for (let y = -1; y <= 1; y++) {
       const w = y === 0 ? r : r - 2;
@@ -496,7 +532,8 @@ export class Renderer {
         const px = wx(it.x + fw * 0.35, it.y + fd * 0.5) + Math.sin((t + i) * 2) * 2, py = wy(it.x + fw * 0.35, it.y + fd * 0.5, (r3Ready() ? 22 : 36) + k * 18);
         const [sx, sy] = this.toScreen(px, py);
         g.fillStyle = `rgba(255,255,255,${0.35 * (1 - k)})`;
-        g.fillRect(sx, sy, this.zoom * 2, this.zoom * 2);
+        if (r3Ready()) { g.beginPath(); g.arc(sx, sy, this.zoom * (1 + k * 2.5), 0, 7); g.fill(); }
+        else g.fillRect(sx, sy, this.zoom * 2, this.zoom * 2);
       }
     }
   }
@@ -538,6 +575,7 @@ export class Renderer {
           const kk = Math.min(1, Math.max(0, k * 1.3 - i * 0.15));
           if (kk <= 0) continue;
           const px = wx(f.x, f.y) + (i - 1) * 7 + Math.sin(kk * 6 + i) * 2, py = wy(f.x, f.y, (f.z || 14) + kk * 16);
+          if (r3Ready()) { const g = this.g, [hx, hy] = this.toScreen(px, py), s = this.zoom * 1.6; g.globalAlpha = 1 - kk; g.fillStyle = '#ff7a90'; g.strokeStyle = '#7a2030'; g.lineWidth = Math.max(1, this.zoom / 2); g.beginPath(); g.moveTo(hx, hy + s * 1.2); g.bezierCurveTo(hx - s * 2, hy - s * 0.2, hx - s, hy - s * 1.6, hx, hy - s * 0.5); g.bezierCurveTo(hx + s, hy - s * 1.6, hx + s * 2, hy - s * 0.2, hx, hy + s * 1.2); g.fill(); g.stroke(); g.globalAlpha = 1; continue; }
           this.blit(this.heart, px - 3, py - 3, 7, 6, 1 - kk);
         }
       }

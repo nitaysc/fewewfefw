@@ -15,7 +15,7 @@ import { catFrame, COLLARS, COLLAR_ORDER } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
 import { t, tr, setLang, getLang, LANGUAGES, translatePage } from './i18n.js';
 import { loadRefs, refImg, MODELS, MODEL_ORDER, CUSTOMER_MODELS, catPose } from './art/refsprites.js';
-import { loadR3, r3, r3Ready, modelFor, personFrame, catFrame3 } from './art/r3.js';
+import { loadR3, r3, r3Ready, modelFor, personFrame, catFrame3, itemURL } from './art/r3.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -487,7 +487,7 @@ function tap(sx, sy) {
 // ---------- orders, serving, the barista station and the kitchen ----------
 const myPlayer = (v) => v.players.find((p) => p.me);
 const itemTitle = (i) => (i.kind === 'food' ? t(FOODS[i.id].name) + (i.extra ? ' + ' + wantsText(i.extra, t) : '') : t(DRINKS[i.id].name) + (i.extra ? ' + ' + t(EXTRAS[i.extra].name) : ''));
-const itemPic = (i, s = 3) => (i.kind === 'food' ? plateCanvas(i.id, s) : cupCanvas(i.id, i.extra, s)).toDataURL();
+const itemPic = (i, s = 3) => (r3Ready() && itemURL(i.kind, i.id, i.extra)) || (i.kind === 'food' ? plateCanvas(i.id, s) : cupCanvas(i.id, i.extra, s)).toDataURL();
 const carryMatches = (me, i) => me?.carry && !i.done && (i.kind === 'food' ? me.carry === 'f:' + i.id && (me.carryExtra || '') === (i.extra || '') : me.carry === i.id && (me.carryExtra || '') === (i.extra || ''));
 
 function tapCustomer(u, v) {
@@ -517,8 +517,8 @@ function renderBrew() {
   $('#brewTitle').textContent = t('Orders');
   let html = '';
   if (me?.carry) {
-    const pic = me.carry.startsWith('f:') ? plateCanvas(me.carry.slice(2), 4) : cupCanvas(me.carry, me.carryExtra, 4);
-    html += `<div class="holding"><img src="${pic.toDataURL()}" alt=""><p class="hint">${t('You are holding something. Tap the customer who ordered it to serve.')}</p><button class="btn small-btn" data-drop>${t('Throw it away')}</button></div>`;
+    const pic = (r3Ready() && (me.carry.startsWith('f:') ? itemURL('food', me.carry.slice(2)) : itemURL('drink', me.carry, me.carryExtra))) || (me.carry.startsWith('f:') ? plateCanvas(me.carry.slice(2), 4) : cupCanvas(me.carry, me.carryExtra, 4)).toDataURL();
+    html += `<div class="holding"><img src="${pic}" alt=""><p class="hint">${t('You are holding something. Tap the customer who ordered it to serve.')}</p><button class="btn small-btn" data-drop>${t('Throw it away')}</button></div>`;
   }
   const list = v.customers.filter((u) => u.state === 'order' && (!brew.only || u.id === brew.only));
   html += list.length ? list.map((u) => `<div class="order-card"><b class="who">${escapeHtml(u.name)}</b>${u.items.map((i, idx) => {
@@ -708,8 +708,8 @@ function renderTray() {
   } else if (b.tab === 'recipes') {
     const card = (kind, id) => {
       const d = kind === 'food' ? FOODS[id] : DRINKS[id], owned = (kind === 'food' ? S.cafe.foods : S.cafe.recipes).includes(id);
-      const pic = kind === 'food' ? plateCanvas(id, 3) : cupCanvas(id, '', 3);
-      return `<button class="recipe${owned ? ' have' : ''}${!owned && d.unlock > S.cafe.money ? ' poor' : ''}" data-recipe="${id}" data-rkind="${kind}"><img src="${pic.toDataURL()}" alt=""><b>${t(d.name)}</b>
+      const pic = (r3Ready() && itemURL(kind, id)) || (kind === 'food' ? plateCanvas(id, 3) : cupCanvas(id, '', 3)).toDataURL();
+      return `<button class="recipe${owned ? ' have' : ''}${!owned && d.unlock > S.cafe.money ? ' poor' : ''}" data-recipe="${id}" data-rkind="${kind}"><img src="${pic}" alt=""><b>${t(d.name)}</b>
         <span>${owned ? t('On the menu') : `${iconImg('coin', 1)}${d.unlock}`}</span><span>${t('sells for {n}', { n: d.price })}</span></button>`;
     };
     $('#trayItems').innerHTML = `<div class="group">${t('Drinks')}</div>` + DRINK_ORDER.map((id) => card('drink', id)).join('') + `<div class="group">${t('Food')}</div>` + FOOD_ORDER.map((id) => card('food', id)).join('');

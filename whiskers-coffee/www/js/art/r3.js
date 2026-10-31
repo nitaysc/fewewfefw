@@ -105,3 +105,57 @@ export function composeRoom3(walls, wallStyle, floorStyle) {
   for (const [im, sx, sy] of placed) g.drawImage(im.canvas, Math.round(sx - x0), Math.round(sy - y0));
   return { canvas: c, ax: -x0 / K3, ay: -y0 / K3, w: c.width / K3, h: c.height / K3, windows };
 }
+
+// ---------- drinks and dishes: s = in the café, m = order bubbles, b = menus ----------
+export function drink3(id, extra = '', size = 's') {
+  return (extra && r3(`d_${id}_${extra}_${size}`)) || r3(`d_${id}_${size}`);
+}
+export const food3 = (id, size = 's') => r3(`f_${id}_${size}`);
+// a menu picture as a data URL (or null before the art has loaded)
+const urls = new Map();
+export function itemURL(kind, id, extra = '') {
+  const key = kind + id + extra;
+  if (!urls.has(key)) {
+    const im = kind === 'food' ? food3(id, 'b') : drink3(id, extra, 'b');
+    if (!im) return null;
+    const c = document.createElement('canvas'); c.width = im.w; c.height = im.h;
+    c.getContext('2d').drawImage(im.canvas, 0, 0);
+    urls.set(key, c.toDataURL());
+  }
+  return urls.get(key);
+}
+// an order bubble: rounded card with the wanted things side by side, in picture pixels
+const bubbles = new Map();
+export function orderBubble3(items) {
+  const key = JSON.stringify(items.map((i) => [i.kind, i.id, i.extra, i.byColor, i.done]));
+  if (bubbles.has(key)) return bubbles.get(key);
+  const pics = items.map((i) => (i.kind === 'food' ? food3(i.id, 'm') : drink3(i.id, i.extra, 'm')));
+  if (pics.some((p) => !p)) return null;
+  const pad = 6, gap = 4;
+  const iw = pics.reduce((a, p) => a + p.w, 0) + gap * (pics.length - 1), ih = Math.max(...pics.map((p) => p.h));
+  const w = iw + pad * 2, h = ih + pad * 2, tail = 7;
+  const c = document.createElement('canvas'); c.width = w + 4; c.height = h + tail + 4;
+  const g = c.getContext('2d');
+  const shape = (x, y) => {
+    const r = 9;
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.lineTo(x + w / 2 + 6, y + h); g.lineTo(x + w / 2, y + h + tail); g.lineTo(x + w / 2 - 6, y + h);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  };
+  g.fillStyle = 'rgba(30,15,8,0.3)'; shape(3, 4); g.fill();
+  g.fillStyle = '#fffaf0'; shape(1, 1); g.fill();
+  g.lineWidth = 2; g.strokeStyle = '#3b2418'; g.stroke();
+  let x = 1 + pad;
+  items.forEach((it, n) => {
+    const p = pics[n];
+    g.globalAlpha = it.done ? 0.45 : 1;
+    g.drawImage(p.canvas, x, 1 + pad + ih - p.h);
+    g.globalAlpha = 1;
+    if (it.done) { g.fillStyle = '#5aa04a'; g.beginPath(); g.arc(x + p.w - 4, 1 + pad + ih - 4, 6, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x + p.w - 7, 1 + pad + ih - 4); g.lineTo(x + p.w - 5, 1 + pad + ih - 2); g.lineTo(x + p.w - 1, 1 + pad + ih - 7); g.stroke(); }
+    else if (it.byColor) { g.fillStyle = it.byColor; g.strokeStyle = '#3b2418'; g.lineWidth = 2; g.beginPath(); g.arc(x + p.w - 3, 1 + pad + 3, 4, 0, 7); g.fill(); g.stroke(); }
+    x += p.w + gap;
+  });
+  bubbles.set(key, c);
+  if (bubbles.size > 200) bubbles.delete(bubbles.keys().next().value);
+  return c;
+}
