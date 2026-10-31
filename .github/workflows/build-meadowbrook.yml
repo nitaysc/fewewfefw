@@ -1,9 +1,9 @@
-name: Build Tiny Toyworks APK
+name: Build Meadowbrook APK
 
 on:
   push:
     paths:
-      - 'toy-workshop/**'
+      - 'meadowbrook/**'
       - '.github/workflows/build-toyworks.yml'
   workflow_dispatch:
 
@@ -35,7 +35,7 @@ jobs:
           ls /usr/lib/android-sdk /usr/lib/android-sdk/build-tools || true
 
       - name: Import and run the game's checks
-        working-directory: toy-workshop
+        working-directory: meadowbrook
         env:
           HOME: /root
         run: |
@@ -43,7 +43,7 @@ jobs:
           godot --headless --path . --script res://tests/run_tests.gd
 
       - name: Export APK
-        working-directory: toy-workshop
+        working-directory: meadowbrook
         env:
           HOME: /root
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/debug.keystore
@@ -53,21 +53,21 @@ jobs:
           sed -i "s|^version/code=.*|version/code=${{ github.run_number }}|; s|^version/name=.*|version/name=\"0.1.${{ github.run_number }}\"|" export_presets.cfg
           sed -i "s|^keystore/debug=.*|keystore/debug=\"/tmp/debug.keystore\"|; s|^keystore/debug_user=.*|keystore/debug_user=\"androiddebugkey\"|; s|^keystore/debug_password=.*|keystore/debug_password=\"android\"|" export_presets.cfg
           mkdir -p build
-          godot --headless --verbose --path . --export-debug "Android" build/tiny-toyworks.apk 2>&1 | grep -v fontconfig | tail -80
-          test -f build/tiny-toyworks.apk
+          godot --headless --verbose --path . --export-debug "Android" build/meadowbrook.apk 2>&1 | grep -v fontconfig | tail -80
+          test -f build/meadowbrook.apk
           ls -la build
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tiny-toyworks-apk
-          path: toy-workshop/build/tiny-toyworks.apk
+          name: meadowbrook-apk
+          path: meadowbrook/build/meadowbrook.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: tiny-toyworks-v0.1.${{ github.run_number }}
-          name: Tiny Toyworks v0.1.${{ github.run_number }}
-          body: "Download: tap tiny-toyworks.apk below. Built from ${{ github.ref_name }}."
-          files: toy-workshop/build/tiny-toyworks.apk
+          tag_name: meadowbrook-v0.1.${{ github.run_number }}
+          name: Meadowbrook v0.1.${{ github.run_number }}
+          body: "Download: tap meadowbrook.apk below. Built from ${{ github.ref_name }}."
+          files: meadowbrook/build/meadowbrook.apk
           make_latest: false
           target_commitish: ${{ github.sha }}

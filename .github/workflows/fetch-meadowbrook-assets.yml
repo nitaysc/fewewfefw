@@ -1,11 +1,11 @@
-name: Fetch Tiny Toyworks assets
+name: Fetch Meadowbrook assets
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'toy-workshop/assets/wanted.json'
-      - 'toy-workshop/tools/fetch_assets.py'
+      - 'meadowbrook/assets/wanted.json'
+      - 'meadowbrook/tools/fetch_assets.py'
       - '.github/workflows/fetch-toyworks-assets.yml'
 
 permissions:
@@ -17,12 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download CC0 models and textures from Poly Haven
-        run: python3 toy-workshop/tools/fetch_assets.py
+        run: python3 meadowbrook/tools/fetch_assets.py
       - name: Commit them to the branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add toy-workshop/assets
+          git add meadowbrook/assets
           if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
-          git commit -m "Tiny Toyworks: fetched CC0 assets from Poly Haven"
+          git commit -m "Meadowbrook: fetched CC0 assets from Poly Haven"
           for i in 1 2 3 4; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done

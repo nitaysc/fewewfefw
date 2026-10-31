@@ -1,11 +1,11 @@
-# Downloads free CC0 models and textures from Poly Haven (polyhaven.com) into toy-workshop/assets.
+# Downloads free CC0 models and textures from Poly Haven (polyhaven.com) into meadowbrook/assets.
 # Runs on GitHub Actions (the development sandbox can't reach polyhaven.com).
 # assets/wanted.json: {"models": [...ids], "textures": [...ids], "hdris": [...ids], "res": "1k"}
 import json, os, sys, urllib.request
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'assets')
 API = 'https://api.polyhaven.com'
-UA = {'User-Agent': 'TinyToyworks-asset-fetch/1.0'}
+UA = {'User-Agent': 'TinyMeadowbrook-asset-fetch/1.0'}
 
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
@@ -56,4 +56,4 @@ if __name__ == '__main__':
     for t in w.get('textures', []):
         print('texture', t); texture(t, res)
     for h in w.get('hdris', []):
-        print('hdri', h); hdri(h, '1k')
+        print('hdri', h); hdri(h, w.get("hdri_res", "1k"))
