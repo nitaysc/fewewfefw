@@ -1,0 +1,62 @@
+name: Build Tiny Toyworks APK
+
+on:
+  push:
+    paths:
+      - 'toy-workshop/**'
+      - '.github/workflows/build-toyworks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.6.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Godot export templates and a signing key
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates ~/.config
+          cp -r /root/.local/share/godot/export_templates/* ~/.local/share/godot/export_templates/ || true
+          cp -r /root/.config/godot ~/.config/ || true
+          ls ~/.local/share/godot/export_templates
+          keytool -genkeypair -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Import and run the game's checks
+        working-directory: toy-workshop
+        run: |
+          godot --headless --path . --import || true
+          godot --headless --path . --script res://tests/run_tests.gd
+
+      - name: Export APK
+        working-directory: toy-workshop
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          sed -i "s|^version/code=.*|version/code=${{ github.run_number }}|; s|^version/name=.*|version/name=\"0.1.${{ github.run_number }}\"|" export_presets.cfg
+          sed -i "s|^keystore/debug=.*|keystore/debug=\"/tmp/debug.keystore\"|; s|^keystore/debug_user=.*|keystore/debug_user=\"androiddebugkey\"|; s|^keystore/debug_password=.*|keystore/debug_password=\"android\"|" export_presets.cfg
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/tiny-toyworks.apk
+          ls -la build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tiny-toyworks-apk
+          path: toy-workshop/build/tiny-toyworks.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tiny-toyworks-v0.1.${{ github.run_number }}
+          name: Tiny Toyworks v0.1.${{ github.run_number }}
+          body: "Download: tap tiny-toyworks.apk below. Built from ${{ github.ref_name }}."
+          files: toy-workshop/build/tiny-toyworks.apk
+          make_latest: false
+          target_commitish: ${{ github.sha }}
