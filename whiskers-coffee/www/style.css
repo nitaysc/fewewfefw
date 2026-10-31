@@ -136,7 +136,7 @@ input.code { font-size: 34px; text-align: center; letter-spacing: 10px; text-tra
 .order { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; margin-bottom: 6px; background: #3b261a; border: 3px solid var(--ink); border-radius: 3px; color: var(--cream); text-align: left; }
 .order canvas, .order img { width: 33px; height: 30px; image-rendering: pixelated; flex: none; }
 .order b { display: block; font-size: 16px; }
-.order small { color: var(--cream2); font-size: 13px; }
+.order small { display: block; color: var(--cream2); font-size: 13px; }
 .order.taken { opacity: .55; }
 .brew-cup { display: grid; place-items: center; height: 150px; background: #2c1b12; border: 3px solid var(--ink); }
 .brew-cup canvas { image-rendering: pixelated; }
@@ -151,6 +151,34 @@ input.code { font-size: 34px; text-align: center; letter-spacing: 10px; text-tra
 .recipe span { font-size: 12px; color: var(--lamp); display: flex; align-items: center; gap: 3px; }
 .recipe span img { width: 12px; height: 12px; }
 .recipe.have { opacity: .6; }
+
+/* barista station */
+.station { position: fixed; inset: 0; z-index: 9; display: flex; background: #1d130d; touch-action: none; }
+.station[hidden] { display: none; }
+.st-card { flex: none; width: 190px; display: flex; flex-direction: column; gap: 4px; margin: calc(8px + var(--st)) 0 calc(8px + var(--sb)) calc(8px + var(--sl)); padding: 10px 10px 12px;
+  background: var(--wood); border: 3px solid var(--ink); box-shadow: inset 0 0 0 3px var(--wood3), inset 0 0 0 6px var(--wood2); border-radius: 4px; overflow-y: auto; scrollbar-width: none; }
+.st-card > b { font-size: 18px; line-height: 1.1; color: var(--lamp); text-shadow: 2px 2px 0 var(--ink); }
+.st-card > small { color: var(--cream2); font-size: 13px; }
+.st-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.st-steps li { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 13px; padding: 3px 6px; background: #3b261a; border: 2px solid var(--ink); color: var(--cream2); }
+.st-steps li.now { background: var(--lamp); color: var(--ink); }
+.st-steps li.done { color: var(--cream); }
+.st-steps .tick { width: 10px; height: 6px; border-left: 3px solid #8fd16a; border-bottom: 3px solid #8fd16a; transform: rotate(-45deg) translate(1px, -2px); }
+.stars { display: inline-flex; gap: 2px; }
+.stars i { width: 16px; height: 16px; background: var(--star-off) center / contain no-repeat; image-rendering: pixelated; }
+.stars i.on { background-image: var(--star-on); }
+.stars.small i { width: 10px; height: 10px; }
+.st-rating { display: flex; justify-content: center; margin: 6px 0 4px; }
+.st-rating .stars i { width: 28px; height: 28px; }
+#stEnd .btn { width: 100%; font-size: 15px; padding: 8px 6px; }
+.st-main { flex: 1; position: relative; min-width: 0; }
+.st-main canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; }
+.st-hint { position: absolute; left: 50%; bottom: calc(8px + var(--sb)); transform: translateX(-50%); max-width: 90%; text-align: center; pointer-events: none;
+  background: rgba(36,22,15,.92); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px var(--wood2); padding: 5px 12px; font-size: 15px; border-radius: 3px; color: var(--cream); }
+.st-close { position: absolute; top: calc(8px + var(--st)); right: calc(8px + var(--sr)); }
+.order small.extra { color: var(--lamp); }
+.holding { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.holding img { image-rendering: pixelated; }
 
 /* invite */
 .bigcode { font-size: 54px; font-weight: 700; letter-spacing: 12px; text-align: center; color: var(--lamp); background: #2c1b12; border: 3px solid var(--ink); padding: 8px 0 8px 12px; text-shadow: 3px 3px 0 var(--ink); }

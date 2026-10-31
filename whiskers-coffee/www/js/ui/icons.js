@@ -16,6 +16,8 @@ const ICONS = {
   person: ['..oooo..', '.owwwwo.', '.owwwwo.', '..oooo..', '.owwwwo.', 'owwwwwwo', 'owwwwwwo', 'oooooooo'],
   gear: ['...oo...', '.oowwoo.', '.owwwwo.', 'owwoowwo', 'owwoowwo', '.owwwwo.', '.oowwoo.', '...oo...'],
   heart: ['.oo.oo..', 'oppoppo.', 'opppppo.', '.opppo..', '..opo...', '...o....', '........', '........'],
+  star: ['...oo...', '..oyyo..', 'ooyyyyoo', 'oyyyyyyo', '.oyyyyo.', '.oyyyyo.', 'oyyooyyo', 'ooo..ooo'],
+  starOff: ['...oo...', '..oKKo..', 'ooKKKKoo', 'oKKKKKKo', '.oKKKKo.', '.oKKKKo.', 'oKKooKKo', 'ooo..ooo'],
   back: ['...o....', '..owo...', '.owwoooo', 'owwwwwwo', '.owwoooo', '..owo...', '...o....', '........'],
 };
 

@@ -192,9 +192,9 @@ export class Renderer {
     // a drink in hand: the barista carrying an order, or a customer sipping
     const cup = p.carry || (p.state === 'drink' ? p.order : null);
     if (cup) {
-      const c = cupCanvas(cup);
+      const c = cupCanvas(cup, p.carry ? p.carryExtra : p.extra);
       const hx = p.view === 'back' ? (p.flip ? 3 : -11) : (p.flip ? -10 : 4);
-      this.blit(c, px + hx, py - (p.sitting ? 13 : 16), c.width, c.height);
+      this.blit(c, px + hx - Math.max(0, c.width - 11) / 2, py - (p.sitting ? 13 : 16) - Math.max(0, c.height - 11), c.width, c.height);
     }
   }
 
@@ -202,7 +202,7 @@ export class Renderer {
   bubble(u, t) {
     const kind = u.emote || (u.state === 'order' ? u.order : null);
     if (!kind) return;
-    const c = bubbleCanvas(kind);
+    const c = bubbleCanvas(kind, u.emote ? '' : u.extra);
     const bob = Math.round(Math.sin(t * 2.5 + u.x) * 1);
     const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + 31 + bob);
     const faded = !u.emote && u.claimed;
@@ -345,6 +345,13 @@ export class Renderer {
         g.fillStyle = '#ffd27a'; g.fillText(`+${f.amount}`, sx + z * 2, sy);
         g.globalAlpha = 1;
       }
+      if (f.kind === 'coins' && f.stars) {
+        for (let i = 0; i < f.stars; i++) {
+          const kk = Math.min(1, k * 1.4), px = wx(f.x, f.y) + (i - (f.stars - 1) / 2) * 8, py = wy(f.x, f.y, (f.z || 20) + 14 + kk * 10 + (i === 1 ? 2 : 0));
+          if (!this.starImg) this.starImg = starPix().toCanvas();
+          this.blit(this.starImg, px - 3, py - 3, 7, 7, 1 - kk * kk);
+        }
+      }
       if (f.kind === 'flash' && k < 0.25) {
         const [sx, sy] = this.toScreen(wx(f.x, f.y), wy(f.x, f.y, f.z || 20));
         const g = this.g, z = this.zoom, r = (4 + k * 30) * z;
@@ -436,6 +443,13 @@ function heartPix() {
   const p = new Pix(7, 6);
   rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'o') p.set(x, y, '#7a2030'); if (ch === 'h') p.set(x, y, '#ff7a90'); }));
   p.set(2, 1, '#ffd0d8');
+  return p;
+}
+function starPix() {
+  const rows = ['...o...', '..oyo..', 'ooyyyoo', 'oyyyyyo', '.oyyyo.', '.oyoyo.', '.oo.oo.'];
+  const p = new Pix(7, 7);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'o') p.set(x, y, '#24160f'); if (ch === 'y') p.set(x, y, '#ffd27a'); }));
+  p.set(3, 2, '#fff6c4');
   return p;
 }
 function zPix() {

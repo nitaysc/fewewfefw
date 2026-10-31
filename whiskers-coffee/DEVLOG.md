@@ -82,8 +82,11 @@ art/cats.js    hand-drawn cat frames (walk1/2, sit1/2, blink, groom, sleep1/2, h
 art/people.js  chibi people from parts: 6 hair styles, skin and outfits;
                frames 0-3 walk, 4-5 idle, 6 sit; front and back views, mirrored
 art/palette.js the shared colour palette
-art/drinks.js  drink recipes (DRINKS), cup and glass sprites with a fill level,
-               speech bubbles and emote icons (see section 8)
+art/drinks.js  recipes (DRINKS), EXTRAS, stars and tips, the layered "build" of a
+               drink, drawDrink() for big and small cups, surfaceMap() (the top seen
+               from above: latte art, cocoa, cream...), bubbles and emotes
+brew/station.js the barista station: full-screen counter scene, STEPS (one
+               minigame per recipe step), scoring (see section 8c)
 ui/icons.js    pixel UI icons (coin, paw, hammer, rotate, check, cross, box, move,
                friend, gear...) as data URLs
 ```
@@ -257,7 +260,8 @@ brewing, serving, payment, leaving and unlocking recipes. The two-browser test a
 covers a guest making and serving a drink.
 
 **Ideas for this milestone not built yet:** regulars with names and stories,
-customer–customer chatting, customers petting cats, and putting cups on tables.
+customer–customer chatting, customers petting cats, putting cups on tables, pastries
+from the pastry case, and orders for two drinks at once.
 
 ## 8b. Customisation (milestone 4): done
 
@@ -287,6 +291,49 @@ Everything here is an `applyBuild` op, so it reaches the host through the existi
   same strays on both phones), renaming, collars, old saves, new seat types. The
   two-browser test covered a guest buying a floor and a fireplace, adopting, putting
   on a collar and renaming.
+
+## 8c. The barista station (coffee making, round 2): done
+
+The owner found the first version boring ("you just click the same button") and the
+cups plain, so making a drink is now hands-on, the way café games do it.
+
+**Flow.** Tap a customer or the espresso bar → order list (`#brew`) → pick an order →
+`act('claim')` → the full-screen station (`#station`, `Station.start(drink, extra,
+name)`) → finish → "Take it to …" → `act('brewed', {id, q})` → carry and serve.
+
+**Steps** (`STEPS` in `brew/station.js`). Each step has a mechanic:
+
+| mech | steps | how it plays | graded |
+|---|---|---|---|
+| `circle` | grind (turn the crank), choc (stir) | drag in circles; progress = angle turned | no |
+| `timing` | tamp | tap when the swinging marker is in the middle | yes |
+| `hold` | shot, milk, foam, pour, cream | hold, let go in the gold band of the meter | yes |
+| `trace` | art (heart / rosetta), caramel (zigzag) | drag through the guide dots on the cup seen from above | yes (coverage) |
+| `shake` | cocoa, cinnamon, whisk | swipe back and forth | no |
+| `tap` | marsh (tap where to drop), ice, berry | tap N times | no |
+
+Quality `q` = average of graded steps (0..1). `starsFor(q)`: ≥0.85 → 3, ≥0.55 → 2,
+else 1. `tipFor`: +50% / +20% / 0 on top of the price. A drink can never fail, and
+the worst score is still a 1-star drink the customer loves.
+
+**Drinks are builds** (`art/drinks.js`): layers in a vessel (`demi`, `cup`, `mug`,
+`glass`, `tall`) plus a top surface map (art strokes, dust dots, marshmallows, cream,
+caramel). Station steps change the build live; `applyIdeal()` is what each step does
+when perfect, and `finalBuild(id, extra)` makes the café sprites (`cupCanvas(id, extra)`)
+from it, so bubbles, carried cups and menus all match.
+
+**Extras.** After the café has served 3 drinks, about 45% of orders add an extra the
+drink allows (`DRINKS[id].extras`): whipped cream, caramel or cinnamon. Each adds a
+step and a few coins. Customers only accept the drink with their extra.
+
+**Network.** `brewed` carries `q`; the host clamps it and stores
+`player.carry = {drink, extra, q, for}`. Snapshot: `p[7]` = carried extra,
+`u[13]` = the customer's extra. The `coins` effect now has `tip` and `stars` (stars
+float up over the customer).
+
+**Testing the station.** `window.__wc.station` exposes the station; the Playwright
+driver used in development reads `station.cur` and plays each mechanic with real
+pointer events (hold until the band, click on the beat, circles, swipes, traces).
 
 ## 9. Later milestones (from the owner's brief)
 

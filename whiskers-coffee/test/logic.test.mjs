@@ -1,6 +1,8 @@
 // Checks the shared café rules without a browser: placement, pathfinding, building and cats.
 import { newCafe, canPlace, applyBuild, blockedGrid, findPath, ROOM_W, ROOM_H, tilesOf, strays, adoptPrice, MAX_CATS, upgradeCafe } from '../www/js/game/world.js';
 import { IsoPainter } from '../www/js/art/iso.js';
+import { DRINKS, DRINK_ORDER, finalBuild, cupPix, orderPrice, tipFor, starsFor, stepsFor, surfaceMap } from '../www/js/art/drinks.js';
+import { STEPS } from '../www/js/brew/station.js';
 import { paintRoom, WALL_ORDER, FLOOR_ORDER } from '../www/js/art/room.js';
 import { Sim } from '../www/js/game/sim.js';
 import { CATALOG } from '../www/js/game/catalog.js';
@@ -72,11 +74,12 @@ check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length 
   check('claiming the order works', sim2.shop.claim('me', cust.id) === null);
   sim2.addPlayer('friend', 'Friend', {});
   check('a friend cannot claim the same order', sim2.shop.claim('friend', cust.id) !== null);
-  check('drink is made', sim2.shop.brewed('me', cust.id) === null && sim2.players.get('me').carry.drink === cust.order);
-  const money = c2.money;
+  check('drink is made', sim2.shop.brewed('me', cust.id, 1) === null && sim2.players.get('me').carry.drink === cust.order);
+  const money = c2.money, due = orderPrice(cust.order, cust.extra);
   sim2.shop.serve('me', cust.id);
   for (let i = 0; i < 400 && cust.state === 'order'; i++) sim2.step(0.05);
-  check('serving pays for the drink', cust.state === 'drink' && c2.money > money && !sim2.players.get('me').carry);
+  check('serving pays for the drink', cust.state === 'drink' && !sim2.players.get('me').carry);
+  check('a perfect drink earns a 50% tip', c2.money - money >= due + Math.round(due * 0.5) && cust.stars === 3);
   for (let i = 0; i < 2000 && sim2.shop.list.has(cust.id); i++) sim2.step(0.05);
   check('the customer leaves happily afterwards', !sim2.shop.list.has(cust.id));
   check('unlock a recipe', applyBuild(c2, { op: 'recipe', id: 'cappuccino' }) === null && c2.recipes.includes('cappuccino'));
@@ -154,6 +157,33 @@ check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length 
   const seats = s.shop.seats();
   check('cushion and hay bale are seats at their own heights', seats.length === 2 && seats.some((x) => x.z === 3) && seats.some((x) => x.z === 10));
   check('a customer sits on the cushion or bale', s.shop.spawn());
+}
+
+// drinks: recipes, extras and their looks
+{
+  check('every recipe step has a minigame', DRINK_ORDER.every((id) => [...DRINKS[id].steps, 'cream', 'caramel', 'cinnamon'].every((k) => STEPS[k])));
+  let ok = true;
+  for (const id of DRINK_ORDER) for (const ex of ['', ...DRINKS[id].extras]) {
+    try { const b = finalBuild(id, ex); surfaceMap(b); cupPix(id, ex); if (b.layers.reduce((a, l) => a + l.amt, 0) > 1.01) ok = false; } catch (e) { ok = false; console.log('  drink failed', id, ex, e.message); }
+  }
+  check('every drink and extra draws and fits its cup', ok);
+  check('extras add a step and cost a little more', stepsFor('latte', 'caramel').length === DRINKS.latte.steps.length + 1 && orderPrice('latte', 'caramel') > orderPrice('latte'));
+  check('stars and tips grow with quality', starsFor(0.95) === 3 && starsFor(0.6) === 2 && starsFor(0.2) === 1 && tipFor(20, 0.95) > tipFor(20, 0.6) && tipFor(20, 0.2) === 0);
+
+  // an order with an extra needs that extra
+  const c3 = newCafe('Extras');
+  c3.stats.served = 10;
+  const s3 = new Sim(c3, () => {});
+  s3.addPlayer('me', 'Tester', {});
+  s3.shop.spawn();
+  const u = [...s3.shop.list.values()][0];
+  for (let i = 0; i < 400 && u.state === 'enter'; i++) s3.step(0.05);
+  u.order = 'latte'; u.extra = 'caramel';
+  s3.shop.claim('me', u.id); s3.shop.brewed('me', u.id, 0.6);
+  check('the drink carries its extra', s3.players.get('me').carry.extra === 'caramel');
+  s3.players.get('me').carry.extra = '';
+  check('a drink without the extra is not what they ordered', s3.shop.serve('me', u.id) !== null);
+  check('snapshot carries the extra', s3.snapshot().u[0][13] === 'caramel');
 }
 
 process.exit(failed ? 1 : 0);

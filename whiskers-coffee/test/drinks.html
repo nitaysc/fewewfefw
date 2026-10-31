@@ -3,17 +3,23 @@
 <body style="margin:0;background:#3b261a">
 <canvas id="c"></canvas>
 <script type="module">
-// Drink preview: order bubbles and the brewing cup at each step.
-import { DRINKS, DRINK_ORDER, cupCanvas, bubbleCanvas, EMOTE_KINDS } from '../www/js/art/drinks.js';
-const c = document.getElementById('c'), g = c.getContext('2d'); c.width = 1200; c.height = 700; g.imageSmoothingEnabled = false;
+// Drink preview: café-size cups with every extra, order bubbles, and the big station cups.
+import { DRINKS, DRINK_ORDER, cupCanvas, bubbleCanvas, EMOTE_KINDS, finalBuild, newBuild, applyIdeal, drawDrink, surfaceMap } from '../www/js/art/drinks.js';
+import { Pix } from '../www/js/art/pix.js';
+const c = document.getElementById('c'), g = c.getContext('2d'); c.width = 1500; c.height = 900; g.imageSmoothingEnabled = false;
 let x = 10;
-for (const id of DRINK_ORDER) { const b = bubbleCanvas(id); g.drawImage(b, x, 10, b.width * 5, b.height * 5); x += b.width * 5 + 10; }
-x = 10; for (const e of EMOTE_KINDS) { const b = bubbleCanvas(e); g.drawImage(b, x, 120, b.width * 5, b.height * 5); x += b.width * 5 + 10; }
-let y = 240;
-for (const id of ['latte', 'hotchoc', 'strawberry']) {
-  x = 10; const n = DRINKS[id].steps.length;
-  for (let s = 0; s <= n; s++) { const cc = cupCanvas(id, s / n, true, 4); g.drawImage(cc, x, y); x += cc.width + 20; }
-  y += 150;
-}
+for (const id of DRINK_ORDER) for (const ex of ['', ...DRINKS[id].extras]) { const b = cupCanvas(id, ex, 5); g.drawImage(b, x, 10); x += b.width + 8; }
+x = 10; for (const id of DRINK_ORDER) { const b = bubbleCanvas(id, DRINKS[id].extras[0] || ''); g.drawImage(b, x, 110, b.width * 4, b.height * 4); x += b.width * 4 + 10; }
+x = 10; for (const e of EMOTE_KINDS) { const b = bubbleCanvas(e); g.drawImage(b, x, 220, b.width * 4, b.height * 4); x += b.width * 4 + 10; }
+// big cups: finished, with extras, and halfway
+x = 10;
+const big = (b) => { const p = new Pix(50, 50); drawDrink(p, 22, 44, b, 'big'); const cv = p.toCanvas(5); g.drawImage(cv, x, 320); x += 210; };
+for (const id of DRINK_ORDER) big(finalBuild(id, ''));
+x = 10;
+const row2 = (b) => { const p = new Pix(50, 50); drawDrink(p, 22, 44, b, 'big'); const cv = p.toCanvas(5); g.drawImage(cv, x, 600); x += 250; };
+row2(finalBuild('latte', 'caramel')); row2(finalBuild('hotchoc', 'cream')); row2(finalBuild('iced', 'cream'));
+const half = newBuild('latte'); applyIdeal(half, 'shot'); row2(half);
+const m = surfaceMap(finalBuild('latte')).toCanvas(3); g.drawImage(m, x, 600); x += 230;
+const m2 = surfaceMap(finalBuild('cappuccino', 'caramel')).toCanvas(3); g.drawImage(m2, x, 600);
 window.done = true;
 </script>

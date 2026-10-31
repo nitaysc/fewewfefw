@@ -2,7 +2,7 @@
 // order a drink and wait as long as it takes; once served they sip, enjoy the cats and
 // head home. Nothing here ever fails or hurries the players.
 import { CATALOG } from './catalog.js';
-import { DRINKS } from '../art/drinks.js';
+import { DRINKS, orderName, orderPrice, tipFor, starsFor } from '../art/drinks.js';
 import { findPath, nearestFree, walkable, footprint, ROOM_W, seededRng } from './world.js';
 export { seededRng };
 
@@ -84,6 +84,9 @@ export class CustomerSystem {
     c.state = 'order';
     const menu = this.sim.cafe.recipes;
     c.order = menu[Math.floor(Math.random() * menu.length)];
+    // once the café is warmed up, some customers like something extra on top
+    const extras = DRINKS[c.order].extras;
+    c.extra = (this.sim.cafe.stats.served || 0) >= 3 && extras.length && Math.random() < 0.45 ? extras[Math.floor(Math.random() * extras.length)] : '';
     c.wait = 0;
   }
 
@@ -164,10 +167,12 @@ export class CustomerSystem {
     return null;
   }
 
-  brewed(pid, id) {
+  // q: how well it was made, 0..1 (from the barista station)
+  brewed(pid, id, q = 0.7) {
     const c = this.list.get(id), p = this.sim.players.get(pid);
     if (!c || !p || c.state !== 'order' || c.claimedBy !== pid) return 'That order is already done';
-    p.carry = { drink: c.order, for: id };
+    q = Math.max(0, Math.min(1, Number.isFinite(+q) ? +q : 0.7));
+    p.carry = { drink: c.order, extra: c.extra || '', q, for: id };
     this.sim.emit('fx', { kind: 'steam', x: p.x, y: p.y });
     return null;
   }
@@ -176,7 +181,7 @@ export class CustomerSystem {
     const c = this.list.get(id), p = this.sim.players.get(pid);
     if (!p || !p.carry) return 'Make a drink at the espresso bar first';
     if (!c || c.state !== 'order') return 'They already have their drink';
-    if (c.order !== p.carry.drink) return `${c.name} ordered ${DRINKS[c.order].name}`;
+    if (c.order !== p.carry.drink || (c.extra || '') !== (p.carry.extra || '')) return `${c.name} ordered ${orderName(c.order, c.extra).toLowerCase()}`;
     if (Math.hypot(p.x - c.x, p.y - c.y) < 1.6) return this.deliver(p, c);
     const spot = nearestFree(this.sim.grid, c.x, c.y, p.x, p.y);
     if (spot) this.sim.movePlayer(pid, spot[0] + 0.5, spot[1] + 0.5, { serve: id });
@@ -184,19 +189,22 @@ export class CustomerSystem {
   }
 
   deliver(p, c) {
-    if (!p.carry || c.state !== 'order' || c.order !== p.carry.drink) return null;
+    if (!p.carry || c.state !== 'order' || c.order !== p.carry.drink || (c.extra || '') !== (p.carry.extra || '')) return null;
     // a drink made for someone else still goes to whoever ordered the same thing
     if (p.carry.for !== c.id) {
       const other = this.list.get(p.carry.for);
       if (other && other.claimedBy === p.id) other.claimedBy = null;
     }
-    const price = DRINKS[c.order].price;
-    this.sim.cafe.money += price;
-    this.sim.cafe.stats.served = (this.sim.cafe.stats.served || 0) + 1;
+    const price = orderPrice(c.order, c.extra), q = p.carry.q ?? 0.7, tip = tipFor(price, q), stars = starsFor(q);
+    const stats = this.sim.cafe.stats;
+    this.sim.cafe.money += price + tip;
+    stats.served = (stats.served || 0) + 1;
+    if (stars === 3) stats.perfect = (stats.perfect || 0) + 1;
     p.carry = null;
     c.state = 'drink'; c.t = 22 + Math.random() * 12; c.claimedBy = null;
-    this.emote(c, 'heart', 2.5);
-    this.sim.emit('fx', { kind: 'coins', x: c.x, y: c.y, z: c.z + 22, amount: price, by: p.id, name: c.name });
+    c.stars = stars;
+    this.emote(c, stars === 3 ? 'star' : 'heart', 2.5);
+    this.sim.emit('fx', { kind: 'coins', x: c.x, y: c.y, z: c.z + 22, amount: price + tip, tip, stars, by: p.id, name: c.name });
     this.sim.emit('save');
     return null;
   }
@@ -204,7 +212,7 @@ export class CustomerSystem {
   playerLeft(pid) { for (const c of this.list.values()) if (c.claimedBy === pid) c.claimedBy = null; }
 
   snapshot() {
-    return [...this.list.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.view === 'back' ? 1 : 0, c.flip ? 1 : 0, c.state, c.seed, c.order || '', c.emote || '', c.claimedBy || '', c.moving ? 1 : 0, c.seat.key]);
+    return [...this.list.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.view === 'back' ? 1 : 0, c.flip ? 1 : 0, c.state, c.seed, c.order || '', c.emote || '', c.claimedBy || '', c.moving ? 1 : 0, c.seat.key, c.extra || '']);
   }
 }
 

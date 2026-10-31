@@ -58,7 +58,8 @@ Godot 4. I chose otherwise for three practical reasons:
   - [x] Cat AI: sitting, grooming, wandering, sleeping in beds, perching on cat trees, visiting players
   - [x] Petting with hearts, purring and affection
   - [x] Customers who sit, order, drink and react to cats
-  - [x] Coffee-making steps
+  - [x] Coffee-making steps: a hands-on barista station with a minigame per step, star ratings and tips
+  - [x] Order extras (whipped cream, caramel, cinnamon)
   - [x] Serving, coins and tips
   - [x] Recipe unlocks
   - [x] Order-claim conflict handling in co-op

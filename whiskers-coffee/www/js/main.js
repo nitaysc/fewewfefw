@@ -6,7 +6,8 @@ import { CATALOG, SHOP_ORDER, SETS } from './game/catalog.js';
 import { WALL_STYLES, FLOOR_STYLES, WALL_ORDER, FLOOR_ORDER, styleSwatch } from './art/room.js';
 import { HostSession, GuestSession, makeCode, cleanCode } from './net.js';
 import { personSprite, randomLook, SKINS, HAIR_COLORS, HAIR_STYLES, OUTFIT_COLORS } from './art/people.js';
-import { DRINKS, DRINK_ORDER, cupCanvas } from './art/drinks.js';
+import { DRINKS, DRINK_ORDER, cupCanvas, orderName, EXTRAS } from './art/drinks.js';
+import { Station } from './brew/station.js';
 import { seededRng, customerName } from './game/customers.js';
 import { catFrame, COLLARS, COLLAR_ORDER } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
@@ -146,7 +147,7 @@ function onHostMessage(id, m) {
       break;
     }
     case 'claim': case 'brewed': case 'serve': {
-      const err = sim.shop[m.t](id, m.id);
+      const err = sim.shop[m.t](id, m.id, m.q);
       if (err) S.host.send(id, { t: 'toast', text: err });
       break;
     }
@@ -226,7 +227,7 @@ function onGuestMessage(m) {
 function fxFeedback(f) {
   if (f.kind === 'hearts' && f.by === S.myId) { sfx.purr(); buzz(25); toast(`${f.name} purrs happily`); }
   if (f.kind === 'bell') sfx.bell();
-  if (f.kind === 'coins') { sfx.coin(); if (f.by === S.myId) { buzz(30); toast(`${f.name} loves it! +${f.amount}`); } }
+  if (f.kind === 'coins') { sfx.coin(); if (f.by === S.myId) { buzz(30); toast(f.stars === 3 ? `Perfect! ${f.name} loves it! +${f.amount}` : `${f.name} loves it! +${f.amount}`); } }
   if (f.kind === 'flash') tone(2400, 0.05, 'square', 0.03);
   if (f.kind === 'adopted') { sfx.meow(); buzz(30); toast(`Welcome home, ${f.name}!`); }
 }
@@ -246,7 +247,7 @@ function act(kind, data) {
   if (kind === 'move') S.sim.movePlayer(S.myId, data.x, data.y);
   else if (kind === 'pet') S.sim.petCat(S.myId, data.cat);
   else if (kind === 'claim' || kind === 'brewed' || kind === 'serve') {
-    const err = S.sim.shop[kind](S.myId, data.id);
+    const err = S.sim.shop[kind](S.myId, data.id, data.q);
     if (err) { toast(err); sfx.nope(); }
     return err;
   }
@@ -266,9 +267,9 @@ function currentView(now) {
   const catData = new Map(cafe.cats.map((c) => [c.id, c]));
   let customers = [];
   if (S.sim) {
-    players = [...S.sim.players.values()].map((p) => ({ ...p, carry: p.carry?.drink, me: p.id === S.myId }));
+    players = [...S.sim.players.values()].map((p) => ({ ...p, carry: p.carry?.drink, carryExtra: p.carry?.extra || '', me: p.id === S.myId }));
     cats = [...S.sim.cats.values()].map((c) => ({ ...c, coat: catData.get(c.id)?.coat, name: catData.get(c.id)?.name, collar: catData.get(c.id)?.collar }));
-    customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, order: u.order, emote: u.emote, claimed: u.claimedBy, moving: u.moving, look: lookFor(u.seed), name: u.name }));
+    customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, order: u.order, emote: u.emote, claimed: u.claimedBy, moving: u.moving, look: lookFor(u.seed), name: u.name, extra: u.extra || '' }));
   } else if (S.snaps.length) {
     // draw guests 120ms in the past and blend between the two snapshots around that moment
     const at = now - 120;
@@ -280,12 +281,12 @@ function currentView(now) {
     const pa = new Map(a.p.map((p) => [p[0], p]));
     for (const p of b.p) {
       const q = pa.get(p[0]) || p, r = roster.get(p[0]);
-      players.push({ id: p[0], x: lerp(q[1], p[1]), y: lerp(q[2], p[2]), view: p[3] ? 'back' : 'front', flip: !!p[4], moving: !!p[5], carry: p[6] || null, name: r?.name, look: r?.look || prefs.look, me: p[0] === S.myId });
+      players.push({ id: p[0], x: lerp(q[1], p[1]), y: lerp(q[2], p[2]), view: p[3] ? 'back' : 'front', flip: !!p[4], moving: !!p[5], carry: p[6] || null, carryExtra: p[7] || '', name: r?.name, look: r?.look || prefs.look, me: p[0] === S.myId });
     }
     const ua = new Map((a.u || []).map((u) => [u[0], u]));
     for (const u of b.u || []) {
       const q = ua.get(u[0]) || u;
-      customers.push({ id: u[0], x: lerp(q[1], u[1]), y: lerp(q[2], u[2]), z: u[3], view: u[4] ? 'back' : 'front', flip: !!u[5], state: u[6], seed: u[7], order: u[8], emote: u[9] || null, claimed: u[10] || null, moving: !!u[11], look: lookFor(u[7]), name: customerName(u[7]) });
+      customers.push({ id: u[0], x: lerp(q[1], u[1]), y: lerp(q[2], u[2]), z: u[3], view: u[4] ? 'back' : 'front', flip: !!u[5], state: u[6], seed: u[7], order: u[8], emote: u[9] || null, claimed: u[10] || null, moving: !!u[11], look: lookFor(u[7]), name: customerName(u[7]), extra: u[13] || '' });
     }
     const ca = new Map(a.c.map((c) => [c[0], c]));
     for (const c of b.c) {
@@ -383,12 +384,13 @@ function tap(sx, sy) {
 
 // ---------- serving and the espresso bar ----------
 function myPlayer(v) { return v.players.find((p) => p.me); }
+const sameOrder = (me, u) => me?.carry === u.order && (me.carryExtra || '') === (u.extra || '');
 
 function tapCustomer(u, v) {
   const me = myPlayer(v);
   if (u.state === 'order') {
-    if (me?.carry === u.order) { act('serve', { id: u.id }); sfx.click(); return; }
-    if (me?.carry) { toast(`${u.name} would like ${aOrAn(DRINKS[u.order].name)}`); sfx.nope(); return; }
+    if (sameOrder(me, u)) { act('serve', { id: u.id }); sfx.click(); return; }
+    if (me?.carry) { toast(`${u.name} would like ${aOrAn(orderName(u.order, u.extra))}`); sfx.nope(); return; }
     return openBrew(u.id);
   }
   if (u.state === 'drink') toast(`${u.name} is enjoying their ${DRINKS[u.order].name.toLowerCase()}`);
@@ -396,9 +398,10 @@ function tapCustomer(u, v) {
 }
 const aOrAn = (s) => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s.toLowerCase();
 
-const brew = { open: false, id: null, step: 0, busy: false };
+// the order list at the side; picking an order opens the barista station
+const brew = { open: false };
 function openBrew(preselect = null) {
-  brew.open = true; brew.id = null; brew.step = 0; brew.busy = false;
+  brew.open = true;
   $('#brew').hidden = false;
   $('#brewClose').innerHTML = iconImg('cross', 2);
   if (preselect) startOrder(preselect); else renderBrew();
@@ -414,33 +417,18 @@ function waitingOrders() {
 function renderBrew() {
   if (!brew.open) return;
   const body = $('#brewBody');
-  if (!brew.id) {
-    $('#brewTitle').textContent = 'Orders';
-    const list = waitingOrders();
-    const me = myPlayer(currentView(performance.now()));
-    if (me?.carry) {
-      body.innerHTML = `<p class="hint">You're holding ${aOrAn(DRINKS[me.carry].name)}. Tap the customer who ordered it to serve.</p>`;
-      return;
-    }
-    body.innerHTML = list.length ? list.map((u) => {
-      const taken = u.claimed && u.claimed !== S.myId;
-      return `<button class="order${taken ? ' taken' : ''}" data-order="${u.id}"><img src="${cupCanvas(u.order, 1, false, 3).toDataURL()}" alt="">
-        <div><b>${DRINKS[u.order].name}</b><small>for ${escapeHtml(u.name)}${taken ? ' · your friend is on it' : ''}</small></div></button>`;
-    }).join('') : '<p class="hint">No orders right now. Customers drop by every little while; enjoy the cats meanwhile.</p>';
+  $('#brewTitle').textContent = 'Orders';
+  const list = waitingOrders();
+  const me = myPlayer(currentView(performance.now()));
+  if (me?.carry) {
+    body.innerHTML = `<div class="holding"><img src="${cupCanvas(me.carry, me.carryExtra, 4).toDataURL()}" alt=""><p class="hint">You're holding ${aOrAn(orderName(me.carry, me.carryExtra))}. Tap the customer who ordered it to serve.</p></div>`;
     return;
   }
-  const u = waitingOrders().find((o) => o.id === brew.id);
-  const d = DRINKS[brew.drink];
-  $('#brewTitle').textContent = d.name;
-  const done = brew.step >= d.steps.length;
-  const progress = done ? 1 : brew.step / d.steps.length;
-  body.innerHTML = `<div class="brew-cup"><canvas id="brewCup"></canvas></div>
-    <div class="step-list">${d.steps.map((_, i) => `<span class="${i < brew.step ? 'done' : ''}"></span>`).join('')}</div>
-    ${done ? `<p class="hint">Ready! Tap <b>${escapeHtml(u?.name || 'the customer')}</b> to serve it.</p><button class="btn primary" id="brewDone">Okay</button>`
-      : `<button class="btn primary step-btn" id="stepBtn"><i></i>${d.steps[brew.step][1]}</button>`}`;
-  const big = cupCanvas(brew.drink, progress, true, 4);
-  const cv = $('#brewCup'); cv.width = big.width; cv.height = big.height;
-  cv.getContext('2d').drawImage(big, 0, 0);
+  body.innerHTML = list.length ? list.map((u) => {
+    const taken = u.claimed && u.claimed !== S.myId;
+    return `<button class="order${taken ? ' taken' : ''}" data-order="${u.id}"><img src="${cupCanvas(u.order, u.extra, 3).toDataURL()}" alt="">
+      <div><b>${DRINKS[u.order].name}</b>${u.extra ? `<small class="extra">+ ${EXTRAS[u.extra].name}</small>` : ''}<small>for ${escapeHtml(u.name)}${taken ? ' · your friend is on it' : ''}</small></div></button>`;
+  }).join('') : '<p class="hint">No orders right now. Customers drop by every little while; enjoy the cats meanwhile.</p>';
 }
 
 function startOrder(id) {
@@ -449,41 +437,52 @@ function startOrder(id) {
   if (u.claimed && u.claimed !== S.myId) { toast('Your friend is already making that one'); sfx.nope(); return renderBrew(); }
   const err = act('claim', { id });
   if (err) return renderBrew();
-  brew.id = id; brew.drink = u.order; brew.step = 0;
-  renderBrew();
+  closeBrew();
+  station.orderId = id;
+  station.start(u.order, u.extra, u.name);
 }
 
 $('#brew').addEventListener('click', (e) => {
   const o = e.target.closest('[data-order]');
-  if (o) { sfx.click(); return startOrder(o.dataset.order); }
-  if (e.target.closest('#brewDone')) { sfx.click(); return closeBrew(); }
-  const btn = e.target.closest('#stepBtn');
-  if (!btn || brew.busy) return;
-  brew.busy = true;
-  const bar = btn.querySelector('i'), key = DRINKS[brew.drink].steps[brew.step][0];
-  stepSound(key);
-  const t0 = performance.now(), dur = 650;
-  (function fill(now) {
-    const k = Math.min(1, (now - t0) / dur);
-    bar.style.width = `${k * 100}%`;
-    if (k < 1) return requestAnimationFrame(fill);
-    brew.busy = false;
-    brew.step++;
-    buzz(12);
-    if (brew.step >= DRINKS[brew.drink].steps.length) { act('brewed', { id: brew.id }); sfx.coin(); }
-    renderBrew();
-  })(t0);
+  if (o) { sfx.click(); startOrder(o.dataset.order); }
 });
-
-function stepSound(key) {
-  if (key === 'grind') for (let i = 0; i < 8; i++) setTimeout(() => tone(140 + Math.random() * 60, 0.05, 'sawtooth', 0.025), i * 70);
-  else if (key === 'shot' || key === 'pour' || key === 'choc') tone(300, 0.5, 'sine', 0.03, -120);
-  else if (key === 'milk' || key === 'foam' || key === 'whisk') for (let i = 0; i < 10; i++) setTimeout(() => tone(2000 + Math.random() * 800, 0.04, 'triangle', 0.012), i * 55);
-  else if (key === 'ice') [0, 90, 170].forEach((d) => setTimeout(() => tone(1800 + Math.random() * 400, 0.05, 'square', 0.02), d));
-  else tone(660, 0.12, 'triangle', 0.04);
-}
 // keep the order list fresh while the panel is open
-setInterval(() => { if (brew.open && !brew.id) renderBrew(); }, 1000);
+setInterval(() => { if (brew.open) renderBrew(); }, 1000);
+
+// the barista station and its sounds
+const station = new Station({
+  root: $('#station'), canvas: $('#stCanvas'), title: $('#stTitle'), for: $('#stFor'), steps: $('#stSteps'), end: $('#stEnd'), hint: $('#stHint'), close: $('#stClose'),
+}, {
+  sound: stationSound,
+  done(q) {
+    act('brewed', { id: station.orderId, q });
+    sfx.coin(); buzz(25);
+    const u = waitingOrders().find((o) => o.id === station.orderId);
+    toast(`Ready! Tap ${u ? u.name : 'the customer'} to serve`);
+  },
+  close() { sfx.click(); },
+});
+$('#stClose').innerHTML = iconImg('cross', 2);
+document.documentElement.style.setProperty('--star-on', `url(${icon('star', 2)})`);
+document.documentElement.style.setProperty('--star-off', `url(${icon('starOff', 2)})`);
+
+function stationSound(k) {
+  const noise = (n, f, v, gap) => { for (let i = 0; i < n; i++) setTimeout(() => tone(f + Math.random() * f * 0.4, 0.04, 'triangle', v), i * gap); };
+  if (k === 'grind') noise(3, 140, 0.03, 40);
+  else if (k === 'stir') tone(900 + Math.random() * 200, 0.05, 'sine', 0.02);
+  else if (k === 'tamp') { tone(110, 0.12, 'square', 0.05); buzz(30); }
+  else if (k === 'tick-shot' || k === 'tick-pour') tone(260 + Math.random() * 60, 0.12, 'sine', 0.025, -80);
+  else if (k === 'tick-milk' || k === 'tick-foam') noise(2, 2200, 0.012, 30);
+  else if (k === 'tick-cream') tone(1600, 0.06, 'sawtooth', 0.01, -400);
+  else if (k === 'shake') noise(3, 3000, 0.015, 25);
+  else if (k === 'plop') tone(500, 0.12, 'sine', 0.05, -250);
+  else if (k === 'ice' || k === 'clink') tone(1900 + Math.random() * 400, 0.06, 'square', 0.02);
+  else if (k === 'mash') tone(160, 0.1, 'triangle', 0.05, -60);
+  else if (k === 'pour') tone(320, 0.6, 'sine', 0.025, -140);
+  else if (k === 'step') { tone(880, 0.08, 'triangle', 0.05); buzz(12); }
+  else if (k === 'perfect') { tone(1046, 0.1, 'triangle', 0.05); setTimeout(() => tone(1318, 0.1, 'triangle', 0.05), 90); setTimeout(() => tone(1568, 0.16, 'triangle', 0.05), 180); buzz(20); }
+  else if (k === 'done') { sfx.bell(); }
+}
 
 // ---------- decorating ----------
 const TABS = [['all', 'All'], ['furniture', 'Furniture'], ['counter', 'Counter'], ['decor', 'Decor'], ['cat', 'For cats'], ...Object.entries(SETS), ['room', 'Walls & floors'], ['recipes', 'Recipes'], ['storage', 'Storage']];
@@ -584,7 +583,7 @@ function renderTray() {
     const have = S.cafe.recipes || [];
     $('#trayItems').innerHTML = DRINK_ORDER.map((id) => {
       const d = DRINKS[id], owned = have.includes(id);
-      return `<button class="recipe${owned ? ' have' : ''}" data-recipe="${id}"><img src="${cupCanvas(id, 1, false, 3).toDataURL()}" alt=""><b>${d.name}</b>
+      return `<button class="recipe${owned ? ' have' : ''}" data-recipe="${id}"><img src="${cupCanvas(id, '', 3).toDataURL()}" alt=""><b>${d.name}</b>
         <span>${owned ? 'On the menu' : `${iconImg('coin', 1)}${d.unlock}`}</span><span>sells for ${d.price}</span></button>`;
     }).join('');
     return;
@@ -881,6 +880,7 @@ $('#joinGo').addEventListener('click', () => {
 // ---------- app lifecycle ----------
 if (Plugins.StatusBar) Plugins.StatusBar.hide().catch(() => {});
 if (Plugins.App) Plugins.App.addListener('backButton', () => {
+  if (station.open) { station.hide(); return; }
   if (S.build) return closeBuild();
   if (['invite', 'cats', 'pause'].includes(S.screen)) return show('hud');
   if (S.screen === 'hud') return $('#btnMenu').click();
@@ -893,4 +893,4 @@ goMenu();
 requestAnimationFrame(frame);
 
 // hooks for automated tests
-window.__wc = { S, renderer, act, startHosting, joinCafe, playSolo, newCafe, goMenu, currentView, openBrew };
+window.__wc = { S, renderer, act, startHosting, joinCafe, playSolo, newCafe, goMenu, currentView, openBrew, station };
