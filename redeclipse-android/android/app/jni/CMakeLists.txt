@@ -9,6 +9,10 @@ set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 add_subdirectory(SDL)
+# SDL_image and SDL_mixer are built static and look for a static SDL2; give them the shared one
+if(NOT TARGET SDL2::SDL2-static)
+    add_library(SDL2::SDL2-static ALIAS SDL2)
+endif()
 
 set(BUILD_SHARED_LIBS OFF)
 foreach(opt SDL2IMAGE_VENDORED SDL2IMAGE_SAMPLES SDL2IMAGE_TESTS SDL2IMAGE_INSTALL
@@ -38,7 +42,7 @@ set(RE_SOURCES
     engine/material.cpp engine/menus.cpp engine/movie.cpp engine/normal.cpp engine/octa.cpp engine/octaedit.cpp
     engine/octarender.cpp engine/physics.cpp engine/pvs.cpp engine/rendergl.cpp engine/renderlights.cpp engine/rendermodel.cpp
     engine/renderparticles.cpp engine/rendersky.cpp engine/rendertext.cpp engine/renderva.cpp engine/server.cpp
-    engine/serverbrowser.cpp engine/shader.cpp engine/sound.cpp engine/stain.cpp engine/texture.cpp engine/ui.cpp
+    engine/serverbrowser.cpp engine/shader.cpp engine/sound.cpp engine/stain.cpp engine/texture.cpp engine/touch.cpp engine/ui.cpp
     engine/water.cpp engine/world.cpp engine/worldio.cpp engine/wind.cpp
     game/ai.cpp game/client.cpp game/capture.cpp game/defend.cpp game/bomber.cpp game/entities.cpp game/game.cpp
     game/hud.cpp game/physics.cpp game/projs.cpp game/scoreboard.cpp game/server.cpp game/waypoint.cpp game/weapons.cpp)

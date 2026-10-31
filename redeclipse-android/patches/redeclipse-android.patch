@@ -46,7 +46,7 @@ index 10ec443..f16a822 100644
                      float fogcoord = front/lightpos.w;
                      float foglerp = clamp(exp2(fogcoord*fogdensity.x)*fogdensity.y, 0.0, 1.0);
 diff --git a/src/Makefile b/src/Makefile
-index cfbd13b..6a853e6 100644
+index cfbd13b..256459d 100644
 --- a/src/Makefile
 +++ b/src/Makefile
 @@ -117,8 +117,13 @@ else
@@ -71,6 +71,14 @@ index cfbd13b..6a853e6 100644
  	shared/crypto.o \
  	shared/geom.o \
  	shared/glemu.o \
+@@ -180,6 +186,7 @@ CLIENT_OBJS= \
+ 	engine/sound.o \
+ 	engine/stain.o \
+ 	engine/texture.o \
++	engine/touch.o \
+ 	engine/ui.o \
+ 	engine/water.o \
+ 	engine/world.o \
 diff --git a/src/engine/console.cpp b/src/engine/console.cpp
 index 955f203..1d3d751 100644
 --- a/src/engine/console.cpp
@@ -102,8 +110,26 @@ index 955f203..1d3d751 100644
      #else
      Display *d = XOpenDisplay((char*)0);
      if(d)
+diff --git a/src/engine/engine.h b/src/engine/engine.h
+index e574a69..415c7ef 100644
+--- a/src/engine/engine.h
++++ b/src/engine/engine.h
+@@ -298,6 +298,13 @@ extern vec curfogcolor;
+ extern int wireframe;
+ 
+ extern float cursorx, cursory;
++
++namespace touch
++{
++    extern bool event(const SDL_Event &e);
++    extern void render();
++    extern void reset();
++}
+ extern vec cursordir;
+ 
+ extern int glerr;
 diff --git a/src/engine/main.cpp b/src/engine/main.cpp
-index a44e379..f1e3611 100644
+index a44e379..c2acf63 100644
 --- a/src/engine/main.cpp
 +++ b/src/engine/main.cpp
 @@ -375,17 +375,24 @@ void setupscreen(bool dogl = true)
@@ -133,7 +159,37 @@ index a44e379..f1e3611 100644
          glcontext = SDL_GL_CreateContext(screen);
          if(glcontext) break;
      }
-@@ -838,6 +845,7 @@ void progress(float amt, const char *s, ...)
+@@ -537,6 +544,7 @@ void checkinput()
+     while(events.length() || pollevent(event))
+     {
+         if(events.length()) event = events.remove(0);
++        if(touch::event(event)) continue;
+ 
+         switch(event.type)
+         {
+@@ -556,7 +564,11 @@ void checkinput()
+             case SDL_KEYDOWN:
+             case SDL_KEYUP:
+                 if(keyrepeatmask || !event.key.repeat)
+-                    processkey(event.key.keysym.sym, event.key.state==SDL_PRESSED);
++                {
++                    int sym = event.key.keysym.sym;
++                    if(sym == SDLK_AC_BACK) sym = SDLK_ESCAPE; // Android back button
++                    processkey(sym, event.key.state==SDL_PRESSED);
++                }
+                 break;
+ 
+             case SDL_WINDOWEVENT:
+@@ -573,7 +585,7 @@ void checkinput()
+                         inputgrab(grabinput = true);
+                         break;
+ 
+-                    case SDL_WINDOWEVENT_FOCUS_LOST: windowfocus = false; // fall through
++                    case SDL_WINDOWEVENT_FOCUS_LOST: windowfocus = false; touch::reset(); // fall through
+                     case SDL_WINDOWEVENT_LEAVE:
+                         inputgrab(grabinput = false);
+                         break;
+@@ -838,6 +850,7 @@ void progress(float amt, const char *s, ...)
      if(progressfps)
      {
          int curprog = progressfps >= 0 ? progressfps : refresh, ticks = SDL_GetTicks(), diff = ticks - lastprogress;
@@ -141,7 +197,7 @@ index a44e379..f1e3611 100644
          if(amt > 0 && diff >= 0 && diff < (1000 + curprog-1)/curprog) return;
          lastprogress = ticks;
      }
-@@ -913,6 +921,11 @@ int main(int argc, char **argv)
+@@ -913,6 +926,11 @@ int main(int argc, char **argv)
      clockoffset = currenttime-clocktime;
  
      setlogfile(NULL);
@@ -153,8 +209,17 @@ index a44e379..f1e3611 100644
      setlocations(argv[0]);
  
      char *initscript = NULL;
+@@ -998,6 +1016,8 @@ int main(int argc, char **argv)
+     numcpus = clamp(SDL_GetCPUCount(), 1, 16);
+ 
+     conoutf("Loading SDL..");
++    // touches are handled by touch.cpp, so don't also turn them into mouse clicks
++    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+     if(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO|SDL_INIT_AUDIO)<0) fatal("Unable to initialize SDL: %s", SDL_GetError());
+     setcaption("Loading, please wait..");
+ 
 diff --git a/src/engine/rendergl.cpp b/src/engine/rendergl.cpp
-index 84d7ef7..9537d99 100644
+index 84d7ef7..145120f 100644
 --- a/src/engine/rendergl.cpp
 +++ b/src/engine/rendergl.cpp
 @@ -8,6 +8,7 @@ int hasstencil = 0;
@@ -229,6 +294,17 @@ index 84d7ef7..9537d99 100644
  }
  
  ICOMMAND(0, glext, "s", (char *ext), intret(hasext(ext) ? 1 : 0));
+@@ -2473,6 +2506,10 @@ void gl_drawhud(bool noview = false)
+     debuglights();
+ 
+     hud::render(noview);
++
++    hudmatrix.ortho(0, hudw, hudh, 0, -1, 1);
++    resethudmatrix();
++    touch::render();
+ }
+ 
+ void gl_drawnoview()
 diff --git a/src/engine/shader.cpp b/src/engine/shader.cpp
 index ddad595..34b4f3b 100644
 --- a/src/engine/shader.cpp
@@ -325,6 +401,237 @@ index a3056d6..f9a791e 100644
      if(!format) format = component;
      return type;
  }
+diff --git a/src/engine/touch.cpp b/src/engine/touch.cpp
+new file mode 100644
+index 0000000..5e10bd5
+--- /dev/null
++++ b/src/engine/touch.cpp
+@@ -0,0 +1,225 @@
++// Touch controls for the Android port.
++//
++// In menus a finger is the mouse: the cursor jumps to it and touching clicks.
++// In play the left side of the screen is a floating movement stick, the rest
++// turns the view, and on-screen buttons press the same keys a keyboard would,
++// so every binding the game already has (spectating, edit mode...) keeps working.
++#include "engine.h"
++
++extern void processkey(int code, bool isdown);
++
++VAR(IDF_PERSIST, touchcontrols, 0, 1, 1);
++FVAR(IDF_PERSIST, touchlook, 0.05f, 1.0f, 10);  // view turning speed
++FVAR(IDF_PERSIST, touchscale, 0.5f, 1.0f, 2);   // button size
++VAR(IDF_PERSIST, touchalpha, 20, 140, 255);
++
++namespace touch
++{
++    struct button
++    {
++        const char *label;
++        float x, y, r;   // centre in 0..1 screen units, radius as a fraction of screen height
++        int key;
++        bool look;       // dragging this button also turns the view (the fire button)
++        bool down;
++    };
++
++    static button buttons[] =
++    {
++        { "FIRE",   0.87f, 0.68f, 0.120f, -1,          true,  false },
++        { "ALT",    0.71f, 0.79f, 0.075f, -3,          true,  false },
++        { "JUMP",   0.95f, 0.38f, 0.080f, SDLK_SPACE,  false, false },
++        { "DUCK",   0.80f, 0.40f, 0.065f, SDLK_LSHIFT, false, false },
++        { "MELEE",  0.80f, 0.92f, 0.055f, SDLK_q,      false, false },
++        { "RELOAD", 0.59f, 0.90f, 0.055f, SDLK_r,      false, false },
++        { "<",      0.56f, 0.09f, 0.055f, -5,          false, false },
++        { ">",      0.66f, 0.09f, 0.055f, -4,          false, false },
++        { "USE",    0.76f, 0.09f, 0.055f, SDLK_e,      false, false },
++        { "SCORE",  0.86f, 0.09f, 0.055f, SDLK_TAB,    false, false },
++        { "MENU",   0.05f, 0.09f, 0.055f, SDLK_ESCAPE, false, false },
++    };
++    static const int numbuttons = sizeof(buttons)/sizeof(buttons[0]);
++
++    enum { F_NONE = 0, F_STICK, F_LOOK, F_BUTTON, F_CURSOR };
++    struct finger { SDL_FingerID id; int role, button; float x, y, ox, oy; };
++    static vector<finger> fingers;
++
++    static bool stickkeys[4] = { false, false, false, false }; // W A S D
++    static const int stickcodes[4] = { SDLK_w, SDLK_a, SDLK_s, SDLK_d };
++    static float stickx = 0, sticky = 0, stickox = 0, stickoy = 0;
++    static bool stickactive = false;
++#if defined(__ANDROID__) || defined(TOUCH_PREVIEW)
++    static bool used = true;  // always draw the controls on phones
++#else
++    static bool used = false; // draw the controls once a touch screen has been used
++#endif
++
++    static float aspect() { return screenh > 0 ? float(screenw)/float(screenh) : 16.f/9.f; }
++
++    // distance between two points in screen-height units
++    static float dist(float x1, float y1, float x2, float y2) { return sqrtf(((x1-x2)*aspect())*((x1-x2)*aspect()) + (y1-y2)*(y1-y2)); }
++
++    static bool inplay() { return touchcontrols && !hud::hasinput(true); }
++
++    static int findbutton(float x, float y)
++    {
++        loopi(numbuttons) if(dist(x, y, buttons[i].x, buttons[i].y) <= buttons[i].r*touchscale*1.15f) return i;
++        return -1;
++    }
++
++    static void setstick(float dx, float dy)
++    {
++        const float range = 0.12f, dead = 0.3f;
++        stickx = clamp(dx*aspect()/range, -1.f, 1.f);
++        sticky = clamp(dy/range, -1.f, 1.f);
++        bool want[4] = { sticky < -dead, stickx < -dead, sticky > dead, stickx > dead };
++        loopi(4) if(want[i] != stickkeys[i]) { stickkeys[i] = want[i]; processkey(stickcodes[i], want[i]); }
++    }
++
++    static void release(finger &f)
++    {
++        if(f.role == F_STICK) { setstick(0, 0); stickactive = false; }
++        else if(f.role == F_BUTTON && buttons[f.button].down) { buttons[f.button].down = false; processkey(buttons[f.button].key, false); }
++        else if(f.role == F_CURSOR) processkey(-1, false);
++    }
++
++    static void look(float dx, float dy)
++    {
++        // pixels across the screen, scaled so one screen width is roughly a half turn at default speed
++        float k = touchlook*0.6f;
++        game::mousemove(int(dx*screenw*k), int(dy*screenh*k), 0, 0, screenw, screenh);
++    }
++
++    // returns true if the event was a touch event (handled here)
++    bool event(const SDL_Event &e)
++    {
++        if(e.type != SDL_FINGERDOWN && e.type != SDL_FINGERMOTION && e.type != SDL_FINGERUP) return false;
++        used = true;
++        float x = e.tfinger.x, y = e.tfinger.y;
++        if(e.type == SDL_FINGERDOWN)
++        {
++            finger f = { e.tfinger.fingerId, F_NONE, -1, x, y, x, y };
++            if(!inplay())
++            {
++                f.role = F_CURSOR;
++                cursorx = x; cursory = y;
++                processkey(-1, true);
++            }
++            else if((f.button = findbutton(x, y)) >= 0)
++            {
++                f.role = F_BUTTON;
++                buttons[f.button].down = true;
++                processkey(buttons[f.button].key, true);
++            }
++            else if(x < 0.4f && !stickactive)
++            {
++                f.role = F_STICK;
++                stickactive = true;
++                stickox = x; stickoy = y;
++            }
++            else f.role = F_LOOK;
++            fingers.add(f);
++            return true;
++        }
++        loopv(fingers) if(fingers[i].id == e.tfinger.fingerId)
++        {
++            finger &f = fingers[i];
++            if(e.type == SDL_FINGERMOTION)
++            {
++                float dx = x - f.x, dy = y - f.y;
++                f.x = x; f.y = y;
++                switch(f.role)
++                {
++                    case F_CURSOR: cursorx = x; cursory = y; break;
++                    case F_STICK: setstick(x - stickox, y - stickoy); break;
++                    case F_LOOK: look(dx, dy); break;
++                    case F_BUTTON: if(buttons[f.button].look) look(dx, dy); break;
++                }
++            }
++            else
++            {
++                if(f.role == F_CURSOR) { cursorx = x; cursory = y; }
++                release(f);
++                fingers.remove(i);
++            }
++            break;
++        }
++        return true;
++    }
++
++    // let go of everything, e.g. when a menu opens mid-gesture or the app is paused
++    void reset()
++    {
++        loopv(fingers) release(fingers[i]);
++        fingers.setsize(0);
++    }
++
++    static void circle(float cx, float cy, float r, float inner, const bvec4 &col)
++    {
++        const int segs = 40;
++        gle::color(col);
++        gle::begin(GL_TRIANGLE_STRIP);
++        loopi(segs+1)
++        {
++            float a = i*2*M_PI/segs, c = cosf(a), s = sinf(a);
++            gle::attribf(cx + c*r, cy + s*r);
++            gle::attribf(cx + c*inner, cy + s*inner);
++        }
++        gle::end();
++    }
++
++    void render()
++    {
++#ifdef TOUCH_PREVIEW
++        if(!used) return; // layout checks draw over menus too
++#else
++        if(!used || !inplay()) return;
++#endif
++        float h = hudh, w = hudw;
++        int alpha = touchalpha;
++        hudnotextureshader->set();
++        glEnable(GL_BLEND);
++        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
++        gle::defvertex(2);
++
++        if(stickactive)
++        {
++            float cx = stickox*w, cy = stickoy*h, r = 0.12f*h;
++            circle(cx, cy, r, r*0.92f, bvec4(255, 255, 255, alpha));
++            circle(cx, cy, r*0.92f, 0, bvec4(0, 0, 0, alpha/3));
++            circle(cx + stickx*r, cy + sticky*r, r*0.4f, 0, bvec4(255, 255, 255, alpha));
++        }
++        else
++        {
++            float cx = 0.16f*w, cy = 0.72f*h, r = 0.12f*h;
++            circle(cx, cy, r, r*0.94f, bvec4(255, 255, 255, alpha/2));
++            circle(cx, cy, r*0.4f, 0, bvec4(255, 255, 255, alpha/3));
++        }
++
++        loopi(numbuttons)
++        {
++            button &b = buttons[i];
++            float r = b.r*touchscale*h;
++            bool fire = b.key == -1;
++            bvec4 fill = b.down ? bvec4(255, 70, 70, min(255, alpha+60)) : (fire ? bvec4(200, 30, 30, alpha) : bvec4(0, 0, 0, alpha*2/3));
++            circle(b.x*w, b.y*h, r, 0, fill);
++            circle(b.x*w, b.y*h, r, r*0.9f, bvec4(255, 255, 255, alpha));
++        }
++
++        pushfont("default");
++        loopi(numbuttons)
++        {
++            button &b = buttons[i];
++            float r = b.r*touchscale*h, scale = (r*0.55f)/FONTH;
++            if(strlen(b.label) > 4) scale *= 0.8f;
++            pushhudmatrix();
++            hudmatrix.translate(b.x*w, b.y*h, 0);
++            hudmatrix.scale(scale, scale, 1);
++            flushhudmatrix();
++            draw_textf("%s", 0, -FONTH/2, 0, 0, 255, 255, 255, 230, TEXT_CENTERED, -1, -1, 1, b.label);
++            pophudmatrix();
++        }
++        popfont();
++        hudnotextureshader->set();
++    }
++}
 diff --git a/src/shared/cube.h b/src/shared/cube.h
 index 3fdaa29..c216a29 100644
 --- a/src/shared/cube.h

@@ -16,6 +16,11 @@ affiliated with or endorsed by the Red Eclipse project.
 - **Shaders** — a `#version 3x0 es` header with precision qualifiers, dual-source
   blending through `GL_EXT_blend_func_extended` when present, and a few literals
   fixed for GLSL ES's stricter typing.
+- **Touch controls** (`src/engine/touch.cpp`) — in menus a finger is the mouse;
+  in play the left side is a floating movement stick, the rest of the screen turns
+  the view, and on-screen buttons press the same keys a keyboard would (fire, alt
+  fire, jump, crouch, melee, reload, weapon switch, use, scores, menu). The Android
+  back button acts as Escape.
 - **Android** — the engine starts in the unpacked game folder; caps/num lock come
   from SDL instead of X11; a zero refresh rate no longer divides by zero.
 
