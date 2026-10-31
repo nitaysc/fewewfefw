@@ -5,7 +5,7 @@
 // ends with a little summary.
 import { CATALOG } from './catalog.js';
 import { DRINKS, orderPrice, tipFor, starsFor } from '../art/drinks.js';
-import { FOODS } from '../art/foods.js';
+import { FOODS, foodWants, foodPrice } from '../art/foods.js';
 import { findPath, nearestFree, walkable, footprint, ROOM_W, seededRng, newDay } from './world.js';
 import { msg } from '../i18n.js';
 export { seededRng };
@@ -20,7 +20,7 @@ export const OPEN_AT = 8 * 60, DAY_MINUTES = 12 * 60, MIN_PER_SEC = 1 / 0.75;
 export const REFUSE_BELOW = 0.35;
 
 export const customerName = (seed) => NAMES[seed % NAMES.length];
-export const itemPrice = (it) => (it.kind === 'food' ? FOODS[it.id].price : orderPrice(it.id, it.extra));
+export const itemPrice = (it) => (it.kind === 'food' ? foodPrice(it.id, it.extra) : orderPrice(it.id, it.extra));
 export const itemName = (it) => (it.kind === 'food' ? FOODS[it.id].name : DRINKS[it.id].name);
 export function clockText(min) {
   const m = Math.floor(OPEN_AT + Math.min(min, DAY_MINUTES + 59));
@@ -95,10 +95,10 @@ export class CustomerSystem {
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
     const drink = () => {
       const id = pick(drinks), ex = DRINKS[id].extras || [];
-      const extra = (cafe.stats.served || 0) >= 3 && ex.length && Math.random() < 0.4 ? pick(ex) : '';
+      const extra = (cafe.stats.served || 0) >= 1 && ex.length && Math.random() < 0.5 ? pick(ex) : '';
       return { kind: 'drink', id, extra, by: null, done: false };
     };
-    const food = () => ({ kind: 'food', id: pick(foods), extra: '', by: null, done: false });
+    const food = () => { const id = pick(foods); return { kind: 'food', id, extra: foodWants(id), by: null, done: false }; };
     const r = Math.random();
     if (!foods.length || r < 0.5) items.push(drink());
     else if (r < 0.75) items.push(food());

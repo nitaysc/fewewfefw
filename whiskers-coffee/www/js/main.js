@@ -7,7 +7,7 @@ import { WALL_STYLES, FLOOR_STYLES, WALL_ORDER, FLOOR_ORDER, styleSwatch } from 
 import { HostSession, GuestSession, makeCode, cleanCode } from './net.js';
 import { personSprite, randomLook, SKINS, HAIR_COLORS, HAIR_STYLES, OUTFIT_COLORS, PANTS_COLORS, SHOE_COLORS, EYE_STYLES, EYE_COLORS, TOPS, BOTTOMS, HATS, GLASSES } from './art/people.js';
 import { DRINKS, DRINK_ORDER, cupCanvas, EXTRAS } from './art/drinks.js';
-import { FOODS, FOOD_ORDER, plateCanvas } from './art/foods.js';
+import { FOODS, FOOD_ORDER, plateCanvas, wantsText } from './art/foods.js';
 import { Station, REFUSE_BELOW } from './brew/station.js';
 import { Kitchen } from './brew/kitchen.js';
 import { seededRng, customerName, clockText, OPEN_AT } from './game/customers.js';
@@ -479,9 +479,9 @@ function tap(sx, sy) {
 
 // ---------- orders, serving, the barista station and the kitchen ----------
 const myPlayer = (v) => v.players.find((p) => p.me);
-const itemTitle = (i) => (i.kind === 'food' ? t(FOODS[i.id].name) : t(DRINKS[i.id].name) + (i.extra ? ' + ' + t(EXTRAS[i.extra].name) : ''));
+const itemTitle = (i) => (i.kind === 'food' ? t(FOODS[i.id].name) + (i.extra ? ' + ' + wantsText(i.extra, t) : '') : t(DRINKS[i.id].name) + (i.extra ? ' + ' + t(EXTRAS[i.extra].name) : ''));
 const itemPic = (i, s = 3) => (i.kind === 'food' ? plateCanvas(i.id, s) : cupCanvas(i.id, i.extra, s)).toDataURL();
-const carryMatches = (me, i) => me?.carry && !i.done && (i.kind === 'food' ? me.carry === 'f:' + i.id : me.carry === i.id && (me.carryExtra || '') === (i.extra || ''));
+const carryMatches = (me, i) => me?.carry && !i.done && (i.kind === 'food' ? me.carry === 'f:' + i.id && (me.carryExtra || '') === (i.extra || '') : me.carry === i.id && (me.carryExtra || '') === (i.extra || ''));
 
 function tapCustomer(u, v) {
   const me = myPlayer(v);
@@ -532,7 +532,7 @@ function startOrder(id, idx) {
   if (err) return renderBrew();
   closeBrew();
   making = { id, idx, kind: it.kind, name: u.name };
-  if (it.kind === 'food') kitchen.start(it.id, u.name); else station.start(it.id, it.extra, u.name);
+  if (it.kind === 'food') kitchen.start(it.id, u.name, it.extra); else station.start(it.id, it.extra, u.name);
 }
 $('#brew').addEventListener('click', (e) => {
   if (e.target.closest('[data-drop]')) { sfx.click(); act('drop'); renderBrew(); return; }

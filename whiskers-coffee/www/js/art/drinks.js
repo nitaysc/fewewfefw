@@ -117,7 +117,7 @@ export function pour(b, key, amt) {
   if (put > 0) { if (last && last.key === look) last.amt += put; else b.layers.push({ key: look, c: C[look] || C[key], amt: put }); }
   if (spilled > 0) { b.spill += spilled; b.messy = true; }
   // the surface takes the colour of what was poured last
-  if (put > 0) b.top = key === 'espresso' && (b.vessel === 'demi' || b.vessel === 'cup') && !b.amt.milk ? C.crema : key === 'milk' && b.amt.espresso ? C.latteTop : key === 'milk' && b.amt.matcha ? C.matchaTop : key === 'foam' ? (b.amt.matcha ? C.matchaFoam : C.foam) : C[look] || C[key];
+  if (put > 0) b.top = key === 'espresso' && (b.vessel === 'demi' || b.vessel === 'cup') && !b.amt.milk ? C.crema : key === 'milk' && b.amt.espresso ? C.latteTop : key === 'milk' && b.amt.matcha ? C.matchaTop : key === 'foam' ? (b.amt.matcha ? C.matchaTop : b.amt.espresso && !b.amt.chocsyrup ? '#c8935f' : C.foam) : C[look] || C[key];
   b.dirty = true;
   return spilled;
 }

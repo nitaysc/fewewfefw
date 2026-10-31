@@ -421,6 +421,61 @@ spill → blocked → wipe → serve; a cake plated by dragging; furniture moved
 drag and dragged in from the shop; tips; a two-browser co-op run with an English host
 and a Russian guest (claims, the "is making it" label, serving, tips, day end, next day).
 
+## 8f. Round 7 (in progress when the session stopped): read this first
+
+**Done in this round (pushed):**
+- Food art at 2× resolution: `art/foodart.js` paints every ingredient (`HD[key](p, x, y, r)`)
+  and base (`drawBaseHD`, `drawPlateHD`) with shading. Strawberries come whole or halved
+  (`r` odd), cake slices show their cut layers (shortcake has strawberry bits in the cream,
+  cheesecake has a baked top and biscuit crust). The kitchen scene is now 240×160 with the
+  plate at R=72 (`brew/kitchen.js`); `drawPlate()` switches to the detailed path at R ≥ 50.
+  Small café plates still use the simple shapes in `foods.js`.
+- Customers no longer all want the same dish: each food order can ask for 0–2 extras from
+  `FOODS[id].options` (`foodWants()` → `item.extra = "olive:2|cucumber:1"`;
+  `foodNeed()`, `foodPrice()` (+2 per extra), `wantsText()`). The kitchen card and the
+  order list show them. Drink extras now start after the first order and come up half
+  the time.
+- Latte art was invisible: pouring foam onto espresso made the whole top foam-white. The
+  surface now stays latte-coloured (`pour()` in `art/drinks.js`), so the white heart shows.
+- Toasts (the "Hana loves it!" messages) now appear at the top of the screen instead of
+  covering the bottom.
+- The owner's art references are saved in `whiskers-coffee/docs/art-references/`.
+
+**Still open: the owner's latest requests, in priority order:**
+1. **Much richer, professional pixel art like the references** (`docs/art-references/`):
+   warm lighting, detailed shaded characters with big expressive eyes, soft coloured
+   outlines (not pure black), plants and hanging vines, cups and cakes on tables, cats with
+   fur shading. Keep it isometric/3D-looking. Suggested approach (not started):
+   - Double the world's pixel density: tiles 32 units instead of 16 (scale `proj` in
+     `art/iso.js` and `wx/wy` in `render.js`, then halve the render zoom). Furniture painted
+     with `IsoPainter` gets finer automatically. Check `room.js` loops that step per unit
+     (the floor shadow dither) and every hard-coded pixel offset in `render.js` (bubbles,
+     cups in hand, name tags, shadows, effects).
+   - Redraw people at about 32×56 (`art/people.js`) in the reference style: shaded hair
+     strands, eye whites and highlights, clothes folds, coloured outlines, a proper seated
+     pose holding a cup.
+   - Cats at 2×: hand-drawn new frames, or start from Scale2x of `art/cats.js` frames and
+     add fur shading and stripes.
+   - Richer furniture shading: gradients and ambient occlusion in `drawBox`; more decor
+     (hanging plants, vines, chalkboard menu, neon sign, glass pastry display with cakes).
+2. **Food ingredients are still small on the plate** in the kitchen close-up; consider
+   drawing them about 1.5× bigger (the plate is R=72 in a 240×160 scene).
+3. Customers should look **seated** convincingly; this round's lower chairs and bent-knee pose help but
+   the owner still reported standing in the previous build. A seat-front overlay drawn over
+   seated people (paint only the chair's seat and front legs as a second sprite) would fix it.
+4. Put served cups and plates **on the table** instead of in the customer's hand.
+
+**Owner feedback history (so the next person understands the direction):**
+- Round 3: "there isn't much to do" → customers and coffee.
+- Round 4: "boring, you just click the same button" → minigame station.
+- Round 5 (partner played): wants food, more detail and freedom, mistakes, more drinks,
+  a day/closing cycle, Russian, more customisation, easier decorating.
+- Round 6: the espresso shot stopped early, the counter UI was too small and zoomed in and
+  out, customers stood on chairs → all fixed (sidebar layout, smooth scale, `pf.left`).
+- Round 7: better strawberry/cheesecake models, latte heart invisible, everyone orders the
+  same salad, toasts cover the screen, and "make the pixel art rich and professional like
+  these references". The first four are done; the art upgrade (item 1 above) is the big next job.
+
 ## 9. Later milestones (from the owner's brief)
 
 - **Customisation, next steps:** wall decorations players can place (`cafe.walls`

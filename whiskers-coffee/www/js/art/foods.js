@@ -3,6 +3,7 @@
 // sauces drawn with a finger and toppings shaken over it. A recipe only asks for a few
 // things; everything else is the player's own decoration.
 import { Pix, shade, hash } from './pix.js';
+import { HD, drawBaseHD, drawPlateHD } from './foodart.js';
 
 const INK = '#24160f';
 
@@ -59,19 +60,38 @@ export const BASES = {
 export const BASE_ORDER = Object.keys(BASES);
 
 export const FOODS = {
-  croissant: { name: 'Croissant', price: 10, unlock: 0, base: 'croissant', need: {}, nice: ['butter', 'berrysauce', 'sugar'] },
-  shortcake: { name: 'Strawberry shortcake', price: 16, unlock: 0, base: 'vanilla', need: { cream: 2, strawberry: 2 } },
-  salad: { name: 'Garden salad', price: 15, unlock: 0, base: 'bowl', need: { tomato: 2, cucumber: 2, carrot: 1, dressing: 1 } },
-  cookies: { name: 'Cookie plate', price: 9, unlock: 40, base: 'plate', need: { cookie: 3 } },
-  pancakes: { name: 'Pancakes', price: 16, unlock: 100, base: 'pancakes', need: { butter: 1, syrup: 1, blueberry: 3 } },
-  chococake: { name: 'Chocolate cake', price: 18, unlock: 90, base: 'chocolate', need: { chocsauce: 1, raspberry: 2 } },
-  cheesecake: { name: 'Berry cheesecake', price: 18, unlock: 110, base: 'cheesecake', need: { berrysauce: 1, blueberry: 3 } },
-  avotoast: { name: 'Avocado toast', price: 18, unlock: 120, base: 'toast', need: { avocado: 3, egg: 1, chili: 1 } },
-  caesar: { name: 'Caesar salad', price: 20, unlock: 130, base: 'bowl', need: { crouton: 3, cheese: 2, egg: 1, dressing: 1 } },
-  fruitbowl: { name: 'Fruit bowl', price: 17, unlock: 100, base: 'bowl', need: { kiwi: 2, orange: 2, blueberry: 3, mint: 1 } },
+  croissant: { name: 'Croissant', price: 10, unlock: 0, base: 'croissant', need: {}, nice: ['butter', 'berrysauce', 'sugar'], options: ['butter', 'berrysauce', 'honey', 'sugar', 'strawberry'] },
+  shortcake: { name: 'Strawberry shortcake', price: 16, unlock: 0, base: 'vanilla', need: { cream: 2, strawberry: 2 }, options: ['strawberry', 'blueberry', 'mint', 'sugar', 'raspberry', 'cream'] },
+  salad: { name: 'Garden salad', price: 15, unlock: 0, base: 'bowl', need: { tomato: 2, cucumber: 2, carrot: 1, dressing: 1 }, options: ['cucumber', 'tomato', 'olive', 'onion', 'corn', 'cheese', 'carrot', 'crouton', 'balsamic', 'pepper'] },
+  cookies: { name: 'Cookie plate', price: 9, unlock: 40, base: 'plate', need: { cookie: 3 }, options: ['cookie', 'chocpiece', 'macaron'] },
+  pancakes: { name: 'Pancakes', price: 16, unlock: 100, base: 'pancakes', need: { butter: 1, syrup: 1, blueberry: 3 }, options: ['blueberry', 'strawberry', 'banana', 'butter', 'honey', 'sugar'] },
+  chococake: { name: 'Chocolate cake', price: 18, unlock: 90, base: 'chocolate', need: { chocsauce: 1, raspberry: 2 }, options: ['raspberry', 'strawberry', 'cream', 'shaving', 'mint', 'sugar'] },
+  cheesecake: { name: 'Berry cheesecake', price: 18, unlock: 110, base: 'cheesecake', need: { berrysauce: 1, blueberry: 3 }, options: ['blueberry', 'raspberry', 'strawberry', 'mint', 'cream'] },
+  avotoast: { name: 'Avocado toast', price: 18, unlock: 120, base: 'toast', need: { avocado: 3, egg: 1, chili: 1 }, options: ['egg', 'tomato', 'sesame', 'pepper', 'onion', 'cheese'] },
+  caesar: { name: 'Caesar salad', price: 20, unlock: 130, base: 'bowl', need: { crouton: 3, cheese: 2, egg: 1, dressing: 1 }, options: ['crouton', 'cheese', 'egg', 'olive', 'pepper', 'tomato'] },
+  fruitbowl: { name: 'Fruit bowl', price: 17, unlock: 100, base: 'bowl', need: { kiwi: 2, orange: 2, blueberry: 3, mint: 1 }, options: ['kiwi', 'orange', 'blueberry', 'strawberry', 'banana', 'raspberry', 'mint', 'honey'] },
 };
 export const FOOD_ORDER = ['croissant', 'shortcake', 'salad', 'cookies', 'pancakes', 'chococake', 'cheesecake', 'fruitbowl', 'avotoast', 'caesar'];
 export const START_FOODS = ['croissant', 'shortcake', 'salad'];
+// what a customer asks for on top of the recipe: "olive:2|cucumber:1"
+export function foodWants(id, rnd = Math.random) {
+  const o = FOODS[id].options || [], picks = [];
+  const n = rnd() < 0.35 ? 0 : rnd() < 0.6 ? 1 : 2;
+  for (let i = 0; i < n && o.length; i++) {
+    const k = o[Math.floor(rnd() * o.length)];
+    if (picks.some(([x]) => x === k)) continue;
+    picks.push([k, INGREDIENTS[k] ? 1 + Math.floor(rnd() * 3) : 1]);
+  }
+  return picks.map(([k, c]) => `${k}:${c}`).join('|');
+}
+export const parseWants = (extra) => (extra ? extra.split('|').map((w) => { const [k, c] = w.split(':'); return [k, +c || 1]; }).filter(([k]) => INGREDIENTS[k] || SAUCES[k] || SHAKERS[k]) : []);
+export function foodNeed(id, extra = '') {
+  const need = { ...FOODS[id].need };
+  for (const [k, c] of parseWants(extra)) need[k] = (need[k] || 0) + (INGREDIENTS[k] ? c : 0) || 1;
+  return need;
+}
+export const foodPrice = (id, extra = '') => FOODS[id].price + 2 * parseWants(extra).length;
+export const wantsText = (extra, tr = (x) => x) => parseWants(extra).map(([k, c]) => (INGREDIENTS[k] && c > 1 ? `${c} ` : '') + tr(ingName(k))).join(', ');
 export const kindOf = (k) => (INGREDIENTS[k] ? 'item' : SAUCES[k] ? 'sauce' : SHAKERS[k] ? 'shake' : null);
 export const ingName = (k) => (INGREDIENTS[k] || SAUCES[k] || SHAKERS[k] || BASES[k] || {}).name || k;
 
@@ -85,8 +105,8 @@ export function countOf(pl, k) {
   return 0;
 }
 // how well a plate matches its recipe, 0..1, with notes for the player
-export function scorePlate(id, pl) {
-  const f = FOODS[id], notes = [];
+export function scorePlate(id, pl, extra = '') {
+  const f = { ...FOODS[id], need: foodNeed(id, extra) }, notes = [];
   if (pl.base !== f.base) return { q: 0.1, notes: ['That is not the right base'] };
   const need = Object.entries(f.need);
   let sum = 0;
@@ -100,8 +120,8 @@ export function scorePlate(id, pl) {
   return { q, notes };
 }
 // the dish as it ideally looks, for the café sprites
-export function idealPlate(id) {
-  const f = FOODS[id], pl = newPlate(f.base);
+export function idealPlate(id, extra = '') {
+  const f = { ...FOODS[id], need: foodNeed(id, extra) }, pl = newPlate(f.base);
   let i = 0;
   for (const [k, n] of Object.entries(f.need)) {
     for (let j = 0; j < n; j++, i++) {
@@ -167,6 +187,7 @@ function drawBase(p, base, cx, cy, R) {
 
 // a whole plate: dish at (cx, cy) with plate radius R ('big' at the kitchen, small in the café)
 export function drawPlate(p, cx, cy, pl, R = 40) {
+  if (R >= 50) return drawPlateBig(p, cx, cy, pl, R);
   const s = R / 40;
   p.ellipse(cx, cy + Math.round(2 * s), Math.round(R) + 1, Math.round(R * 0.82) + 1, '#00000033');
   p.ellipse(cx, cy, Math.round(R) + 1, Math.round(R * 0.82) + 1, INK);
@@ -190,6 +211,22 @@ export function drawPlate(p, cx, cy, pl, R = 40) {
     else p.set(x, y, INGREDIENTS[it.k].c);
   }
   for (const [x, y, c] of pl.dust) { const [px, py] = P(x, y); p.set(px, py, c); }
+}
+
+// the kitchen close-up: detailed plate, base and ingredients
+function drawPlateBig(p, cx, cy, pl, R) {
+  drawPlateHD(p, cx, cy, R);
+  if (pl.base) drawBaseHD(p, pl.base, cx, cy, R);
+  const P = (x, y) => [Math.round(cx + x * R * 0.8), Math.round(cy + y * R * 0.66)];
+  for (const st of pl.strokes) {
+    const c = SAUCES[st.k].c;
+    for (let i = 1; i < st.pts.length; i++) {
+      const [ax, ay] = P(...st.pts[i - 1]), [bx, by] = P(...st.pts[i]);
+      for (const [dx, dy, k] of [[0, 1, 0.75], [1, 1, 0.75], [0, 0, 1], [1, 0, 1], [0, -1, 1.12]]) p.line(ax + dx, ay + dy, bx + dx, by + dy, shade(c, k));
+    }
+  }
+  for (const it of pl.items) { const [x, y] = P(it.x, it.y); HD[it.k](p, x, y, it.r || 0); }
+  for (const [x, y, c] of pl.dust) { const [px, py] = P(x, y); p.set(px, py, c); p.set(px + 1, py, c); }
 }
 
 const cache = new Map();

@@ -4,12 +4,13 @@
 // something off the plate and it falls on the counter. The recipe only asks for a few
 // things; the rest is decoration.
 import { Pix, shade, hash } from '../art/pix.js';
-import { INGREDIENTS, SAUCES, SHAKERS, BASES, FOODS, newPlate, drawPlate, scorePlate, countOf, ingName, kindOf } from '../art/foods.js';
+import { INGREDIENTS, SAUCES, SHAKERS, BASES, FOODS, newPlate, drawPlate, scorePlate, countOf, ingName, kindOf, foodNeed, wantsText } from '../art/foods.js';
+import { HD } from '../art/foodart.js';
 import { starsFor } from '../art/drinks.js';
 import { t } from '../i18n.js';
 
-const SW = 120, SH = 80, INK = '#24160f';
-const PL = { x: 55, y: 42, r: 36 };
+const SW = 240, SH = 160, INK = '#24160f';
+const PL = { x: 110, y: 84, r: 72 };
 const REFUSE_BELOW = 0.35;
 export const KTABS = [['plates', 'Plates'], ['fruit', 'Fruit'], ['sweet', 'Sweet'], ['veg', 'Savoury'], ['sauce', 'Sauces'], ['shake', 'Toppings']];
 const tabOf = (k) => (BASES[k] ? 'plates' : SAUCES[k] ? 'sauce' : SHAKERS[k] ? 'shake' : INGREDIENTS[k].cat);
@@ -43,13 +44,13 @@ export class Kitchen {
     new ResizeObserver(() => this.open && this.resize()).observe(c.parentElement);
   }
 
-  start(food, forName) {
-    this.food = food; this.forName = forName;
+  start(food, forName, extra = '') {
+    this.food = food; this.forName = forName; this.extra = extra || ''; this.need = foodNeed(food, this.extra);
     this.pl = newPlate(null);
     this.hist = []; this.fx = []; this.result = null; this.tool = null; this.drag = null; this.tab = 'plates';
     this.open = true;
     this.el.root.hidden = false;
-    this.el.title.textContent = t(FOODS[food].name);
+    this.el.title.textContent = t(FOODS[food].name) + (this.extra ? ' + ' + wantsText(this.extra, t) : '');
     this.el.for.textContent = forName ? t('for {name}', { name: forName }) : '';
     this.el.end.innerHTML = '';
     this.el.wipe.hidden = false;
@@ -90,7 +91,7 @@ export class Kitchen {
   suggest() {
     const f = FOODS[this.food];
     if (this.pl.base !== f.base) return f.base;
-    for (const [k, n] of Object.entries(f.need)) if (countOf(this.pl, k) < n) return k;
+    for (const [k, n] of Object.entries(this.need)) if (countOf(this.pl, k) < n) return k;
     return null;
   }
 
@@ -98,7 +99,7 @@ export class Kitchen {
   toPlate(x, y) { return [(x - PL.x) / (PL.r * 0.8), (y - PL.y) / (PL.r * 0.66)]; }
   onPlate(x, y) { return ((x - PL.x) / PL.r) ** 2 + ((y - PL.y) / (PL.r * 0.82)) ** 2 <= 1; }
   itemAt(x, y) {
-    let best = -1, bd = 5;
+    let best = -1, bd = 9;
     this.pl.items.forEach((it, i) => { const sx = PL.x + it.x * PL.r * 0.8, sy = PL.y + it.y * PL.r * 0.66, d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = i; } });
     return best;
   }
@@ -131,7 +132,7 @@ export class Kitchen {
           if (dir !== this.dir) {
             if (this.travel > 4) {
               const c = SHAKERS[k].c;
-              for (let i = 0; i < 7; i++) { const px = x + (Math.random() - 0.5) * 14, py = y + (Math.random() - 0.5) * 10; if (this.onPlate(px, py)) pl.dust.push([...this.toPlate(px, py), c, k]); }
+              for (let i = 0; i < 18; i++) { const px = x + (Math.random() - 0.5) * 28, py = y + (Math.random() - 0.5) * 20; if (this.onPlate(px, py)) pl.dust.push([...this.toPlate(px, py), c, k]); }
               this.hooks.sound('shake'); this.renderCard();
             }
             this.dir = dir; this.travel = 0;
@@ -184,7 +185,7 @@ export class Kitchen {
   tryServe() {
     if (this.result) return;
     if (!this.pl.base) { this.say('Pick a plate first'); return; }
-    const r = scorePlate(this.food, this.pl);
+    const r = scorePlate(this.food, this.pl, this.extra);
     this.quality = r.q; this.result = r; this.tool = null;
     const stars = starsFor(r.q), bad = r.q < REFUSE_BELOW;
     const notes = r.notes.slice(0, 3).map((n) => `<li>${n.startsWith('Needs more: ') ? t('Needs more: {thing}', { thing: t(n.slice(12)) }) : t(n)}</li>`).join('');
@@ -199,7 +200,7 @@ export class Kitchen {
   renderCard() {
     const f = FOODS[this.food], pl = this.pl;
     const rows = [`<li class="${pl.base === f.base ? 'done' : pl.base ? 'off' : ''}"><span>${t(BASES[f.base].name)}</span>${pl.base === f.base ? '<span class="tick"></span>' : ''}</li>`];
-    for (const [k, n] of Object.entries(f.need)) {
+    for (const [k, n] of Object.entries(this.need)) {
       const have = countOf(pl, k), ok = have >= n;
       rows.push(`<li class="${ok ? 'done' : ''}"><span>${t(ingName(k))}</span><small>${kindOf(k) === 'item' ? `${Math.min(have, 99)}/${n}` : ''}</small>${ok ? '<span class="tick"></span>' : ''}</li>`);
     }
@@ -215,17 +216,17 @@ export class Kitchen {
     this.el.tools.innerHTML = keys.map((k) => `<button class="tool${this.tool === k || this.pl.base === k ? ' on' : ''}${sug === k ? ' glow' : ''}" data-tool="${k}"><img src="${this.icon(k)}" alt=""><span>${t(ingName(k))}</span></button>`).join('');
     this.renderCard();
   }
-  icon(k) { if (!this.icons.has(k)) this.icons.set(k, ingIcon(k).toCanvas(3).toDataURL()); return this.icons.get(k); }
+  icon(k) { if (!this.icons.has(k)) this.icons.set(k, ingIcon(k).toCanvas(2).toDataURL()); return this.icons.get(k); }
 
   draw(now) {
     const p = new Pix(SW, SH);
     p.data.set(this.bg.data);
     drawPlate(p, PL.x, PL.y, this.pl, PL.r);
     if (!this.pl.base && Math.floor(now * 2) % 2) for (let a = 0; a < 40; a++) p.set(Math.round(PL.x + Math.cos(a / 40 * 6.283) * (PL.r + 3)), Math.round(PL.y + Math.sin(a / 40 * 6.283) * (PL.r * 0.82 + 3)), '#ffd27a');
-    if (this.drag && this.pointer) { const [x, y] = this.pointer; for (let a = 0; a < 12; a++) p.set(Math.round(x + Math.cos(a / 12 * 6.283) * 5), Math.round(y + Math.sin(a / 12 * 6.283) * 5), this.onPlate(x, y) ? '#ffd27a' : '#e46a5a'); }
-    if (this.tool && kindOf(this.tool) === 'shake' && this.pointer && this.down) { const [x, y] = this.pointer; p.rect(Math.round(x) - 4, Math.round(y) - 14, 8, 10, INK); p.rect(Math.round(x) - 3, Math.round(y) - 13, 6, 8, '#f4ecd6'); p.rect(Math.round(x) - 4, Math.round(y) - 16, 8, 3, SHAKERS[this.tool].c === '#ffffff' ? '#c9cfd1' : SHAKERS[this.tool].c); }
+    if (this.drag && this.pointer) { const [x, y] = this.pointer; for (let a = 0; a < 24; a++) p.set(Math.round(x + Math.cos(a / 24 * 6.283) * 10), Math.round(y + Math.sin(a / 24 * 6.283) * 10), this.onPlate(x, y) ? '#ffd27a' : '#e46a5a'); }
+    if (this.tool && kindOf(this.tool) === 'shake' && this.pointer && this.down) { const [x, y] = this.pointer; p.rect(Math.round(x) - 7, Math.round(y) - 26, 14, 18, INK); p.rect(Math.round(x) - 6, Math.round(y) - 25, 12, 16, '#f4ecd6'); p.rect(Math.round(x) - 7, Math.round(y) - 30, 14, 5, SHAKERS[this.tool].c === '#ffffff' ? '#c9cfd1' : SHAKERS[this.tool].c); }
     this.fx = this.fx.filter((f) => now - (f.t0 ??= now) < 0.8);
-    for (const f of this.fx) { const k = now - f.t0; INGREDIENTS[f.k].draw(p, Math.round(f.x), Math.round(f.y + k * k * 60), 0); }
+    for (const f of this.fx) { const k = now - f.t0; HD[f.k](p, Math.round(f.x), Math.round(f.y + k * k * 120), 0); }
     if (this.result && this.result.q >= REFUSE_BELOW) for (let i = 0; i < 6; i++) { const a = now * 1.2 + i * 1.05; const x = Math.round(PL.x + Math.cos(a) * 46), y = Math.round(PL.y + Math.sin(a) * 36); p.set(x, y, '#ffffff'); p.set(x + 1, y, '#ffd27a'); p.set(x - 1, y, '#ffd27a'); p.set(x, y + 1, '#ffd27a'); p.set(x, y - 1, '#ffd27a'); }
     const img = this.sg.createImageData(SW, SH);
     new Uint32Array(img.data.buffer).set(p.data);
@@ -245,17 +246,17 @@ function paintCounter() {
     if (hash(x, y, 5) > 0.985) p.set(x, y, '#8a5a36');
   }
   // a linen napkin and a fork beside the plate
-  p.rect(99, 22, 18, 36, '#e8d7b0'); for (let y = 22; y < 58; y += 4) p.hline(99, 116, y, '#dcc89e'); p.vline(116, 22, 57, '#cdb98f');
-  p.rect(107, 26, 2, 28, '#c9cfd1'); for (let i = 0; i < 4; i++) p.vline(105 + i * 2, 22, 27, '#c9cfd1');
+  p.rect(196, 44, 36, 72, '#e8d7b0'); for (let y = 44; y < 116; y += 6) p.hline(196, 231, y, '#dcc89e'); p.vline(231, 44, 115, '#cdb98f'); p.hline(196, 231, 116, '#b8a47a');
+  p.rect(212, 52, 4, 56, '#c9cfd1'); p.vline(215, 52, 107, '#9aa2a4'); for (let i = 0; i < 4; i++) p.rect(208 + i * 3, 42, 2, 12, '#c9cfd1'); p.rect(208, 52, 11, 3, '#c9cfd1');
   return p;
 }
 
 export function ingIcon(k) {
-  const p = new Pix(16, 16);
-  if (BASES[k]) { const pl = newPlate(k === 'plate' ? null : k); drawPlate(p, 8, 8, pl, 7.5); return p; }
-  if (INGREDIENTS[k]) { INGREDIENTS[k].draw(p, 8, 8, 1); if (['blueberry', 'olive', 'corn'].includes(k)) { INGREDIENTS[k].draw(p, 5, 10, 2); INGREDIENTS[k].draw(p, 11, 10, 3); } p.outline(INK); return p; }
-  if (SAUCES[k]) { const c = SAUCES[k].c; p.rect(5, 5, 6, 10, INK); p.rect(6, 6, 4, 8, c); p.rect(7, 1, 2, 4, '#c9cfd1'); for (let i = 0; i < 3; i++) p.set(2 + i * 5, 15 - (i % 2), c); return p; }
-  if (SHAKERS[k]) { const c = SHAKERS[k].c; p.rect(4, 5, 8, 10, INK); p.rect(5, 6, 6, 8, '#f4ecd6'); p.rect(5, 9, 6, 4, c === '#ffffff' ? '#e6eef0' : c); p.rect(4, 3, 8, 3, '#8d9496'); return p; }
+  const p = new Pix(24, 24);
+  if (BASES[k]) { const pl = newPlate(k === 'plate' ? null : k); drawPlate(p, 12, 12, pl, 11); return p; }
+  if (INGREDIENTS[k]) { HD[k](p, 12, 13, 0); if (['blueberry', 'olive', 'corn'].includes(k)) { HD[k](p, 7, 17, 2); HD[k](p, 17, 17, 3); } return p; }
+  if (SAUCES[k]) { const c = SAUCES[k].c; p.rect(8, 8, 9, 14, INK); p.rect(9, 9, 7, 12, c); p.rect(10, 10, 2, 9, shade(c, 1.3)); p.rect(11, 3, 3, 5, '#c9cfd1'); p.rect(9, 13, 7, 3, '#fbf6ea'); return p; }
+  if (SHAKERS[k]) { const c = SHAKERS[k].c; p.rect(7, 7, 11, 15, INK); p.rect(8, 8, 9, 13, '#f4ecd6'); p.rect(8, 12, 9, 6, c === '#ffffff' ? '#e6eef0' : c); p.rect(7, 4, 11, 4, '#8d9496'); for (const x of [9, 12, 15]) p.set(x, 5, INK); return p; }
   return p;
 }
 
