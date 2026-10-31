@@ -146,6 +146,8 @@ export const RU = {
   'Not in this recipe: {thing}': 'Не из этого рецепта: {thing}',
   'Usually served in: {thing}': 'Обычно подают в: {thing}',
   'The milk got too hot': 'Молоко перегрелось',
+  'The coffee was not tamped': 'Кофе не утрамбовали',
+  'The tamp was a little uneven': 'Кофе утрамбован неровно',
   'There is no cup': 'Нет чашки',
   'Perfect!': 'Идеально!',
   'Nice!': 'Отлично!',
@@ -161,6 +163,7 @@ export const RU = {
   'Lovely!': 'Чудесно!',
   'A little more?': 'Ещё чуть-чуть?',
   'The shot is done': 'Эспрессо готов',
+  'Grind again for another shot': 'Смелите ещё, чтобы сварить ещё порцию',
   'The jug is empty': 'Питчер пуст',
 
   // shelves and tools

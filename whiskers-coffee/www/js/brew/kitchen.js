@@ -8,8 +8,8 @@ import { INGREDIENTS, SAUCES, SHAKERS, BASES, FOODS, newPlate, drawPlate, scoreP
 import { starsFor } from '../art/drinks.js';
 import { t } from '../i18n.js';
 
-const SW = 180, SH = 100, INK = '#24160f';
-const PL = { x: 90, y: 52, r: 40 };
+const SW = 120, SH = 80, INK = '#24160f';
+const PL = { x: 55, y: 42, r: 36 };
 const REFUSE_BELOW = 0.35;
 export const KTABS = [['plates', 'Plates'], ['fruit', 'Fruit'], ['sweet', 'Sweet'], ['veg', 'Savoury'], ['sauce', 'Sauces'], ['shake', 'Toppings']];
 const tabOf = (k) => (BASES[k] ? 'plates' : SAUCES[k] ? 'sauce' : SHAKERS[k] ? 'shake' : INGREDIENTS[k].cat);
@@ -64,7 +64,7 @@ export class Kitchen {
     const c = this.el.canvas, dpr = Math.min(window.devicePixelRatio || 1, 3);
     this.dpr = dpr;
     c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr);
-    this.scale = Math.max(1, Math.floor(Math.min(c.width / SW, c.height / SH)));
+    this.scale = Math.max(1, Math.min(c.width / SW, c.height / SH));
     this.ox = Math.round((c.width - SW * this.scale) / 2); this.oy = Math.round((c.height - SH * this.scale) / 2);
   }
 
@@ -245,8 +245,8 @@ function paintCounter() {
     if (hash(x, y, 5) > 0.985) p.set(x, y, '#8a5a36');
   }
   // a linen napkin and a fork beside the plate
-  p.rect(140, 30, 26, 40, '#e8d7b0'); for (let y = 30; y < 70; y += 4) p.hline(140, 165, y, '#dcc89e'); p.vline(165, 30, 69, '#cdb98f');
-  p.rect(151, 34, 2, 30, '#c9cfd1'); for (let i = 0; i < 4; i++) p.vline(149 + i * 2, 30, 35, '#c9cfd1');
+  p.rect(99, 22, 18, 36, '#e8d7b0'); for (let y = 22; y < 58; y += 4) p.hline(99, 116, y, '#dcc89e'); p.vline(116, 22, 57, '#cdb98f');
+  p.rect(107, 26, 2, 28, '#c9cfd1'); for (let i = 0; i < 4; i++) p.vline(105 + i * 2, 22, 27, '#c9cfd1');
   return p;
 }
 

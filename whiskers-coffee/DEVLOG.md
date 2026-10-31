@@ -400,6 +400,16 @@ asks for a few things (`need`); anything else is decoration and earns a small bo
   item straight out of the shop into the café; the tray is smaller and folds away,
   and the café keeps its zoom.
 
+**Round 6 fixes (from play feedback):**
+- One grind holds enough for the drink's espresso (`pf.left`), so the shot doesn't stop
+  early; when it does run dry the popup says to grind again.
+- Counter screens: card on the left, the scene in the middle, tools in a sidebar on the
+  right. Scenes are drawn at a smooth (non-integer) scale that fills the space, and the
+  sidebar has a fixed width, so the scene never zooms in and out while picking tools.
+  The drink scene is 150×100, the kitchen 120×80 (the plate is bigger).
+- Sitting: chairs are lower (`seatZ` 6) and the seated pose has a lap, bent knees and
+  tucked feet; seated people are drawn lower than standing ones.
+
 **Messages added this round:** `claim/unclaim/brewed {id, idx, q}`, `drop`, `tip {id}`,
 `nextDay`, `closeEarly`. Snapshot: `p[6]` = carried id (`f:` prefix for food),
 `p[7]` = extra; `u = [id, x, y, z, back, flip, state, seed, items, emote, moving]`

@@ -142,7 +142,7 @@ export function judge(b, id, extra = '') {
       if (have < 0.01) notes.push(['Missing: {thing}', k]);
       else if (have > want + tol * 0.4) notes.push(['Too much: {thing}', k]);
       else if (have < want - tol * 0.4) notes.push(['A little more: {thing}', k]);
-      if (k === 'espresso') sc *= b.shotQ;
+      if (k === 'espresso') { sc *= b.shotQ; if (b.shotQ < 0.85 && have > 0.01) notes.push([b.shotQ <= 0.6 ? 'The coffee was not tamped' : 'The tamp was a little uneven', null]); }
       if (k === 'milk' && b.burnt) { sc *= 0.7; notes.push(['The milk got too hot', null]); }
     }
     total += sc; n++;

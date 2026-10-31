@@ -33,11 +33,11 @@ export const CATALOG = {
     },
   },
   chair: {
-    name: 'Wooden chair', cat: 'furniture', price: 35, size: [1, 1], seat: true, rotates: true,
+    name: 'Wooden chair', cat: 'furniture', price: 35, size: [1, 1], seat: true, rotates: true, seatZ: 6,
     paint(p) {
-      legs(p, 4, 4, 13, 13, 7, P.woodDark);
-      p.box(3, 3, 7, 11, 11, 2, { top: P.wood, left: P.woodDark, right: shade(P.woodDark, 0.8) }, { order: 1 });
-      p.box(3, 3, 9, 11, 2, 11, { top: P.woodLight, left: P.wood, right: P.woodDark }, { order: -3 })
+      legs(p, 4, 4, 13, 13, 4, P.woodDark);
+      p.box(3, 3, 4, 11, 11, 2, { top: P.wood, left: P.woodDark, right: shade(P.woodDark, 0.8) }, { order: 1 });
+      p.box(3, 3, 6, 11, 2, 12, { top: P.woodLight, left: P.wood, right: P.woodDark }, { order: -3 })
         .faceRect('y', 2, 2, 7, 2, P.woodLight).faceRect('y', 2, 6, 7, 1, shade(P.wood, 1.1));
     },
   },
@@ -49,7 +49,7 @@ export const CATALOG = {
     },
   },
   armchair: {
-    name: 'Armchair', cat: 'furniture', price: 120, size: [1, 1], seat: true, rotates: true,
+    name: 'Armchair', cat: 'furniture', price: 120, size: [1, 1], seat: true, rotates: true, seatZ: 8,
     paint(p) {
       const f = { top: shade(P.sage, 1.1), left: P.sage, right: P.sageDark };
       p.box(1, 2, 0, 14, 13, 8, f)
@@ -60,7 +60,7 @@ export const CATALOG = {
     },
   },
   sofa: {
-    name: 'Velvet sofa', cat: 'furniture', price: 220, size: [2, 1], seat: true, rotates: true,
+    name: 'Velvet sofa', cat: 'furniture', price: 220, size: [2, 1], seat: true, rotates: true, seatZ: 8,
     paint(p) {
       const f = { top: shade(P.terracotta, 1.1), left: P.terracotta, right: P.terracottaDark };
       p.box(1, 2, 0, 30, 13, 8, f)

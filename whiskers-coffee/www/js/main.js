@@ -544,8 +544,8 @@ $('#brew').addEventListener('click', (e) => {
 function shell(root, wipeLabel) {
   root.innerHTML = `<aside class="st-card"><b class="st-title"></b><small class="st-for"></small><ol class="st-steps"></ol>
     <div class="st-buttons"><button class="btn primary st-serve"></button><button class="btn st-wipe"></button><button class="btn st-bin"></button></div><div class="st-end"></div></aside>
-    <div class="st-main"><div class="st-hint"></div><div class="st-stage"><canvas></canvas></div><button class="sq small st-close" aria-label="Close"></button>
-    <div class="st-shelf"><div class="st-tabs"></div><div class="st-tools"></div></div></div>`;
+    <div class="st-main"><div class="st-stage"><canvas></canvas></div><div class="st-hint"></div></div>
+    <aside class="st-side"><div class="st-sidehead"><div class="st-tabs"></div><button class="sq small st-close" aria-label="Close"></button></div><div class="st-tools"></div></aside>`;
   const q = (s) => root.querySelector(s);
   return { root, canvas: q('canvas'), title: q('.st-title'), for: q('.st-for'), needs: q('.st-steps'), end: q('.st-end'), hint: q('.st-hint'), close: q('.st-close'), tabs: q('.st-tabs'), tools: q('.st-tools'), serve: q('.st-serve'), wipe: q('.st-wipe'), bin: q('.st-bin'), wipeLabel };
 }

@@ -8,13 +8,13 @@ import { Pix, shade, mix, hash } from '../art/pix.js';
 import { DRINKS, EXTRAS, C, INK, VESSELS, VESSEL_ORDER, COMPONENT_NAMES, COUNTED, TOPPINGS, newBuild, pour, fillOf, drawDrink, surfaceMap, guideShape, needFor, starsFor, judge, orderName, MAP_SIZE } from '../art/drinks.js';
 import { t } from '../i18n.js';
 
-const SW = 180, SH = 100;
-const CUP = { x: 86, by: 80 };
-const TOP = { x: 90, y: 50, r: MAP_SIZE / 2 };
+const SW = 150, SH = 100;
+const CUP = { x: 72, by: 80 };
+const TOP = { x: 75, y: 50, r: MAP_SIZE / 2 };
 const CRANK = { x: 33, y: 33, r: 6 };
-const SPOUT = { x: 86, y: 51 };
-const JUG_HOME = { x: 140, by: 79 };
-const SLOT = { x: 156, by: 80 };
+const SPOUT = { x: 72, y: 51 };
+const JUG_HOME = { x: 120, by: 79 };
+const SLOT = { x: 136, by: 80 };
 export const REFUSE_BELOW = 0.35;
 
 // every tool on the counter: which shelf it's on, what it's called and how it plays
@@ -119,7 +119,8 @@ export class Station {
     const c = this.el.canvas, dpr = Math.min(window.devicePixelRatio || 1, 3);
     this.dpr = dpr;
     c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr);
-    this.scale = Math.max(1, Math.floor(Math.min(c.width / SW, c.height / SH)));
+    // fill the space smoothly; the scene keeps its size while tools change
+    this.scale = Math.max(1, Math.min(c.width / SW, c.height / SH));
     this.ox = Math.round((c.width - SW * this.scale) / 2); this.oy = Math.round((c.height - SH * this.scale) / 2);
   }
 
@@ -286,7 +287,7 @@ export class Station {
         c.acc += Math.abs(da);
         if (Math.floor(c.acc / (Math.PI / 2)) > before) this.hooks.sound(c.key === 'grind' ? 'grind' : 'stir');
         const k = Math.min(1, c.acc / (cfg.turns * Math.PI * 2));
-        if (c.key === 'grind') { this.crank = ang; this.beans = Math.max(0.3, this.beans - Math.abs(da) * 0.01); this.pf.grounds = k; this.pf.tamped = 0; this.pf.left = 0.45; if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: 19 + Math.random() * 2, y: 49, t: 0 }); }
+        if (c.key === 'grind') { this.crank = ang; this.beans = Math.max(0.3, this.beans - Math.abs(da) * 0.01); this.pf.grounds = k; this.pf.tamped = 0; this.pf.left = Math.max(0.45, (this.need.espresso || 0) + 0.2); if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: 19 + Math.random() * 2, y: 49, t: 0 }); }
         else {
           // melting the chocolate pieces: they turn into a smooth layer as you stir
           this.spoon = [x, y];
@@ -459,7 +460,7 @@ export class Station {
           if (c.key === 'shot') {
             const take = Math.min(amt, this.pf.left); this.pf.left -= take; amt = take;
             b.shotQ = this.pf.tamped ? this.pf.tampQ : 0.6;
-            if (amt <= 0) { this.release(); this.pop('The shot is done'); }
+            if (amt <= 0) { this.release(); this.pop('Grind again for another shot'); }
           }
           if (c.key === 'pourmilk') {
             const j = this.jug;
@@ -554,11 +555,11 @@ export class Station {
     const coldPour = c && c.held && (key === 'coldmilk' || key === 'coldwater');
     const jugMilk = key === 'coldwater' ? '#d6ecf0' : key === 'coldmilk' ? C.coldmilk : C.milk;
     if (steaming) {
-      drawJug(p, 136, 66, 0, 1);
-      p.line(126, 34, 133, 56, INK); p.line(127, 34, 134, 56, '#c9cfd1');
-      if (c.held) for (let i = 0; i < 5; i++) { const k = (now * 1.5 + i / 5) % 1; p.set(130 + Math.sin((now + i) * 5) * 3, 48 - k * 16, `#ffffff${Math.round((1 - k) * 200).toString(16).padStart(2, '0')}`); }
-      if (this.jug.temp > 1.15) for (let i = 0; i < 4; i++) p.set(130 + i * 2, 50 - (i % 2) + Math.round(Math.sin(now * 20 + i)), C.milk);
-    } else { p.line(126, 34, 129, 52, INK); p.line(127, 34, 130, 52, '#c9cfd1'); }
+      drawJug(p, 116, 66, 0, 1);
+      p.line(106, 34, 113, 56, INK); p.line(107, 34, 114, 56, '#c9cfd1');
+      if (c.held) for (let i = 0; i < 5; i++) { const k = (now * 1.5 + i / 5) % 1; p.set(110 + Math.sin((now + i) * 5) * 3, 48 - k * 16, `#ffffff${Math.round((1 - k) * 200).toString(16).padStart(2, '0')}`); }
+      if (this.jug.temp > 1.15) for (let i = 0; i < 4; i++) p.set(110 + i * 2, 50 - (i % 2) + Math.round(Math.sin(now * 20 + i)), C.milk);
+    } else { p.line(106, 34, 109, 52, INK); p.line(107, 34, 110, 52, '#c9cfd1'); }
     if (pouringMilk || coldPour) {
       const jx = CUP.x + 16, jy = cupTop - 2;
       if (key === 'coldwater') drawPitcher(p, jx, jy); else if (key === 'coldmilk') drawCarton(p, jx, jy); else drawJug(p, jx, jy, -0.9, 0.6, jugMilk);
@@ -570,7 +571,7 @@ export class Station {
     else { p.ellipse(CUP.x, CUP.by, 12, 3, '#8a5a36'); if (Math.floor(now * 2) % 2) ring(p, CUP.x, CUP.by - 10, 6, '#ffd27a'); }
     // pouring streams
     if (key === 'shot' && c.held) for (let y = SPOUT.y; y < surfaceY; y++) { p.set(SPOUT.x - 1, y, (y + Math.floor(now * 30)) % 4 ? C.espresso : '#5a3420'); p.set(SPOUT.x + 1, y, (y + Math.floor(now * 30) + 2) % 4 ? C.espresso : '#5a3420'); }
-    if (key === 'water' && c.held) { for (let y = 40; y < surfaceY; y++) p.set(120 - Math.round((y - 40) * 0.0), y, '#cfe8ee'); p.line(120, 36, 120, 40, '#8d9496'); for (let y = 40; y < surfaceY; y++) p.set(SPOUT.x + 4, y, '#dceef2'); }
+    if (key === 'water' && c.held) for (let y = 49; y < surfaceY; y++) { p.set(SPOUT.x + 4, y, '#dceef2'); p.set(SPOUT.x + 5, y, (y + Math.floor(now * 30)) % 3 ? '#cfe8ee' : '#ffffff'); }
     // tools for the current step
     if (key === 'ice' || this.fx.some((f) => f.kind === 'ice')) drawBucket(p, SLOT.x, SLOT.by);
     if (key === 'berry') drawBerries(p, SLOT.x, SLOT.by, 0);
@@ -597,17 +598,17 @@ export class Station {
     }
     // meters
     if (c && c.cfg.mech === 'hold') {
-      if (c.cfg.heat) drawMeter(p, 168, 14, 46, this.jug.temp, HEAT_BAND, true);
-      else if (c.cfg.cream) drawMeter(p, 168, 14, 46, b.cream / 1.25, [0.6 / 1.25, 1.1 / 1.25]);
-      else drawMeter(p, 168, 14, 46, Math.min(1.15, fillOf(b) + Math.min(0.15, this.puddle)), this.band() || [2, 2]);
+      if (c.cfg.heat) drawMeter(p, 142, 14, 46, this.jug.temp, HEAT_BAND, true);
+      else if (c.cfg.cream) drawMeter(p, 142, 14, 46, b.cream / 1.25, [0.6 / 1.25, 1.1 / 1.25]);
+      else drawMeter(p, 142, 14, 46, Math.min(1.15, fillOf(b) + Math.min(0.15, this.puddle)), this.band() || [2, 2]);
     }
-    if (c && c.cfg.mech === 'timing') drawTimingBar(p, 46, 7, 90, c.frozen ?? (Math.sin(c.t * 2.6 - Math.PI / 2) + 1) / 2);
+    if (c && c.cfg.mech === 'timing') drawTimingBar(p, 30, 7, 84, c.frozen ?? (Math.sin(c.t * 2.6 - Math.PI / 2) + 1) / 2);
     if (key === 'grind') {
       drawProgress(p, 4, 92, 34, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2)));
       if (!c.acc) { const a = now * 3; p.set(CRANK.x + Math.cos(a) * 10, CRANK.y + Math.sin(a) * 10, '#ffd27a'); p.set(CRANK.x + Math.cos(a - 0.3) * 10, CRANK.y + Math.sin(a - 0.3) * 10, '#ffd27a88'); }
     }
     if (key === 'wipe') {
-      drawProgress(p, 150, 92, 26, c.count / c.cfg.count);
+      drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
       if (this.pointer && this.down) drawRag(p, ...this.pointer);
     }
   }
@@ -628,12 +629,12 @@ export class Station {
       });
       const nextI = c.guide.findIndex((_, i) => !c.covered.has(i));
       if (nextI >= 0 && !c.stroke) { const [gx, gy] = c.guide[nextI]; ring(p, Math.round(TOP.x + gx * TOP.r), Math.round(TOP.y + gy * TOP.r), 3 + (Math.floor(now * 3) % 2), '#ffd27a'); }
-      drawProgress(p, 150, 92, 26, c.covered.size / c.guide.length);
+      drawProgress(p, 120, 92, 26, c.covered.size / c.guide.length);
     }
     if (c.cfg.mech === 'trace' && this.down && this.pointer) drawPitcherTop(p, ...this.pointer, c.cfg.color || C.foam);
     if (c.cfg.mech === 'shake' && this.pointer) { if (key === 'matcha') drawWhisk(p, ...this.pointer); else drawShaker(p, ...this.pointer, key === 'cocoa' ? '#5b3a26' : '#a0602a'); }
-    if (c.cfg.mech === 'shake') drawProgress(p, 150, 92, 26, c.count / c.cfg.count);
-    if (key === 'choc') { if (this.spoon) drawSpoon(p, ...this.spoon); drawProgress(p, 150, 92, 26, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2))); if (!c.acc) { const a = now * 3; ring(p, Math.round(TOP.x + Math.cos(a) * 22), Math.round(TOP.y + Math.sin(a) * 22), 2, '#ffd27a'); } }
+    if (c.cfg.mech === 'shake') drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
+    if (key === 'choc') { if (this.spoon) drawSpoon(p, ...this.spoon); drawProgress(p, 120, 92, 26, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2))); if (!c.acc) { const a = now * 3; ring(p, Math.round(TOP.x + Math.cos(a) * 22), Math.round(TOP.y + Math.sin(a) * 22), 2, '#ffd27a'); } }
     if (key === 'marsh') drawJar(p, 22, 80);
     if (key === 'mint') { p.ellipse(22, 70, 8, 5, '#3f6b35'); p.ellipse(22, 69, 7, 4, '#5c9a48'); }
   }
@@ -691,28 +692,28 @@ function paintBar() {
   }
   p.rect(0, 0, SW, 3, '#5b3a26');
   // a shelf with jars of beans and cups
-  p.rect(132, 14, 46, 2, '#9c6a42'); p.hline(132, 177, 16, '#5b3a26');
-  for (const [x, h] of [[136, 9], [144, 7], [151, 9]]) { p.rect(x, 14 - h, 6, h, '#d9eef2'); p.rect(x + 1, 14 - h + 3, 4, h - 3, '#5a3420'); p.rect(x, 14 - h - 1, 6, 1, '#9c6a42'); p.vline(x, 14 - h, 13, INK); p.vline(x + 5, 14 - h, 13, INK); }
-  for (const x of [161, 167]) { p.rect(x, 9, 5, 5, '#f7f1e6'); p.vline(x + 5, 10, 12, INK); p.hline(x, x + 4, 14, INK); }
-  p.rect(172, 7, 3, 7, '#b8623f'); p.ellipse(173, 5, 2, 2, '#5c8f3f'); p.set(172, 4, '#7fb04c');
+  p.rect(112, 14, 37, 2, '#9c6a42'); p.hline(112, 148, 16, '#5b3a26');
+  for (const [x, h] of [[115, 9], [122, 7], [129, 9]]) { p.rect(x, 14 - h, 6, h, '#d9eef2'); p.rect(x + 1, 14 - h + 3, 4, h - 3, '#5a3420'); p.rect(x, 14 - h - 1, 6, 1, '#9c6a42'); p.vline(x, 14 - h, 13, INK); p.vline(x + 5, 14 - h, 13, INK); }
+  for (const x of [136, 141]) { p.rect(x, 9, 5, 5, '#f7f1e6'); p.vline(x + 5, 10, 12, INK); p.hline(x, x + 4, 14, INK); }
+  p.rect(146, 7, 3, 7, '#b8623f'); p.ellipse(147, 5, 2, 2, '#5c8f3f'); p.set(146, 4, '#7fb04c');
   // counter top and front
   for (let y = 60; y < 84; y++) for (let x = 0; x < SW; x++) p.set(x, y, y === 60 ? '#c08a55' : (Math.floor((x + (y % 2) * 3) / 24) + y) % 9 === 0 ? '#8a5a36' : y < 62 ? '#a87448' : '#9c6a42');
   p.hline(0, SW - 1, 84, INK);
   for (let y = 85; y < SH; y++) for (let x = 0; x < SW; x++) p.set(x, y, x % 30 === 0 || y === 86 ? '#4a2f20' : '#5b3a26');
   // espresso machine
-  const mx0 = 44, mx1 = 124, my0 = 20, my1 = 60;
+  const mx0 = 40, mx1 = 104, my0 = 20, my1 = 60;
   p.rect(mx0, my0, mx1 - mx0, my1 - my0, '#c9cfd1');
   for (let x = mx0; x < mx1; x++) { p.set(x, my0, '#eef2f2'); if ((x - mx0) < 4) p.vline(x, my0, my1, '#e3e8e8'); if (mx1 - x < 6) p.vline(x, my0, my1, '#9aa2a4'); }
   p.rect(mx0, 26, mx1 - mx0, 7, '#b5483c'); p.hline(mx0, mx1 - 1, 26, '#c95a4c'); p.hline(mx0, mx1 - 1, 32, '#8e3329');
-  p.rect(78, 28, 16, 3, '#f2d27a'); p.hline(80, 91, 29, '#b5483c');
-  for (const gx of [56, 116]) { p.ellipse(gx, 42, 5, 5, INK); p.ellipse(gx, 42, 4, 4, '#fbf6ea'); p.line(gx, 42, gx + 2, 39, '#b5483c'); p.set(gx, 42, INK); }
-  p.rect(76, 38, 20, 6, '#5f6668'); p.rect(78, 44, 16, 3, '#3a3f41'); p.rect(SPOUT.x - 2, 47, 5, 3, '#5f6668'); p.hline(mx0, mx1 - 1, my1 - 1, '#8d9496');
+  p.rect(64, 28, 16, 3, '#f2d27a'); p.hline(66, 77, 29, '#b5483c');
+  for (const gx of [50, 94]) { p.ellipse(gx, 42, 5, 5, INK); p.ellipse(gx, 42, 4, 4, '#fbf6ea'); p.line(gx, 42, gx + 2, 39, '#b5483c'); p.set(gx, 42, INK); }
+  p.rect(62, 38, 20, 6, '#5f6668'); p.rect(64, 44, 16, 3, '#3a3f41'); p.rect(SPOUT.x - 2, 47, 5, 3, '#5f6668'); p.hline(mx0, mx1 - 1, my1 - 1, '#8d9496');
   // cups warming on top of the machine
-  for (const x of [52, 62, 106]) { p.rect(x, 15, 7, 5, '#f7f1e6'); p.vline(x + 6, 15, 19, '#d9cfbf'); p.hline(x, x + 6, 14, INK); }
+  for (const x of [46, 56, 90]) { p.rect(x, 15, 7, 5, '#f7f1e6'); p.vline(x + 6, 15, 19, '#d9cfbf'); p.hline(x, x + 6, 14, INK); }
   // outline the machine
   p.hline(mx0 - 1, mx1, my0 - 1, INK); p.vline(mx0 - 1, my0, my1, INK); p.vline(mx1, my0, my1, INK);
   // drip tray on the counter
-  p.rect(66, 76, 40, 4, '#5f6668'); for (let x = 67; x < 105; x += 3) p.vline(x, 77, 78, '#3a3f41'); p.hline(65, 106, 80, INK);
+  p.rect(52, 76, 40, 4, '#5f6668'); for (let x = 53; x < 91; x += 3) p.vline(x, 77, 78, '#3a3f41'); p.hline(51, 92, 80, INK);
   // grinder
   for (let y = 12; y <= 32; y++) { const inset = Math.floor((32 - y) * 0.15); p.set(10 + inset, y, INK); p.set(28 - inset, y, INK); for (let x = 11 + inset; x <= 27 - inset; x++) p.set(x, y, '#d9eef2'); p.set(12 + inset, y, '#f4fbfc'); }
   p.hline(8, 30, 11, INK); p.rect(8, 9, 23, 2, '#3a3f41');

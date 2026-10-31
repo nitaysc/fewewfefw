@@ -42,10 +42,17 @@ export function drawPerson(look, view, frame) {
 
   // legs and shoes; shorts and skirts show the legs
   const legC = bottom === 'pants' ? pants : skin;
-  if (sit) {
-    part(p, 4, 20, 8, 3, bottom === 'pants' ? pants : bottom === 'dress' ? shirt : pants);
-    p.rect(4, 23, 3, 2, shade(legC, 0.85)); p.rect(9, 23, 3, 2, shade(legC, 0.85));
-    p.rect(4, 25, 3, 1, shoes); p.rect(9, 25, 3, 1, shade(shoes, 0.85));
+  if (sit && view === 'front') {
+    // seated, facing us: a lap coming towards the camera, bent knees, feet tucked
+    const lap = bottom === 'dress' ? shirt : pants, shin = bottom === 'pants' ? pants : skin;
+    part(p, 3, 20, 10, 2, lap);
+    p.hline(3, 12, 20, shade(lap, 1.15));
+    p.rect(3, 22, 4, 1, shade(lap, 1.05)); p.rect(9, 22, 4, 1, shade(lap, 1.05));
+    p.rect(4, 23, 2, 2, shade(shin, 0.85)); p.rect(10, 23, 2, 2, shade(shin, 0.78));
+    p.rect(3, 25, 4, 1, shoes); p.rect(9, 25, 4, 1, shade(shoes, 0.85));
+  } else if (sit) {
+    // seated with our back to the camera: only the seat of the trousers shows
+    part(p, 4, 20, 8, 2, bottom === 'dress' ? shirt : pants);
   } else {
     part(p, 5, 20 - leftUp, 3, 5, legC);
     part(p, 8, 20 - rightUp, 3, 5, shade(legC, 0.92));

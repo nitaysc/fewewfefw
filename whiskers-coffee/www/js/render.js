@@ -213,7 +213,8 @@ export class Renderer {
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
     if (!p.z) this.shadow(px, py, 6);
     // seated people rest their hips on the seat with their legs hanging down
-    const lift = p.sitting ? 21 : 27;
+    // seated people sink into the seat a little so they sit lower than anyone standing
+    const lift = p.sitting ? (p.view === 'back' ? 20 : 18) : 27;
     this.blit(s.canvas, px - 8, py - lift, s.w, s.h);
     // something in hand: what a barista carries, or what a customer is enjoying
     let thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
@@ -224,7 +225,7 @@ export class Renderer {
     }
     if (thing) {
       const hx = p.view === 'back' ? (p.flip ? 3 : -11) : (p.flip ? -10 : 4);
-      this.blit(thing, px + hx - Math.max(0, thing.width - 11) / 2, py - (p.sitting ? 8 : 16) - Math.max(0, thing.height - 11), thing.width, thing.height);
+      this.blit(thing, px + hx - Math.max(0, thing.width - 11) / 2, py - (p.sitting ? 11 : 16) - Math.max(0, thing.height - 11), thing.width, thing.height);
     }
   }
 
