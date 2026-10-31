@@ -327,7 +327,7 @@ function currentView(now) {
   if (S.sim) {
     players = [...S.sim.players.values()].map((p) => ({ ...p, carry: p.carry ? (p.carry.kind === 'food' ? 'f:' : '') + p.carry.id : null, carryExtra: p.carry?.extra || '', me: p.id === S.myId }));
     cats = [...S.sim.cats.values()].map((c) => ({ ...c, coat: catData.get(c.id)?.coat, name: catData.get(c.id)?.name, collar: catData.get(c.id)?.collar }));
-    customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, emote: u.emote, moving: u.moving, look: lookFor(u.seed), name: u.name, items: u.items.map(itemView) }));
+    customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, emote: u.emote, moving: u.moving, look: lookFor(u.seed), name: u.name, items: u.items.map(itemView), table: u.seat.table ? [u.seat.table.x, u.seat.table.y, u.seat.table.z] : null }));
     tips = cafe.tips || [];
   } else if (S.snaps.length) {
     // draw guests 120ms in the past and blend between the two snapshots around that moment
@@ -346,7 +346,7 @@ function currentView(now) {
     for (const u of b.u || []) {
       const q = ua.get(u[0]) || u;
       const items = (u[8] || []).map((i) => itemView({ kind: i[0] ? 'food' : 'drink', id: i[1], extra: i[2] || '', by: i[3] || null, done: !!i[4] }));
-      customers.push({ id: u[0], x: lerp(q[1], u[1]), y: lerp(q[2], u[2]), z: u[3], view: u[4] ? 'back' : 'front', flip: !!u[5], state: u[6], seed: u[7], items, emote: u[9] || null, moving: !!u[10], look: lookFor(u[7]), name: customerName(u[7]) });
+      customers.push({ id: u[0], x: lerp(q[1], u[1]), y: lerp(q[2], u[2]), z: u[3], view: u[4] ? 'back' : 'front', flip: !!u[5], state: u[6], seed: u[7], items, emote: u[9] || null, moving: !!u[10], look: lookFor(u[7]), name: customerName(u[7]), table: u[11] || null });
     }
     const ca = new Map(a.c.map((c) => [c[0], c]));
     for (const c of b.c) {
@@ -432,7 +432,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (gesture.kind === 'pinch' && pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     const z = Math.round(gesture.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d0);
-    renderer.zoom = Math.max(2, Math.min(10, z));
+    renderer.zoom = Math.max(2, Math.min(12, z));
     renderer.userZoom = true;
     return;
   }
@@ -458,7 +458,7 @@ const endPointer = (e) => {
 };
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); gesture = null; });
-canvas.addEventListener('wheel', (e) => { renderer.zoom = Math.max(2, Math.min(10, renderer.zoom + (e.deltaY < 0 ? 1 : -1))); renderer.userZoom = true; }, { passive: true });
+canvas.addEventListener('wheel', (e) => { renderer.zoom = Math.max(2, Math.min(12, renderer.zoom + (e.deltaY < 0 ? 1 : -1))); renderer.userZoom = true; }, { passive: true });
 
 function tap(sx, sy) {
   if (S.screen !== 'hud' || !S.cafe) return;
@@ -879,8 +879,8 @@ const MOOD_TEXT = { sleepy: 'Sleepy, loves warm spots', playful: 'Playful, alway
 const catsUi = { editing: null };
 function drawCatInto(cv, coat, collar) {
   const s = catFrame('sit1', coat, false, collar || 'none');
-  cv.width = s.w; cv.height = s.h;
-  const g = cv.getContext('2d'); g.clearRect(0, 0, s.w, s.h); g.drawImage(s.canvas, 0, 0);
+  cv.width = s.canvas.width; cv.height = s.canvas.height;
+  const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(s.canvas, 0, 0);
 }
 function renderCats() {
   const list = S.cafe.cats;
@@ -1048,7 +1048,7 @@ $('#joinGo').addEventListener('click', () => {
 // logo cat
 {
   const s = catFrame('sit1', 'orange'), g = $('#logoCat').getContext('2d');
-  $('#logoCat').width = s.w; $('#logoCat').height = s.h;
+  $('#logoCat').width = s.canvas.width; $('#logoCat').height = s.canvas.height;
   g.drawImage(s.canvas, 0, 0);
 }
 

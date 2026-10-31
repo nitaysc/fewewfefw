@@ -150,3 +150,57 @@ export function hash(x, y, s = 0) {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
+
+// Scale2x (EPX): doubles a sprite and rounds off its diagonal steps, so art drawn at the
+// café's base resolution gets smooth, detailed edges at twice the pixel density.
+export function scale2x(src) {
+  const w = src.w, h = src.h, d = src.data, out = new Pix(w * 2, h * 2), o = out.data;
+  const at = (x, y) => d[Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const P = d[y * w + x], A = at(x, y - 1), B = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1);
+    let p1 = P, p2 = P, p3 = P, p4 = P;
+    if (C === A && C !== D && A !== B) p1 = A;
+    if (A === B && A !== C && B !== D) p2 = B;
+    if (D === C && D !== B && C !== A) p3 = C;
+    if (B === D && B !== A && D !== C) p4 = D;
+    const i = (y * 2) * w * 2 + x * 2;
+    o[i] = p1; o[i + 1] = p2; o[i + w * 2] = p3; o[i + w * 2 + 1] = p4;
+  }
+  return out;
+}
+
+// a 1px outline in a dark, warm version of the colour it borders (softer than black)
+export function softOutline(p, k = 0.42, base = [36, 22, 15]) {
+  const out = new Uint32Array(p.data), w = p.w, h = p.h;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (p.data[y * w + x] >>> 24) continue;
+    let n = 0;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+      const v = p.data[yy * w + xx];
+      if ((v >>> 24) > 200) { n = v; break; }
+    }
+    if (!n) continue;
+    const r = n & 255, g = (n >>> 8) & 255, b = (n >>> 16) & 255;
+    const mixc = (c, bc) => Math.round(c * k + bc * (1 - k) * 0.9);
+    out[y * w + x] = ((255 << 24) | (mixc(b, base[2]) << 16) | (mixc(g, base[1]) << 8) | mixc(r, base[0])) >>> 0;
+  }
+  p.data = out;
+  return p;
+}
+
+// remove the existing dark outline (pixels of colour `c` touching transparency)
+export function stripOutline(p, test) {
+  const w = p.w, h = p.h, out = new Uint32Array(p.data);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = p.data[y * w + x];
+    if (!(v >>> 24) || !test(v)) continue;
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h || !(p.data[yy * w + xx] >>> 24)) { out[y * w + x] = 0; break; }
+    }
+  }
+  p.data = out;
+  return p;
+}

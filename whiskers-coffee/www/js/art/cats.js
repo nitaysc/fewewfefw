@@ -1,7 +1,7 @@
 // Hand-drawn cat frames, facing right (mirrored for left). Letters are palette slots, so one
 // set of frames serves every coat: o outline, b base, s shade, l light (muzzle/belly),
 // p pattern (stripes/patches), e eye, n nose and inner ear, w eye shine.
-import { grid } from './pix.js';
+import { grid, scale2x, softOutline, stripOutline, rgba, shade } from './pix.js';
 
 const FRAMES = {
   walk1: [
@@ -193,15 +193,27 @@ export function catFrame(frame, coat, flip = false, collar = 'none') {
   const key = frame + coat + flip + collar;
   if (!cache.has(key)) {
     const c = COLLARS[collar];
-    const pal = { ...(COATS[coat] || COATS.cream), c: c?.color || '#000000', g: '#f2d27a' };
+    const base = COATS[coat] || COATS.cream;
+    const pal = { ...base, c: c?.color || '#000000', g: '#f2d27a' };
     const rows = withCollar(FRAMES[frame], frame, collar);
     let pix = grid(rows, pal);
-    if (flip) {
-      const f = grid(rows, pal);
-      pix = new f.constructor(f.w, f.h);
-      pix.blit(f, 0, 0, true);
+    if (flip) { const f = pix; pix = new f.constructor(f.w, f.h); pix.blit(f, 0, 0, true); }
+    // twice the detail: drop the hard outline, smooth the shape, add soft fur shading
+    // and a warm outline in the coat's own colour
+    const ink = rgba(base.o);
+    stripOutline(pix, (v) => v === ink);
+    const hd = scale2x(pix);
+    for (let y = 0; y < hd.h; y++) for (let x = 0; x < hd.w; x++) {
+      const v = hd.data[y * hd.w + x];
+      if (!(v >>> 24) || v === ink) continue;
+      const above = y > 0 ? hd.data[(y - 1) * hd.w + x] : 0, below = y < hd.h - 1 ? hd.data[(y + 1) * hd.w + x] : 0;
+      const hex = '#' + [v & 255, (v >>> 8) & 255, (v >>> 16) & 255].map((n) => n.toString(16).padStart(2, '0')).join('');
+      if (!(above >>> 24)) hd.data[y * hd.w + x] = rgba(shade(hex, 1.12));
+      else if (!(below >>> 24)) hd.data[y * hd.w + x] = rgba(shade(hex, 0.82));
+      else if ((x + y * 3) % 7 === 0 && y > hd.h * 0.4) hd.data[y * hd.w + x] = rgba(shade(hex, 0.94));
     }
-    cache.set(key, { canvas: pix.toCanvas(), w: pix.w, h: pix.h });
+    softOutline(hd, 0.35);
+    cache.set(key, { canvas: hd.toCanvas(), w: pix.w, h: pix.h });
   }
   return cache.get(key);
 }

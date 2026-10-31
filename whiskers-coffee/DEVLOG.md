@@ -476,6 +476,44 @@ and a Russian guest (claims, the "is making it" label, serving, tips, day end, n
   same salad, toasts cover the screen, and "make the pixel art rich and professional like
   these references". The first four are done; the art upgrade (item 1 above) is the big next job.
 
+## 8g. Round 8: art upgrade toward the references (started)
+
+The owner asked for the art to look "exactly like" `docs/art-references/` (painted,
+probably AI-generated pixel illustrations). Code-drawn art can't match them exactly; this
+round moved the whole game a big step toward that style.
+
+- **Twice the pixel detail everywhere.** World coordinates are unchanged; art is made at
+  2× density and drawn into the same footprint (each sprite keeps its base `w/h/ax/ay`
+  and `blit()` scales the 2× canvas into it):
+  - furniture: `IsoPainter.bake(null)` → `scale2x()` (EPX smoothing) → `softOutline()`
+    (a warm outline in a dark version of the neighbouring colour) in `render.sprite()`;
+  - room: `scale2x(paintRoom(...))`;
+  - cats: `catFrame()` strips the hard outline, applies Scale2x, adds fur light/shade and
+    a soft outline; `w/h` stay the base size, the canvas is 2×;
+  - people: a new `drawPersonHD()` (32×58) in `art/people.js`: big chibi head, curved
+    hair shine, a fringe in locks, eyes with whites and highlights, eyebrows, blush, mouth,
+    shaded clothes (light left / shadow right), aprons with pockets, shoes with soles, and
+    hats/glasses. `personSprite()` returns it with `w: 16, h: 29`. The old 16×29
+    `drawPerson()` is still in the file but unused.
+- Helpers in `art/pix.js`: `scale2x`, `softOutline`, `stripOutline`.
+- **Greenery:** `paintGreenery()` in `art/room.js` adds ivy trailing from the wall tops, a
+  leafy garland and hanging pots between wall features.
+- **Orders on tables:** customers who are enjoying their order have their cups and plates
+  drawn on the table in front of them (snapshot `u[11]` = table `[x, y, z]`).
+- Zoom: any whole number (2× art at odd zooms has slightly uneven pixels; at phone
+  pixel densities it isn't noticeable).
+
+**Next steps toward the references:**
+- Native 2× furniture: paint functions in `game/catalog.js` are still designed at base
+  resolution (Scale2x only smooths them). Redrawing key pieces (sofa with cushions,
+  wooden chairs with spindles, round tables, the espresso machine, a glass cake display)
+  at 2× would be the next biggest win.
+- Warmer lighting: stronger lamp glows and a warm evening grade, more plants on the floor,
+  a neon or wooden café sign, a chalkboard menu with text.
+- Seated poses holding a cup (`drawPersonHD` frame 6 with arms forward) and a side view.
+- Cats: hand-drawn 2× frames with stripes and calico patches like the reference sheet.
+- People: a longer walk cycle (the references show 4–5 frames) and an idle blink.
+
 ## 9. Later milestones (from the owner's brief)
 
 - **Customisation, next steps:** wall decorations players can place (`cafe.walls`

@@ -51,6 +51,8 @@ export function paintRoom(W, H, walls = DEFAULT_WALLS, floorStyle = 'oak', wallS
   paintFloor(pix, W, H, FLOOR_STYLES[floorStyle] || FLOOR_STYLES.oak);
   paintWall(pix, 'north', W, walls.north, windows, ws);
   paintWall(pix, 'west', H, walls.west, windows, ws);
+  paintGreenery(pix, 'north', W * 16, walls.north);
+  paintGreenery(pix, 'west', H * 16, walls.west);
   paintWallCaps(pix, W, H);
 
   pix.ox = 0; pix.oy = 0;
@@ -293,6 +295,34 @@ function paintWall(pix, side, lenTiles, features, windows, ws = WALL_STYLES.crea
       face(u0 + 5, u1 - 5, 48, 50, P.red);
       windows.push({ side, u0: u0 + 2, u1: u1 - 2, z0: 30, z1: z1 - 3, door: true });
     }
+  }
+}
+
+// ivy trailing down from the top of the wall, and a few hanging pots, for a lush café
+function paintGreenery(pix, side, L, features) {
+  const at = (u, z) => proj(...wallPoint(side, u, z, 0.5));
+  const L4 = ['#2f5228', '#3f6b35', '#5c8f3f', '#7fb04c'];
+  const busy = (u) => features.some((f) => u > f.at * 16 - 4 && u < (f.at + f.len) * 16 + 4 && f.type !== 'clock');
+  for (let u = 3; u < L - 2; u += 5 + Math.floor(hash(u, side.length, 31) * 6)) {
+    const len = busy(u) ? 4 + Math.floor(hash(u, 2, 7) * 6) : 8 + Math.floor(hash(u, 3, 7) * 24);
+    let du = 0;
+    for (let k = 0; k < len; k++) {
+      du += (hash(u, k, 9) - 0.5) * 0.9;
+      const [x, y] = at(u + du, WALL_H - 3 - k);
+      pix.set(x, y, '#3f5a2a');
+      if (k % 3 === 1) { const side2 = hash(u, k, 3) > 0.5 ? 1 : -1; pix.set(x + side2, y, L4[2 + (k % 2)]); pix.set(x + side2 * 2, y, L4[1]); pix.set(x + side2, y - 1, L4[3]); }
+    }
+  }
+  // garland along the very top
+  for (let u = 0; u < L; u += 2) { const [x, y] = at(u, WALL_H - 2 - Math.round(Math.sin(u * 0.4) * 1.5)); pix.set(x, y, L4[(u >> 1) % 4]); pix.set(x, y + 1, L4[1]); }
+  // hanging pots between features
+  for (let u = 24; u < L - 10; u += 40) {
+    if (busy(u)) continue;
+    const [x, y] = at(u, 66);
+    pix.line(x, y - 14, x, y - 3, '#5b3a26');
+    pix.line(x - 3, y - 2, x, y - 8, '#5b3a26'); pix.line(x + 3, y - 2, x, y - 8, '#5b3a26');
+    pix.rect(x - 3, y - 2, 7, 4, '#b8623f'); pix.hline(x - 3, x + 3, y - 2, '#d47a52'); pix.hline(x - 2, x + 2, y + 2, '#8e4a2f');
+    for (let k = 0; k < 9; k++) { pix.set(x - 4 - (k % 2), y + k, L4[(k + 1) % 4]); pix.set(x + 4 + ((k + 1) % 2), y + k + 1, L4[k % 4]); pix.set(x - 1 + (k % 3), y - 3, L4[3]); }
   }
 }
 

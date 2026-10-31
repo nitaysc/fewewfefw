@@ -1,7 +1,7 @@
 // Draws the café: room, furniture, people and cats in depth order, then lamp light,
 // rain on the windows, steam and hearts. All sprites are drawn at whole-pixel zoom levels
 // so the pixel art stays crisp.
-import { Pix } from './art/pix.js';
+import { Pix, scale2x, softOutline } from './art/pix.js';
 import { IsoPainter } from './art/iso.js';
 import { paintRoom, WALL_H } from './art/room.js';
 import { catFrame } from './art/cats.js';
@@ -41,7 +41,7 @@ export class Renderer {
     this.canvas.height = Math.round(window.innerHeight * dpr);
     // fit the whole room on screen at a whole-number zoom
     const roomW = (ROOM_W + ROOM_H) * 16 + 16, roomH = (ROOM_W + ROOM_H) * 8 + WALL_H + 6;
-    this.fitZoom = Math.max(2, Math.floor(Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY) / roomH)));
+        this.fitZoom = Math.max(2, Math.floor(Math.min(this.canvas.width / roomW, (this.canvas.height - this.offsetY) / roomH)));
     if (!this.userZoom) this.zoom = this.fitZoom;
     this.clampCam();
   }
@@ -69,8 +69,10 @@ export class Renderer {
       const def = CATALOG[type];
       const p = new IsoPainter(def.size[0], def.size[1], def.rotates ? rot : 0);
       def.paint(p);
-      const s = p.bake();
-      this.sprites.set(key, { canvas: s.pix.toCanvas(), ax: s.ax, ay: s.ay, w: s.pix.w, h: s.pix.h });
+      // painted at the café's base size, then doubled with smooth edges and a soft outline
+      const s = p.bake(null);
+      const hd = softOutline(scale2x(s.pix));
+      this.sprites.set(key, { canvas: hd.toCanvas(), ax: s.ax, ay: s.ay, w: s.pix.w, h: s.pix.h });
     }
     return this.sprites.get(key);
   }
@@ -81,7 +83,7 @@ export class Renderer {
     const key = JSON.stringify(cafe.walls) + wall + floor;
     if (key !== this.roomKey) {
       const r = paintRoom(ROOM_W, ROOM_H, cafe.walls, floor, wall);
-      this.room = { canvas: r.pix.toCanvas(), ax: r.ax, ay: r.ay, windows: r.windows };
+      this.room = { canvas: scale2x(r.pix).toCanvas(), ax: r.ax, ay: r.ay, w: r.pix.w, h: r.pix.h, windows: r.windows };
       this.roomKey = key;
     }
   }
@@ -106,7 +108,7 @@ export class Renderer {
     g.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.backdrop(t);
 
-    this.blit(this.room.canvas, -this.room.ax, -this.room.ay, this.room.canvas.width, this.room.canvas.height);
+    this.blit(this.room.canvas, -this.room.ax, -this.room.ay, this.room.w, this.room.h);
     this.rain(t, view.sky);
 
     // flat things (rugs) lie on the floor under everything
@@ -138,6 +140,16 @@ export class Renderer {
         box = u.view === 'front' ? { x0: tx, x1: tx + 1, y0: ty, y1: ty + 1, z0: 50, z1: 90 } : { x0: tx, x1: tx + 1, y0: ty, y1: ty + 1, z0: -2, z1: -1 };
       }
       items.push({ ...box, key: u.x + u.y, draw: () => this.drawPerson({ ...u, sitting: u.z > 0 }, t) });
+      // what they ordered sits on their table in front of them
+      if (u.state === 'drink' && u.table && u.items) {
+        const [tx0, ty0, tz] = u.table;
+        const cx = tx0 + 0.5 + (u.x - tx0 - 0.5) * 0.38, cy = ty0 + 0.5 + (u.y - ty0 - 0.5) * 0.38;
+        const things = u.items.map((i) => (i.kind === 'food' ? plateCanvas(i.id) : cupCanvas(i.id, i.extra)));
+        things.forEach((c, n) => {
+          const ox = (n - (things.length - 1) / 2) * 0.22;
+          items.push({ x0: cx + ox - 0.1, x1: cx + ox + 0.1, y0: cy - 0.1, y1: cy + 0.1, z0: tz, z1: tz + 6, key: cx + cy, draw: () => this.blit(c, wx(cx + ox, cy) - c.width / 2, wy(cx + ox, cy, tz) - c.height + 2, c.width, c.height) });
+        });
+      }
     }
     for (const c of view.cats) {
       const r = 0.2;
@@ -218,7 +230,7 @@ export class Renderer {
     this.blit(s.canvas, px - 8, py - lift, s.w, s.h);
     // something in hand: what a barista carries, or what a customer is enjoying
     let thing = p.carry ? (p.carry.startsWith('f:') ? plateCanvas(p.carry.slice(2)) : cupCanvas(p.carry, p.carryExtra)) : null;
-    if (!thing && p.state === 'drink' && p.items) {
+    if (!thing && p.state === 'drink' && p.items && !p.table) {
       const d = p.items.find((i) => i.kind === 'drink'), f = p.items.find((i) => i.kind === 'food');
       if (d) thing = cupCanvas(d.id, d.extra);
       if (f) { const pc = plateCanvas(f.id); this.blit(pc, px - 7 + (p.flip ? -6 : 6), py - (p.sitting ? 8 : 12), pc.width, pc.height); }

@@ -5,7 +5,7 @@ an AI. Each project has its own notes:
 
 - **`whiskers-coffee/DEVLOG.md`**: the active project, a co-op cat café. It's the most
   detailed: architecture, conventions, network protocol, what's in progress and what's
-  next. **Start with section 8f**: it lists what the owner asked for last and what is
+  next. **Start with sections 8f and 8g**: it lists what the owner asked for last and what is
   still open. The biggest open job is richer pixel art matching
   `whiskers-coffee/docs/art-references/`.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.

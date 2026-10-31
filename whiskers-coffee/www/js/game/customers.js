@@ -303,7 +303,7 @@ export class CustomerSystem {
   playerLeft(pid) { for (const c of this.list.values()) for (const i of c.items) if (i.by === pid) i.by = null; }
 
   snapshot() {
-    return [...this.list.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.view === 'back' ? 1 : 0, c.flip ? 1 : 0, c.state, c.seed, c.items.map((i) => [i.kind === 'food' ? 1 : 0, i.id, i.extra || '', i.by || '', i.done ? 1 : 0]), c.emote || '', c.moving ? 1 : 0]);
+    return [...this.list.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.view === 'back' ? 1 : 0, c.flip ? 1 : 0, c.state, c.seed, c.items.map((i) => [i.kind === 'food' ? 1 : 0, i.id, i.extra || '', i.by || '', i.done ? 1 : 0]), c.emote || '', c.moving ? 1 : 0, c.seat.table ? [c.seat.table.x, c.seat.table.y, c.seat.table.z] : 0]);
   }
 }
 
