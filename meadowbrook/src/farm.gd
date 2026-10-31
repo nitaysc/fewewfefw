@@ -80,7 +80,7 @@ func _ground() -> void:
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(90, 90)
 	g.mesh = pm
-	g.material_override = Props.textured("leafy_grass", Color(0.85, 0.9, 0.8), 0.35)
+	g.material_override = Props.textured("leafy_grass", Color(0.78, 0.98, 0.66), 0.35)
 	add_child(g)
 	# dirt paths
 	var path := Props.textured("grass_path_2", Color(0.95, 0.92, 0.88), 0.5)
@@ -262,8 +262,8 @@ func _plot_visual(p: Spot) -> void:
 	p.add_child(v)
 	p.visual = v
 	if p.state == "grass":
-		for i in 3:
-			Props.place(v, "grass_medium_01", Vector3((i - 1) * 0.3, 0, (i % 2) * 0.25 - 0.1), i * 70.0, 0.45)
+		for z in [-0.3, 0.1]:
+			Props.place(v, "grass_medium_01", Vector3(0, 0, z), 0.0, 1.0)
 		var mark := Meshes.put(v, Meshes.rbox(Vector3(1.08, 0.015, 1.08), 0.04), Props.textured("grass_ground", Color(0.9, 0.95, 0.85), 1.0), Vector3(0, 0.008, 0))
 		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		Game.plots.resize(maxi(Game.plots.size(), plots.size()))
@@ -279,8 +279,9 @@ func _plot_visual(p: Spot) -> void:
 		plants.name = "plants"
 		v.add_child(plants)
 		for z in [-0.3, 0.0, 0.3]:
-			for x in [-0.3, 0.3]:
-				Props.place(plants, c.plant, Vector3(x, 0.12, z), randf() * 360.0, 0.32)
+			var row := Props.place(plants, c.plant, Vector3(0, 0.12, z), 0.0 if int(z * 10) % 2 == 0 else 180.0, 0.98)
+			if p.crop == "ursinia":
+				row.scale.y = 2.2
 		plants.scale = Vector3.ONE * (0.25 + 0.75 * p.growth)
 		if p.state == "ripe" and not p.crop in ["gazania", "ursinia"]:
 			for i in 3:

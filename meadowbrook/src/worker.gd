@@ -93,5 +93,18 @@ func _physics_process(dt: float) -> void:
 			footstep.emit()
 	else:
 		model.play("Idle" if carry.is_empty() else "Walk_Carry", 0.25, 1.0 if carry.is_empty() else 0.0)
-	if carry_node:
-		carry_node.position.y = 0.95 + (sin(Time.get_ticks_msec() / 90.0) * 0.012 if moving else 0.0)
+	_hold_in_hands(dt)
+
+## keep what you carry between your hands (the hand bones of the skeleton)
+func _hold_in_hands(dt: float) -> void:
+	if carry_node == null or model == null or model.skel == null:
+		return
+	var sk := model.skel
+	var l := sk.find_bone("hand_l")
+	var r := sk.find_bone("hand_r")
+	if l < 0 or r < 0:
+		return
+	var pl := to_local(sk.global_transform * sk.get_bone_global_pose(l).origin)
+	var pr := to_local(sk.global_transform * sk.get_bone_global_pose(r).origin)
+	var goal := (pl + pr) * 0.5 + Vector3(0, -0.13, 0.04)
+	carry_node.position = goal if carry_node.position.distance_to(goal) > 0.5 else carry_node.position.lerp(goal, minf(1.0, dt * 30.0))

@@ -1,5 +1,5 @@
 # Start here
-The current project is **Tiny Toyworks** (`toy-workshop/`, Godot 4). Read `toy-workshop/HANDOFF.md` first.
+The current project is **Meadowbrook**, a farm game (`meadowbrook/`, Godot 4). Read `meadowbrook/HANDOFF.md` first.
 The older web games below are paused.
 
 # AI handoff: start here

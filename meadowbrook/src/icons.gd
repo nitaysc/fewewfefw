@@ -49,18 +49,6 @@ func get_icon(key: String, maker: Callable) -> ImageTexture:
 		_work()
 	return tex
 
-func toy(t: String, c := "wood") -> ImageTexture:
-	return get_icon("item|%s|%s" % [t, c], func(): return Props.item({"t": t, "c": c}))
-
-func machine(kind: String) -> ImageTexture:
-	if kind == "belt":
-		return get_icon("belt", func():
-			var m := ShaderMaterial.new()
-			m.shader = Shader.new()
-			m.shader.code = "shader_type spatial;\nvoid fragment(){ float v = fract(UV.x*5.0 + abs(UV.y-0.5)*1.2); ALBEDO = mix(vec3(0.2,0.22,0.26), vec3(0.42,0.46,0.52), smoothstep(0.16,0.1,v)); }"
-			return Meshes.belt(m))
-	return get_icon("m|" + kind, func(): return Meshes.machine(kind, {"color": "red", "toy": "car"}))
-
 func _work() -> void:
 	working = true
 	while not queue.is_empty():
