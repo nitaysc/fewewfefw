@@ -1,0 +1,12 @@
+build/
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/app/jni/SDL/
+android/app/jni/SDL_image/
+android/app/jni/SDL_mixer/
+android/app/jni/redeclipse
+android/app/src/main/java/org/libsdl/
+android/app/src/main/assets/
+android/app/src/main/res/mipmap-*/
+android/local.properties

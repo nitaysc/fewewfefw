@@ -1,0 +1,499 @@
+diff --git a/config/glsl/model.cfg b/config/glsl/model.cfg
+index 0195942..b4b3212 100644
+--- a/config/glsl/model.cfg
++++ b/config/glsl/model.cfg
+@@ -88,9 +88,9 @@ windanimdefs = [
+             float basesway = curvefunc(phase);
+             vec3 result = vec3(0, 0, 0);
+ 
+-            result += (vec3(basesway, basesway, basesway) * wind * factor1) + (wind * 10);
++            result += (vec3(basesway, basesway, basesway) * wind * factor1) + (wind * 10.0);
+             result += vec3(basesway, curvefunc(phase + 0.25), curvefunc(phase + 0.75)) * (
+-                (crosswind + vec3(0, 0, zsway)) * factor1 * 2);
++                (crosswind + vec3(0, 0, zsway)) * factor1 * 2.0);
+ 
+             return result * factor2;
+         }
+diff --git a/config/glsl/volumetric.cfg b/config/glsl/volumetric.cfg
+index 10ec443..f16a822 100644
+--- a/config/glsl/volumetric.cfg
++++ b/config/glsl/volumetric.cfg
+@@ -93,7 +93,7 @@ volumetricvariantshader = [
+             vec3 camlight = lightpos.xyz - camera * lightpos.w;
+             float camlight2 = dot(camlight, camlight), v = dot(camlight, ray), d = v*v + 1.0 - camlight2;
+             float light = 0.0;
+-            if(d > 0)
++            if(d > 0.0)
+             {
+                 d = sqrt(d);
+                 float front = v - d, back = v + d;
+@@ -104,7 +104,7 @@ volumetricvariantshader = [
+                           qb = rayspot*camspot - spotangle2*v,
+                           qc = spotangle2*camlight2 - camspot*camspot,
+                           disc = qb*qb - qa*qc;
+-                    if(disc > 0)
++                    if(disc > 0.0)
+                     {
+                         disc = abs(sqrt(disc)/qa);
+                         float t = -qb/qa, t0 = t - disc, t1 = t + disc;
+@@ -147,7 +147,7 @@ volumetricvariantshader = [
+                             light += lightatten;
+                         ]])
+                         space -= stepdist;
+-                        if(space <= 0) break; 
++                        if(space <= 0.0) break; 
+                     }
+                     float fogcoord = front/lightpos.w;
+                     float foglerp = clamp(exp2(fogcoord*fogdensity.x)*fogdensity.y, 0.0, 1.0);
+diff --git a/src/Makefile b/src/Makefile
+index cfbd13b..6a853e6 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -117,8 +117,13 @@ else
+ BIN_SUFFIX=_native
+ endif
+ endif
++ifdef GLES
++CLIENT_INCLUDES= $(INCLUDES) -DGLES `$(PKG_CONFIG) --cflags x11 sdl2 SDL2_image SDL2_mixer zlib`
++CLIENT_LIBS= -Lenet -lenet `$(PKG_CONFIG) --libs x11 sdl2 SDL2_image SDL2_mixer zlib glesv2`
++else
+ CLIENT_INCLUDES= $(INCLUDES) `$(PKG_CONFIG) --cflags x11 sdl2 SDL2_image SDL2_mixer zlib gl`
+ CLIENT_LIBS= -Lenet -lenet `$(PKG_CONFIG) --libs x11 sdl2 SDL2_image SDL2_mixer zlib gl`
++endif
+ ifneq (,$(WANT_STEAM))
+ override CLIENT_LIBS+= -L../bin/$(PLATFORM_BIN) -lsteam_api
+ endif
+@@ -136,6 +141,7 @@ override CLIENT_LIBS+= -lrt
+ endif
+ endif
+ CLIENT_OBJS= \
++	shared/glescompat.o \
+ 	shared/crypto.o \
+ 	shared/geom.o \
+ 	shared/glemu.o \
+diff --git a/src/engine/console.cpp b/src/engine/console.cpp
+index 955f203..1d3d751 100644
+--- a/src/engine/console.cpp
++++ b/src/engine/console.cpp
+@@ -954,7 +954,7 @@ extern bool mac_numlock();
+ #endif
+ 
+ bool capslockon = false, numlockon = false;
+-#if !defined(WIN32) && !defined(__APPLE__)
++#if !defined(WIN32) && !defined(__APPLE__) && !defined(__ANDROID__)
+ #include <X11/XKBlib.h>
+ #endif
+ bool capslocked()
+@@ -963,6 +963,8 @@ bool capslocked()
+     if(GetKeyState(VK_CAPITAL)) return true;
+     #elif defined(__APPLE__)
+     if(mac_capslock()) return true;
++    #elif defined(__ANDROID__)
++    if(SDL_GetModState()&KMOD_CAPS) return true;
+     #else
+     Display *d = XOpenDisplay((char*)0);
+     if(d)
+@@ -983,6 +985,8 @@ bool numlocked()
+     if(GetKeyState(VK_NUMLOCK)) return true;
+     #elif defined(__APPLE__)
+     if(mac_numlock()) return true;
++    #elif defined(__ANDROID__)
++    if(SDL_GetModState()&KMOD_NUM) return true;
+     #else
+     Display *d = XOpenDisplay((char*)0);
+     if(d)
+diff --git a/src/engine/main.cpp b/src/engine/main.cpp
+index a44e379..f1e3611 100644
+--- a/src/engine/main.cpp
++++ b/src/engine/main.cpp
+@@ -375,17 +375,24 @@ void setupscreen(bool dogl = true)
+     SDL_SetWindowMinimumSize(screen, SCR_MINW, SCR_MINH);
+     SDL_SetWindowMaximumSize(screen, SCR_MAXW, SCR_MAXH);
+ 
+-#ifdef __APPLE__
++#if defined(GLES)
++    static const int glversions[] = { 32, 31, 30 };
++#elif defined(__APPLE__)
+     static const int glversions[] = { 32, 20 };
+ #else
+     static const int glversions[] = { 40, 33, 32, 31, 30, 20 };
+ #endif
+     loopi(sizeof(glversions)/sizeof(glversions[0]))
+     {
++#ifdef GLES
++        glcompat = 0;
++        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
++#else
+         glcompat = glversions[i] <= 30 ? 1 : 0;
++        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, glversions[i] >= 32 ? SDL_GL_CONTEXT_PROFILE_CORE : 0);
++#endif
+         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glversions[i] / 10);
+         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glversions[i] % 10);
+-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, glversions[i] >= 32 ? SDL_GL_CONTEXT_PROFILE_CORE : 0);
+         glcontext = SDL_GL_CreateContext(screen);
+         if(glcontext) break;
+     }
+@@ -838,6 +845,7 @@ void progress(float amt, const char *s, ...)
+     if(progressfps)
+     {
+         int curprog = progressfps >= 0 ? progressfps : refresh, ticks = SDL_GetTicks(), diff = ticks - lastprogress;
++        if(curprog <= 0) curprog = 60; // some displays (and Android devices) report a refresh rate of 0
+         if(amt > 0 && diff >= 0 && diff < (1000 + curprog-1)/curprog) return;
+         lastprogress = ticks;
+     }
+@@ -913,6 +921,11 @@ int main(int argc, char **argv)
+     clockoffset = currenttime-clocktime;
+ 
+     setlogfile(NULL);
++#ifdef __ANDROID__
++    // the Android launcher unpacks the game into the app's private storage
++    defformatstring(androidgamedir, "%s/game", SDL_AndroidGetInternalStoragePath());
++    if(chdir(androidgamedir) < 0) fatal("Could not find the game files in %s", androidgamedir);
++#endif
+     setlocations(argv[0]);
+ 
+     char *initscript = NULL;
+diff --git a/src/engine/rendergl.cpp b/src/engine/rendergl.cpp
+index 84d7ef7..9537d99 100644
+--- a/src/engine/rendergl.cpp
++++ b/src/engine/rendergl.cpp
+@@ -8,6 +8,7 @@ int hasstencil = 0;
+ 
+ VAR(IDF_READONLY, glversion, 1, 0, 0);
+ VAR(IDF_READONLY, glslversion, 1, 0, 0);
++VAR(IDF_READONLY, glesversion, 1, 0, 0);
+ VAR(IDF_READONLY, glcompat, 1, 0, 0);
+ 
+ // GL_EXT_timer_query
+@@ -397,8 +398,16 @@ void gl_checkextensions()
+         intel = true;
+ 
+     uint glmajorversion, glminorversion;
++#ifdef GLES
++    // "OpenGL ES 3.2 ..." - ES 3.x offers what the engine uses from desktop GL 3.3
++    if(sscanf(gfxversion, "OpenGL ES %u.%u", &glmajorversion, &glminorversion) != 2 || glmajorversion < 3)
++        fatal("OpenGL ES 3.0 or greater is required!");
++    glesversion = glmajorversion*100 + glminorversion*10;
++    glversion = 330;
++#else
+     if(sscanf(gfxversion, " %u.%u", &glmajorversion, &glminorversion) != 2) glversion = 100;
+     else glversion = glmajorversion*100 + glminorversion*10;
++#endif
+ 
+     if(glversion < 200) fatal("OpenGL 2.0 or greater is required!");
+ 
+@@ -529,7 +538,12 @@ void gl_checkextensions()
+     conoutf("GLSL: %s", glslstr ? glslstr : "unknown");
+ 
+     uint glslmajorversion, glslminorversion;
++#ifdef GLES
++    // shaders are written for GLSL 3.30 and rewritten for "#version 3x0 es" by the shader header
++    glslversion = 330;
++#else
+     if(glslstr && sscanf(glslstr, " %u.%u", &glslmajorversion, &glslminorversion) == 2) glslversion = glslmajorversion*100 + glslminorversion;
++#endif
+ 
+     if(glslversion < 120) fatal("GLSL 1.20 or greater is required!");
+ 
+@@ -919,7 +933,12 @@ void gl_checkextensions()
+         }
+     }
+ 
++#ifdef GLES
++    // dual-source blending (used by decals) is an extension on ES
++    if(hasext("GL_EXT_blend_func_extended"))
++#else
+     if(glversion >= 330 || hasext("GL_ARB_blend_func_extended"))
++#endif
+     {
+         glBindFragDataLocationIndexed_ = (PFNGLBINDFRAGDATALOCATIONINDEXEDPROC)getprocaddress("glBindFragDataLocationIndexed");
+ 
+@@ -1060,6 +1079,20 @@ void gl_checkextensions()
+     }
+     if(mesa) mesa_swap_bug = 1;
+     if(hasGPU5 && hasTG) tqaaresolvegather = 1;
++
++#ifdef GLES
++    // desktop-only entry points: send them to the ES shims instead of whatever the driver returned
++    glVertexAttrib4Nub_ = glesVertexAttrib4Nub;
++    glVertexAttrib4Nubv_ = glesVertexAttrib4Nubv;
++    glMultiDrawArrays_ = glesMultiDrawArrays;
++    glGetQueryObjectiv_ = glesGetQueryObjectiv;
++    glGetQueryObjectui64v_ = (PFNGLGETQUERYOBJECTUI64VEXTPROC)glesGetQueryObjectui64v;
++    glFramebufferTexture3D_ = glesFramebufferTexture3D;
++    glTexImage2DMultisample_ = glesTexImage2DMultisample;
++    glBindFragDataLocation_ = glesBindFragDataLocation;
++    glBindFragDataLocationIndexed_ = glesBindFragDataLocationIndexed;
++    glDepthBounds_ = (PFNGLDEPTHBOUNDSEXTPROC)glesDepthBounds;
++#endif
+ }
+ 
+ ICOMMAND(0, glext, "s", (char *ext), intret(hasext(ext) ? 1 : 0));
+diff --git a/src/engine/shader.cpp b/src/engine/shader.cpp
+index ddad595..34b4f3b 100644
+--- a/src/engine/shader.cpp
++++ b/src/engine/shader.cpp
+@@ -161,11 +161,24 @@ static void compileglslshader(Shader &s, GLenum type, GLuint &obj, const char *d
+         { 130, "#version 130\n" },
+         { 120, "#version 120\n" }
+     };
++#ifdef GLES
++    extern int glesversion;
++    parts[numparts++] = glesversion >= 320 ? "#version 320 es\n" : "#version 300 es\n";
++    if(maxdualdrawbufs) parts[numparts++] = "#extension GL_EXT_blend_func_extended : require\n";
++    parts[numparts++] =
++        "precision highp float;\n"
++        "precision highp int;\n"
++        "precision highp sampler2DShadow;\n"
++        "precision highp sampler3D;\n"
++        "precision highp sampler2DArray;\n"
++        "precision highp samplerCubeShadow;\n";
++#else
+     loopi(sizeof(glslversions)/sizeof(glslversions[0])) if(glslversion >= glslversions[i].version)
+     {
+         parts[numparts++] = glslversions[i].header;
+         break;
+     }
++#endif
+     if(glslversion < 140)
+     {
+         parts[numparts++] = "#extension GL_ARB_texture_rectangle : enable\n";
+@@ -189,6 +202,13 @@ static void compileglslshader(Shader &s, GLenum type, GLuint &obj, const char *d
+         else if(type == GL_FRAGMENT_SHADER)
+         {
+             parts[numparts++] = "#define varying in\n";
++#ifdef GLES
++            // without dual-source blending the second output becomes an ordinary variable that is never read
++            if(!maxdualdrawbufs) parts[numparts++] =
++                "#define fragdata(loc) layout(location = loc) out\n"
++                "#define fragblend(loc)\n";
++            else
++#endif
+             parts[numparts++] = (glslversion >= 330 || (glslversion >= 150 && hasEAL)) && !amd_eal_bug ?
+                 "#define fragdata(loc) layout(location = loc) out\n"
+                 "#define fragblend(loc) layout(location = loc, index = 1) out\n" :
+@@ -223,7 +243,21 @@ static void compileglslshader(Shader &s, GLenum type, GLuint &obj, const char *d
+             "#define shadow2DOffset(sampler, coords, offset) textureOffset(sampler, coords, offset)\n"
+             "#define texture3D(sampler, coords) texture(sampler, coords)\n"
+             "#define textureCube(sampler, coords) texture(sampler, coords)\n";
++#ifdef GLES
++        // rectangle textures are plain 2D textures on ES: turn pixel coordinates into 0..1
++        parts[numparts++] =
++            "#define sampler2DRect sampler2D\n"
++            "#define sampler2DRectShadow sampler2DShadow\n"
++            "#define rectsize(sampler) vec2(textureSize(sampler, 0))\n"
++            "#define texture2DRect(sampler, coords) texture(sampler, (coords) / rectsize(sampler))\n"
++            "#define texture2DRectProj(sampler, coords) texture(sampler, (coords).xy / ((coords).z * rectsize(sampler)))\n"
++            "#define texture2DRectOffset(sampler, coords, offset) texture(sampler, ((coords) + vec2(offset)) / rectsize(sampler))\n"
++            "#define shadow2DRect(sampler, coords) texture(sampler, vec3((coords).xy / rectsize(sampler), (coords).z))\n"
++            "#define shadow2DRectOffset(sampler, coords, offset) texture(sampler, vec3(((coords).xy + vec2(offset)) / rectsize(sampler), (coords).z))\n";
++        if(false)
++#else
+         if(glslversion >= 140)
++#endif
+         {
+             parts[numparts++] =
+                 "#define texture2DRect(sampler, coords) texture(sampler, coords)\n"
+diff --git a/src/engine/texture.cpp b/src/engine/texture.cpp
+index a3056d6..f9a791e 100644
+--- a/src/engine/texture.cpp
++++ b/src/engine/texture.cpp
+@@ -1072,6 +1072,26 @@ static GLenum textype(GLenum &component, GLenum &format)
+             if(!format) format = GL_RG_INTEGER;
+             break;
+     }
++#ifdef GLES
++    // ES only accepts exact internal format / format / type combinations,
++    // and lacks the 16-bit normalized and sized luminance formats
++    switch(component)
++    {
++        case GL_DEPTH_COMPONENT16: format = GL_DEPTH_COMPONENT; type = GL_UNSIGNED_SHORT; break;
++        case GL_DEPTH_COMPONENT24: format = GL_DEPTH_COMPONENT; type = GL_UNSIGNED_INT; break;
++        case GL_DEPTH_COMPONENT32: component = GL_DEPTH_COMPONENT32F; format = GL_DEPTH_COMPONENT; type = GL_FLOAT; break;
++        case GL_RGB10: component = GL_RGB10_A2; // fall through
++        case GL_RGB10_A2: format = GL_RGBA; type = GL_UNSIGNED_INT_2_10_10_10_REV; break;
++        case GL_RGB5: component = GL_RGB565; break;
++        case GL_R16: component = GL_R16F; type = GL_FLOAT; break;
++        case GL_RG16: component = GL_RG16F; type = GL_FLOAT; break;
++        case GL_RGB16: case GL_RGB16F: component = GL_RGBA16F; format = GL_RGBA; type = GL_FLOAT; break;
++        case GL_RGBA16: component = GL_RGBA16F; type = GL_FLOAT; break;
++        case GL_LUMINANCE8: case GL_LUMINANCE16: component = format = GL_LUMINANCE; type = GL_UNSIGNED_BYTE; break;
++        case GL_LUMINANCE8_ALPHA8: case GL_LUMINANCE16_ALPHA16: component = format = GL_LUMINANCE_ALPHA; type = GL_UNSIGNED_BYTE; break;
++        case GL_ALPHA8: case GL_ALPHA16: component = format = GL_ALPHA; type = GL_UNSIGNED_BYTE; break;
++    }
++#endif
+     if(!format) format = component;
+     return type;
+ }
+diff --git a/src/shared/cube.h b/src/shared/cube.h
+index 3fdaa29..c216a29 100644
+--- a/src/shared/cube.h
++++ b/src/shared/cube.h
+@@ -63,6 +63,7 @@
+ #ifndef STANDALONE
+ #include "glexts.h"
+ #include "glemu.h"
++#include "glescompat.h"
+ #endif
+ 
+ #include "iengine.h"
+diff --git a/src/shared/glescompat.cpp b/src/shared/glescompat.cpp
+new file mode 100644
+index 0000000..9ff672b
+--- /dev/null
++++ b/src/shared/glescompat.cpp
+@@ -0,0 +1,88 @@
++// Shims for desktop OpenGL calls that OpenGL ES 3 does not have (see glescompat.h).
++#ifdef GLES
++#include "cube.h"
++
++#undef glDrawBuffer
++#undef glClearDepth
++#undef glDepthRange
++#undef glPolygonMode
++#undef glGetTexImage
++#undef glGetTexLevelParameteriv
++#undef glTexImage1D
++#undef glCompressedTexImage1D_
++#undef glGetCompressedTexImage_
++
++extern "C" {
++
++GLAPI void APIENTRY glClearDepthf(GLfloat d);
++GLAPI void APIENTRY glDepthRangef(GLfloat n, GLfloat f);
++GLAPI void APIENTRY glVertexAttrib4f(GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
++GLAPI void APIENTRY glDrawArrays(GLenum mode, GLint first, GLsizei count);
++GLAPI void APIENTRY glGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params);
++GLAPI void APIENTRY glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
++GLAPI void APIENTRY glTexStorage2DMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixed);
++
++void glesDrawBuffer(GLenum buf)
++{
++    // ES only takes GL_BACK for the default framebuffer and COLOR_ATTACHMENTi / NONE for FBOs
++    if(buf == GL_FRONT || buf == GL_FRONT_AND_BACK) buf = GL_BACK;
++    glDrawBuffers_(1, &buf);
++}
++
++void glesClearDepth(GLdouble d) { glClearDepthf(GLfloat(d)); }
++void glesDepthRange(GLdouble n, GLdouble f) { glDepthRangef(GLfloat(n), GLfloat(f)); }
++
++// wireframe drawing is an editor feature; ES has no polygon modes
++void glesPolygonMode(GLenum, GLenum) {}
++
++// reading textures back is only used by editing and screenshot tools
++void glesGetTexImage(GLenum, GLint, GLenum, GLenum, void *) {}
++
++void glesGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params)
++{
++    *params = 0;
++}
++
++// ES has no 1D textures; the game's shaders never sample one
++void glesTexImage1D(GLenum, GLint, GLint, GLsizei, GLint, GLenum, GLenum, const void *) {}
++void glesCompressedTexImage1D(GLenum, GLint, GLenum, GLsizei, GLint, GLsizei, const void *) {}
++void glesGetCompressedTexImage(GLenum, GLint, void *) {}
++
++// the engine sends colors as normalized bytes, which ES only accepts as floats
++void glesVertexAttrib4Nub(GLuint index, GLubyte x, GLubyte y, GLubyte z, GLubyte w)
++{
++    glVertexAttrib4f(index, x/255.0f, y/255.0f, z/255.0f, w/255.0f);
++}
++void glesVertexAttrib4Nubv(GLuint index, const GLubyte *v) { glesVertexAttrib4Nub(index, v[0], v[1], v[2], v[3]); }
++
++void glesMultiDrawArrays(GLenum mode, const GLint *first, const GLsizei *count, GLsizei n)
++{
++    for(GLsizei i = 0; i < n; i++) glDrawArrays(mode, first[i], count[i]);
++}
++
++void glesGetQueryObjectiv(GLuint id, GLenum pname, GLint *params)
++{
++    GLuint v = 0;
++    glGetQueryObjectuiv(id, pname, &v);
++    *params = GLint(v);
++}
++// timer queries are a profiling aid; report zero elapsed time
++void glesGetQueryObjectui64v(GLuint, GLenum, GLuint64 *params) { *params = 0; }
++
++void glesFramebufferTexture3D(GLenum target, GLenum attachment, GLenum, GLuint texture, GLint level, GLint layer)
++{
++    glFramebufferTextureLayer(target, attachment, texture, level, layer);
++}
++
++void glesTexImage2DMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixed)
++{
++    glTexStorage2DMultisample(target, samples, internalformat, width, height, fixed);
++}
++
++// output locations come from layout() qualifiers in the shader header instead
++void glesBindFragDataLocation(GLuint, GLuint, const GLchar *) {}
++void glesBindFragDataLocationIndexed(GLuint, GLuint, GLuint, const GLchar *) {}
++void glesDepthBounds(GLclampd, GLclampd) {}
++
++}
++#endif
+diff --git a/src/shared/glescompat.h b/src/shared/glescompat.h
+new file mode 100644
+index 0000000..76f4c4c
+--- /dev/null
++++ b/src/shared/glescompat.h
+@@ -0,0 +1,60 @@
++// OpenGL ES 3 support for the Android port.
++// The engine is written against desktop OpenGL. On GLES we keep the desktop
++// enums in the engine's own logic and translate them at the GL call boundary:
++// rectangle textures become ordinary 2D textures (the shader header rescales
++// their pixel coordinates), and desktop-only entry points get small shims.
++#ifndef GLESCOMPAT_H
++#define GLESCOMPAT_H
++
++#ifdef GLES
++
++static inline GLenum glestarget(GLenum t) { return t == GL_TEXTURE_RECTANGLE ? GL_TEXTURE_2D : t; }
++
++#define glBindTexture(t, id) glBindTexture(glestarget(t), id)
++#define glTexImage2D(t, l, i, w, h, b, f, ty, p) glTexImage2D(glestarget(t), l, i, w, h, b, f, ty, p)
++#define glTexSubImage2D(t, l, x, y, w, h, f, ty, p) glTexSubImage2D(glestarget(t), l, x, y, w, h, f, ty, p)
++#define glCopyTexSubImage2D(t, l, xo, yo, x, y, w, h) glCopyTexSubImage2D(glestarget(t), l, xo, yo, x, y, w, h)
++#define glTexParameteri(t, n, v) glTexParameteri(glestarget(t), n, v)
++#define glTexParameterf(t, n, v) glTexParameterf(glestarget(t), n, v)
++#define glTexParameteriv(t, n, v) glTexParameteriv(glestarget(t), n, v)
++#define glTexParameterfv(t, n, v) glTexParameterfv(glestarget(t), n, v)
++#define glFramebufferTexture2D_(f, a, t, id, l) glFramebufferTexture2D_(f, a, glestarget(t), id, l)
++#define glGenerateMipmap_(t) glGenerateMipmap_(glestarget(t))
++
++// desktop-only entry points, implemented in glescompat.cpp
++extern "C" {
++void glesDrawBuffer(GLenum buf);
++void glesClearDepth(GLdouble d);
++void glesDepthRange(GLdouble n, GLdouble f);
++void glesPolygonMode(GLenum face, GLenum mode);
++void glesGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void *pixels);
++void glesGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params);
++void glesTexImage1D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const void *pixels);
++void glesCompressedTexImage1D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLint border, GLsizei size, const void *data);
++void glesGetCompressedTexImage(GLenum target, GLint level, void *img);
++void glesVertexAttrib4Nub(GLuint index, GLubyte x, GLubyte y, GLubyte z, GLubyte w);
++void glesVertexAttrib4Nubv(GLuint index, const GLubyte *v);
++void glesMultiDrawArrays(GLenum mode, const GLint *first, const GLsizei *count, GLsizei n);
++void glesGetQueryObjectiv(GLuint id, GLenum pname, GLint *params);
++void glesGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params);
++void glesFramebufferTexture3D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLint layer);
++void glesTexImage2DMultisample(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixed);
++void glesBindFragDataLocation(GLuint program, GLuint color, const GLchar *name);
++void glesBindFragDataLocationIndexed(GLuint program, GLuint color, GLuint index, const GLchar *name);
++void glesDepthBounds(GLclampd zmin, GLclampd zmax);
++}
++#define glDrawBuffer glesDrawBuffer
++#define glClearDepth glesClearDepth
++#define glDepthRange glesDepthRange
++#define glPolygonMode glesPolygonMode
++#define glGetTexImage glesGetTexImage
++#define glGetTexLevelParameteriv glesGetTexLevelParameteriv
++#define glTexImage1D glesTexImage1D
++#undef glCompressedTexImage1D_
++#undef glGetCompressedTexImage_
++#define glCompressedTexImage1D_ glesCompressedTexImage1D
++#define glGetCompressedTexImage_ glesGetCompressedTexImage
++// the pointer-loaded functions above are pointed at these shims in gl_checkextensions()
++
++#endif
++#endif

@@ -1,0 +1,46 @@
+name: Build Red Eclipse Android APK
+
+on:
+  push:
+    paths:
+      - 'redeclipse-android/**'
+      - '.github/workflows/build-redeclipse.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: redeclipse-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Fetch Red Eclipse and SDL, apply the Android patch, pack game data
+        run: scripts/prepare.sh
+
+      - name: Build APK
+        working-directory: redeclipse-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk ../redeclipse-android.apk
+          ls -la ../redeclipse-android.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "redeclipse-android-v${{ github.run_number }}" redeclipse-android.apk \
+            --target "${{ github.sha }}" \
+            --title "Red Eclipse 2 for Android (unofficial) #${{ github.run_number }}" \
+            --notes "Unofficial Android port of Red Eclipse 2.0.0 (https://redeclipse.net), built from ${{ github.ref_name }}. Download redeclipse-android.apk below." \
+            --latest=false

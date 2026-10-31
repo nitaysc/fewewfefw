@@ -5,6 +5,8 @@ on:
     paths-ignore:
       - 'putt-party/**'
       - '.github/workflows/build-putt-party.yml'
+      - 'redeclipse-android/**'
+      - '.github/workflows/build-redeclipse.yml'
   workflow_dispatch:
 
 permissions:
