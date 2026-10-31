@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<body style="margin:0;background:#3b261a">
+<canvas id="c"></canvas>
+<script type="module">
+// Drink preview: order bubbles and the brewing cup at each step.
+import { DRINKS, DRINK_ORDER, cupCanvas, bubbleCanvas, EMOTE_KINDS } from '../www/js/art/drinks.js';
+const c = document.getElementById('c'), g = c.getContext('2d'); c.width = 1200; c.height = 700; g.imageSmoothingEnabled = false;
+let x = 10;
+for (const id of DRINK_ORDER) { const b = bubbleCanvas(id); g.drawImage(b, x, 10, b.width * 5, b.height * 5); x += b.width * 5 + 10; }
+x = 10; for (const e of EMOTE_KINDS) { const b = bubbleCanvas(e); g.drawImage(b, x, 120, b.width * 5, b.height * 5); x += b.width * 5 + 10; }
+let y = 240;
+for (const id of ['latte', 'hotchoc', 'strawberry']) {
+  x = 10; const n = DRINKS[id].steps.length;
+  for (let s = 0; s <= n; s++) { const cc = cupCanvas(id, s / n, true, 4); g.drawImage(cc, x, y); x += cc.width + 20; }
+  y += 150;
+}
+window.done = true;
+</script>

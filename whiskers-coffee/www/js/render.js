@@ -6,6 +6,8 @@ import { IsoPainter } from './art/iso.js';
 import { paintRoom, WALL_H } from './art/room.js';
 import { catFrame } from './art/cats.js';
 import { personSprite } from './art/people.js';
+import { cupCanvas, bubbleCanvas } from './art/drinks.js';
+import { icon } from './ui/icons.js';
 import { CATALOG } from './game/catalog.js';
 import { footprint, ROOM_W, ROOM_H, canPlace, tilesOf } from './game/world.js';
 
@@ -119,6 +121,16 @@ export class Renderer {
       const r = 0.22;
       items.push({ x0: p.x - r, x1: p.x + r, y0: p.y - r, y1: p.y + r, z0: 0, z1: 30, key: p.x + p.y, draw: () => this.drawPerson(p, t) });
     }
+    for (const u of view.customers || []) {
+      const r = 0.22;
+      let box = { x0: u.x - r, x1: u.x + r, y0: u.y - r, y1: u.y + r, z0: 0, z1: 30 };
+      if (u.z > 0) {
+        // seated: in front of the seat when facing the camera, behind its back otherwise
+        const tx = Math.floor(u.x), ty = Math.floor(u.y);
+        box = u.view === 'front' ? { x0: tx, x1: tx + 1, y0: ty, y1: ty + 1, z0: 50, z1: 90 } : { x0: tx, x1: tx + 1, y0: ty, y1: ty + 1, z0: -2, z1: -1 };
+      }
+      items.push({ ...box, key: u.x + u.y, draw: () => this.drawPerson({ ...u, sitting: u.z > 0 }, t) });
+    }
     for (const c of view.cats) {
       const r = 0.2;
       // a cat up on furniture is drawn after the piece it sits on
@@ -129,6 +141,7 @@ export class Renderer {
     if (view.build?.ghost) this.drawGhost(view.build.ghost, cafe);
     this.lights(cafe, t, view);
     this.drawFx(t);
+    for (const u of view.customers || []) this.bubble(u, t);
     for (const p of view.players) this.nameTag(p);
   }
 
@@ -171,8 +184,37 @@ export class Renderer {
     const frame = p.sitting ? 6 : p.moving ? Math.floor(t * 8) % 4 : (Math.floor(t * 1.5 + (p.x * 3)) % 2) + 4;
     const s = personSprite(p.look, p.view || 'front', frame, !!p.flip);
     const px = wx(p.x, p.y), py = wy(p.x, p.y, p.z || 0);
-    this.shadow(px, py, 6);
+    if (!p.z) this.shadow(px, py, 6);
     this.blit(s.canvas, px - 8, py - 27, s.w, s.h);
+    // a drink in hand: the barista carrying an order, or a customer sipping
+    const cup = p.carry || (p.state === 'drink' ? p.order : null);
+    if (cup) {
+      const c = cupCanvas(cup);
+      const hx = p.view === 'back' ? (p.flip ? 3 : -11) : (p.flip ? -10 : 4);
+      this.blit(c, px + hx, py - (p.sitting ? 13 : 16), c.width, c.height);
+    }
+  }
+
+  // order and mood bubbles over customers
+  bubble(u, t) {
+    const kind = u.emote || (u.state === 'order' ? u.order : null);
+    if (!kind) return;
+    const c = bubbleCanvas(kind);
+    const bob = Math.round(Math.sin(t * 2.5 + u.x) * 1);
+    const px = wx(u.x, u.y), py = wy(u.x, u.y, (u.z || 0) + 31 + bob);
+    const faded = !u.emote && u.claimed;
+    this.blit(c, px - Math.floor(c.width / 2), py - c.height, c.width, c.height, faded ? 0.55 : 1);
+  }
+
+  // tap hit-test for people (customers)
+  personAt(list, sx, sy) {
+    let best = null, bd = 16 * this.zoom;
+    for (const u of list) {
+      const [cx, cy] = this.toScreen(wx(u.x, u.y), wy(u.x, u.y, (u.z || 0) + 12));
+      const d = Math.hypot(cx - sx, cy - sy);
+      if (d < bd) { bd = d; best = u; }
+    }
+    return best;
   }
 
   drawCat(c, t) {
@@ -272,6 +314,26 @@ export class Renderer {
     this.fx = this.fx.filter((f) => now - f.t0 < 1.6);
     for (const f of this.fx) {
       const k = (now - f.t0) / 1.6;
+      if (f.kind === 'coins') {
+        const px = wx(f.x, f.y), py = wy(f.x, f.y, (f.z || 20) + k * 18);
+        const [sx, sy] = this.toScreen(px, py);
+        const g = this.g, z = this.zoom;
+        g.globalAlpha = 1 - k * k;
+        if (!this.coinImg) { this.coinImg = new Image(); this.coinImg.src = icon('coin', 1); }
+        g.imageSmoothingEnabled = false;
+        if (this.coinImg.complete) g.drawImage(this.coinImg, sx - 9 * z / 2 - 2 * z, sy - 4 * z, 8 * z, 8 * z);
+        g.font = `700 ${Math.round(5 * z)}px "Pixelify Sans", monospace`;
+        g.textAlign = 'left'; g.textBaseline = 'middle';
+        g.fillStyle = '#24160f'; g.fillText(`+${f.amount}`, sx + z * 3, sy + z);
+        g.fillStyle = '#ffd27a'; g.fillText(`+${f.amount}`, sx + z * 2, sy);
+        g.globalAlpha = 1;
+      }
+      if (f.kind === 'flash' && k < 0.25) {
+        const [sx, sy] = this.toScreen(wx(f.x, f.y), wy(f.x, f.y, f.z || 20));
+        const g = this.g, z = this.zoom, r = (4 + k * 30) * z;
+        g.fillStyle = `rgba(255,255,240,${0.8 - k * 3})`;
+        g.fillRect(sx - r, sy - z, r * 2, z * 2); g.fillRect(sx - z, sy - r, z * 2, r * 2);
+      }
       if (f.kind === 'hearts') {
         for (let i = 0; i < 3; i++) {
           const kk = Math.min(1, Math.max(0, k * 1.3 - i * 0.15));

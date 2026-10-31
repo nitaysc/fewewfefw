@@ -1,6 +1,7 @@
 // The living café: player movement and cat behaviour. One copy runs on the hosting phone
 // (or alone when playing solo); guests send requests and draw the snapshots it shares.
 import { CATALOG } from './catalog.js';
+import { CustomerSystem } from './customers.js';
 import { blockedGrid, findPath, nearestFree, walkable, ROOM_W, ROOM_H, tilesOf, applyBuild } from './world.js';
 
 const PLAYER_SPEED = 2.8, CAT_SPEED = 1.5;
@@ -15,6 +16,7 @@ export class Sim {
     this.t = 0;
     this.rebuildGrids();
     for (const c of cafe.cats) this.spawnCat(c);
+    this.shop = new CustomerSystem(this);
   }
 
   rebuildGrids() {
@@ -32,7 +34,7 @@ export class Sim {
     this.emit('roster');
     return p;
   }
-  removePlayer(id) { this.players.delete(id); this.emit('roster'); }
+  removePlayer(id) { this.players.delete(id); this.shop?.playerLeft(id); this.emit('roster'); }
 
   movePlayer(id, tx, ty, then = null) {
     const p = this.players.get(id);
@@ -80,6 +82,7 @@ export class Sim {
       }
       a.path = [];
     }
+    this.shop.relayout();
     this.emit('cafe', { by });
     this.emit('save');
     return null;
@@ -158,8 +161,11 @@ export class Sim {
         const then = p.then; p.then = null;
         const c = then.pet && this.cats.get(then.pet);
         if (c && Math.hypot(p.x - c.x, p.y - c.y) < 1.9) this.doPet(p, c);
+        const u = then.serve && this.shop.list.get(then.serve);
+        if (u && Math.hypot(p.x - u.x, p.y - u.y) < 1.9) this.shop.deliver(p, u);
       }
     }
+    this.shop.step(dt);
     for (const c of this.cats.values()) {
       if (c.state === 'walk') {
         if (!this.follow(c, dt, CAT_SPEED)) {
@@ -203,7 +209,8 @@ export class Sim {
   snapshot() {
     return {
       time: Math.round(this.t * 1000),
-      p: [...this.players.values()].map((p) => [p.id, +p.x.toFixed(3), +p.y.toFixed(3), p.view === 'back' ? 1 : 0, p.flip ? 1 : 0, p.moving ? 1 : 0]),
+      p: [...this.players.values()].map((p) => [p.id, +p.x.toFixed(3), +p.y.toFixed(3), p.view === 'back' ? 1 : 0, p.flip ? 1 : 0, p.moving ? 1 : 0, p.carry ? p.carry.drink : '']),
+      u: this.shop.snapshot(),
       c: [...this.cats.values()].map((c) => [c.id, +c.x.toFixed(3), +c.y.toFixed(3), c.z, c.state, c.flip ? 1 : 0]),
       m: this.cafe.money,
     };

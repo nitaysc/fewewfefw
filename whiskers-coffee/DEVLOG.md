@@ -193,8 +193,8 @@ link.
 - saves on both phones, reconnection;
 - APK on CI.
 
-Confirmed by the owner on their phone: "It's working". Their feedback: *"there isn't
-much to do in this version"*, so **customers and coffee making are the priority.**
+Confirmed by the owner on their phone: "It's working". Their feedback, *"there isn't
+much to do in this version"*, led to customers and coffee making (section 8, now done).
 
 **Not verified:**
 - Two real phones over the internet. The public PeerJS server was unreachable from the
@@ -202,54 +202,55 @@ much to do in this version"*, so **customers and coffee making are the priority.
 - There is no TURN server, so strict mobile NATs may fail. Add TURN credentials in
   `net.js → peerOptions()` if the owner reports that connecting fails.
 
-## 8. In progress: customers and coffee (milestone 3)
+## 8. Customers and coffee (milestone 3): done
 
-`art/drinks.js` is written but **not yet used anywhere**. It provides:
+**`game/customers.js` (`CustomerSystem`, on the host as `sim.shop`).**
+- Customers spawn at the door every ~14–28 s while a seat is free; at most 6 at once.
+- They walk to the free tile in front of a seat (`seats()` / `approach()`) and sit:
+  z = seat height, facing from the seat's `rot`; a stool faces the nearest table.
+- They order a random drink from `cafe.recipes` and wait with no timer. After 5 minutes
+  unclaimed they leave smiling, with no penalty.
+- When served they drink for 22–34 s. They emote at cats within 1.8 tiles (heart,
+  camera with a flash, wow) and each emote adds a small tip, paid when they leave.
+- If their seat is moved or stored they leave happily (`relayout()`).
+- Looks come from `seed` → `randomLook(seededRng(seed))`, so guests rebuild them
+  identically. The name comes from `customerName(seed)`.
 
-- `DRINKS`: 7 recipes. Each has `name`, `price`, `unlock` (coin cost; 0 = free from the
-  start), sprite colours (`fill`, `top`, `art`, `dots`, `dust`, `cold`) and `steps`
-  (`[id, label]` pairs).
-- `cupPix(id, progress, big)` / `cupCanvas(...)`: a hot cup or cold glass sprite that
-  fills as `progress` goes 0→1.
-- `bubbleCanvas(kind)`: a speech bubble holding a drink icon or an emote
-  (heart, note, sparkle, camera, wow, coin, smile).
+**Player actions.** Each one goes through `act()` and `onHostMessage`:
 
-Planned design (agreed with the owner, still to build):
+| Action | What it does |
+|---|---|
+| `claim(id)` | Reserves the order so the other player can't make it, and walks to the espresso bar. |
+| `brewed(id)` | Sets `player.carry`. |
+| `serve(id)` | Walks to the customer; on arrival `deliver()` pays the price into the shared money, adds a coin effect and starts them drinking. |
 
-1. **Customers** (state in `Sim`, host only).
-   - Spawn at the door every ~20–35 s while there is a free seat. Seats are furniture
-     with `seat: true`: chair, stool, armchair, and the sofa, which counts as 2 seats.
-   - They walk to a free tile next to the seat, then sit on it.
-     - Position = seat tile centre; z ≈ seat height: chair 9, stool 14, armchair and
-       sofa 10.
-     - Facing comes from the seat's `rot` (section 5). A stool faces the nearest table.
-   - The look comes from a seed: `randomLook(seededRng(seed))` in `people.js`, so guests
-     can rebuild it from the snapshot.
-   - **Drawing order:** if the seat faces the camera (rot 0 or 3), draw the customer
-     after the seat; otherwise before it, so the chair back covers them.
-   - Ordering: a bubble shows the drink. Customers wait patiently with no timer. If
-     nobody serves them for a few minutes, they leave happily with no penalty.
-   - Served: they drink for ~25 s, react to cats within 1.5 tiles (heart, camera flash,
-     wow emotes; a small tip bonus), then leave through the door.
-2. **Making a drink.**
-   1. Tap the espresso bar (`def.station === 'coffee'`). The player walks there and a
-      brewing panel lists the waiting orders.
-   2. Pick an order. Send `claim` to the host so two players can't make the same one;
-      the host refuses if it's already claimed.
-   3. Tap through the recipe `steps`. Each tap fills a short bar and the big cup
-      preview gains a layer.
-   4. When done, send `brewed`. The host sets `player.carry = {drink, for}` and the cup
-      is drawn in the player's hands.
-3. **Serving.** Tap the customer → `serve`. The player walks there and on arrival the
-   host pays `price` plus a tip into the shared `cafe.money`, with a coin effect.
-4. **Recipes.** A "Recipes" tab in the tray unlocks drinks for coins. Store them as
-   `cafe.recipes = ['espresso', 'latte', 'hotchoc', ...]`.
-5. **Network.**
-   - Add customers to `snapshot()`: `[id, x, y, z, back, flip, state, seed, order, emote]`.
-   - Add `carry` to the player entries.
-   - Add the guest→host actions `claim`, `brewed` and `serve`.
-   - Extend `test/logic.test.mjs`: a customer spawns, sits, orders, gets served and
-     money goes up.
+A drink made for one customer can go to another who ordered the same thing.
+
+**UI** (`main.js`, the "serving and the espresso bar" section):
+- Tap a customer: if you're carrying their drink, serve it; otherwise open the espresso
+  bar panel on that order.
+- Tap the espresso bar: open the order list.
+- The panel (`#brew`) steps through `DRINKS[id].steps`. Each tap fills a bar with a
+  sound, and the big cup fills via `cupCanvas(id, progress, true)`.
+- The tray has a **Recipes** tab: `applyBuild` op `recipe` unlocks a drink for its
+  `unlock` cost.
+
+**Rendering.**
+- Seated customers draw in front of the seat when facing the camera and behind it
+  otherwise.
+- Order and emote bubbles bob above heads; an order someone has claimed is drawn faded.
+- The carried cup shows in the player's hand, and customers hold theirs while drinking.
+- Effects: `coins` floats a +N amount, `flash` a camera flash, `bell` the door bell sound.
+
+**Snapshot additions.** `p[6]` = the carried drink id.
+`u: [[id, x, y, z, back, flip, state, seed, order, emote, claimedBy, moving, seatKey]]`.
+
+**Tests.** `test/logic.test.mjs` covers spawning, sitting, ordering, claim conflicts,
+brewing, serving, payment, leaving and unlocking recipes. The two-browser test also
+covers a guest making and serving a drink.
+
+**Ideas for this milestone not built yet:** regulars with names and stories,
+customer–customer chatting, customers petting cats, and putting cups on tables.
 
 ## 9. Later milestones (from the owner's brief)
 

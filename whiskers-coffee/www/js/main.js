@@ -4,7 +4,9 @@ import { Sim } from './game/sim.js';
 import { newCafe, uid, footprint, canPlace, furnitureAt, ROOM_W, ROOM_H } from './game/world.js';
 import { CATALOG, SHOP_ORDER } from './game/catalog.js';
 import { HostSession, GuestSession, makeCode, cleanCode } from './net.js';
-import { personSprite, SKINS, HAIR_COLORS, HAIR_STYLES, OUTFIT_COLORS } from './art/people.js';
+import { personSprite, randomLook, SKINS, HAIR_COLORS, HAIR_STYLES, OUTFIT_COLORS } from './art/people.js';
+import { DRINKS, DRINK_ORDER, cupCanvas } from './art/drinks.js';
+import { seededRng, customerName } from './game/customers.js';
 import { catFrame } from './art/cats.js';
 import { icon, iconImg } from './ui/icons.js';
 
@@ -142,6 +144,11 @@ function onHostMessage(id, m) {
       if (err) S.host.send(id, { t: 'toast', text: err });
       break;
     }
+    case 'claim': case 'brewed': case 'serve': {
+      const err = sim.shop[m.t](id, m.id);
+      if (err) S.host.send(id, { t: 'toast', text: err });
+      break;
+    }
     case 'look': {
       const p = sim.players.get(id);
       if (p) { p.name = String(m.name || p.name).slice(0, 14); p.look = m.look || p.look; S.host.broadcast({ t: 'roster', roster: sim.roster() }); }
@@ -154,7 +161,7 @@ function onSimEvent(type, data) {
   if (type === 'fx') {
     renderer.addFx(data);
     S.host?.broadcast({ t: 'fx', fx: data });
-    if (data.kind === 'hearts' && data.by === S.myId) { sfx.purr(); buzz(25); toast(`${data.name} purrs happily`); }
+    fxFeedback(data);
   } else if (type === 'cafe') {
     S.host?.broadcast({ t: 'cafe', cafe: S.cafe });
     refreshHud();
@@ -207,10 +214,17 @@ function onGuestMessage(m) {
     case 'roster': S.roster = m.roster; refreshHud(); break;
     case 'fx':
       renderer.addFx(m.fx);
-      if (m.fx.kind === 'hearts' && m.fx.by === S.myId) { sfx.purr(); buzz(25); toast(`${m.fx.name} purrs happily`); }
+      fxFeedback(m.fx);
       break;
     case 'toast': toast(m.text); sfx.nope(); break;
   }
+}
+
+function fxFeedback(f) {
+  if (f.kind === 'hearts' && f.by === S.myId) { sfx.purr(); buzz(25); toast(`${f.name} purrs happily`); }
+  if (f.kind === 'bell') sfx.bell();
+  if (f.kind === 'coins') { sfx.coin(); if (f.by === S.myId) { buzz(30); toast(`${f.name} loves it! +${f.amount}`); } }
+  if (f.kind === 'flash') tone(2400, 0.05, 'square', 0.03);
 }
 
 function leaveSession() {
@@ -227,6 +241,11 @@ function act(kind, data) {
   if (!S.sim) return;
   if (kind === 'move') S.sim.movePlayer(S.myId, data.x, data.y);
   else if (kind === 'pet') S.sim.petCat(S.myId, data.cat);
+  else if (kind === 'claim' || kind === 'brewed' || kind === 'serve') {
+    const err = S.sim.shop[kind](S.myId, data.id);
+    if (err) { toast(err); sfx.nope(); }
+    return err;
+  }
   else if (kind === 'build') {
     const err = S.sim.build(data.op, S.myId);
     if (err) { toast(err); sfx.nope(); }
@@ -241,9 +260,11 @@ function currentView(now) {
   const cafe = S.cafe;
   let players = [], cats = [];
   const catData = new Map(cafe.cats.map((c) => [c.id, c]));
+  let customers = [];
   if (S.sim) {
-    players = [...S.sim.players.values()].map((p) => ({ ...p, me: p.id === S.myId }));
+    players = [...S.sim.players.values()].map((p) => ({ ...p, carry: p.carry?.drink, me: p.id === S.myId }));
     cats = [...S.sim.cats.values()].map((c) => ({ ...c, coat: catData.get(c.id)?.coat, name: catData.get(c.id)?.name }));
+    customers = [...S.sim.shop.list.values()].map((u) => ({ id: u.id, x: u.x, y: u.y, z: u.z, view: u.view, flip: u.flip, state: u.state, seed: u.seed, order: u.order, emote: u.emote, claimed: u.claimedBy, moving: u.moving, look: lookFor(u.seed), name: u.name }));
   } else if (S.snaps.length) {
     // draw guests 120ms in the past and blend between the two snapshots around that moment
     const at = now - 120;
@@ -255,7 +276,12 @@ function currentView(now) {
     const pa = new Map(a.p.map((p) => [p[0], p]));
     for (const p of b.p) {
       const q = pa.get(p[0]) || p, r = roster.get(p[0]);
-      players.push({ id: p[0], x: lerp(q[1], p[1]), y: lerp(q[2], p[2]), view: p[3] ? 'back' : 'front', flip: !!p[4], moving: !!p[5], name: r?.name, look: r?.look || prefs.look, me: p[0] === S.myId });
+      players.push({ id: p[0], x: lerp(q[1], p[1]), y: lerp(q[2], p[2]), view: p[3] ? 'back' : 'front', flip: !!p[4], moving: !!p[5], carry: p[6] || null, name: r?.name, look: r?.look || prefs.look, me: p[0] === S.myId });
+    }
+    const ua = new Map((a.u || []).map((u) => [u[0], u]));
+    for (const u of b.u || []) {
+      const q = ua.get(u[0]) || u;
+      customers.push({ id: u[0], x: lerp(q[1], u[1]), y: lerp(q[2], u[2]), z: u[3], view: u[4] ? 'back' : 'front', flip: !!u[5], state: u[6], seed: u[7], order: u[8], emote: u[9] || null, claimed: u[10] || null, moving: !!u[11], look: lookFor(u[7]), name: customerName(u[7]) });
     }
     const ca = new Map(a.c.map((c) => [c[0], c]));
     for (const c of b.c) {
@@ -263,7 +289,13 @@ function currentView(now) {
       cats.push({ id: c[0], x: lerp(q[1], c[1]), y: lerp(q[2], c[2]), z: lerp(q[3], c[3]), state: c[4], flip: !!c[5], coat: d?.coat, name: d?.name });
     }
   }
-  return { cafe, players, cats, build: S.build, time: now / 1000 };
+  return { cafe, players, cats, customers, build: S.build, time: now / 1000 };
+}
+
+const looks = new Map();
+function lookFor(seed) {
+  if (!looks.has(seed)) looks.set(seed, randomLook(seededRng(seed)));
+  return looks.get(seed);
 }
 
 // the simulation and networking tick on a timer, so the café keeps running for a guest
@@ -277,9 +309,12 @@ setInterval(() => {
   if (S.host && S.host.count && now - snapAt > 90) { snapAt = now; S.host.broadcast({ t: 'snap', ...S.sim.snapshot() }); }
   if (S.dirty && now - saveAt > 4000 && S.cafe && S.role !== 'guest') { saveAt = now; S.dirty = false; saveCafe(S.cafe); }
 }, 33);
+let shownMoney = null;
 function frame(now) {
   requestAnimationFrame(frame);
-  if (S.cafe) renderer.draw(currentView(now));
+  if (!S.cafe) return;
+  renderer.draw(currentView(now));
+  if (S.cafe.money !== shownMoney) { shownMoney = S.cafe.money; $('#money').textContent = shownMoney; }
 }
 
 // ---------- touch: tap to walk or pet, drag to look around, pinch to zoom ----------
@@ -333,13 +368,121 @@ function tap(sx, sy) {
   const ix = Math.floor(tx), iy = Math.floor(ty);
   if (S.build) return buildTap(ix, iy);
   const v = currentView(performance.now());
+  const cust = renderer.personAt(v.customers, sx, sy);
+  if (cust) return tapCustomer(cust, v);
+  const hit = furnitureAt(S.cafe, ix, iy, false);
+  if (hit && CATALOG[hit.type].station) return openBrew();
   const cat = renderer.catAt(v.cats, sx, sy);
   if (cat) { act('pet', { cat: cat.id }); sfx.meow(); return; }
   if (ix >= 0 && iy >= 0 && ix < ROOM_W && iy < ROOM_H) { act('move', { x: ix + 0.5, y: iy + 0.5 }); sfx.click(); }
 }
 
+// ---------- serving and the espresso bar ----------
+function myPlayer(v) { return v.players.find((p) => p.me); }
+
+function tapCustomer(u, v) {
+  const me = myPlayer(v);
+  if (u.state === 'order') {
+    if (me?.carry === u.order) { act('serve', { id: u.id }); sfx.click(); return; }
+    if (me?.carry) { toast(`${u.name} would like ${aOrAn(DRINKS[u.order].name)}`); sfx.nope(); return; }
+    return openBrew(u.id);
+  }
+  if (u.state === 'drink') toast(`${u.name} is enjoying their ${DRINKS[u.order].name.toLowerCase()}`);
+  else if (u.state === 'enter') toast(`${u.name} is finding a seat`);
+}
+const aOrAn = (s) => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s.toLowerCase();
+
+const brew = { open: false, id: null, step: 0, busy: false };
+function openBrew(preselect = null) {
+  brew.open = true; brew.id = null; brew.step = 0; brew.busy = false;
+  $('#brew').hidden = false;
+  $('#brewClose').innerHTML = iconImg('cross', 2);
+  if (preselect) startOrder(preselect); else renderBrew();
+}
+function closeBrew() { brew.open = false; $('#brew').hidden = true; }
+$('#brewClose').addEventListener('click', () => { sfx.click(); closeBrew(); });
+
+function waitingOrders() {
+  const v = currentView(performance.now());
+  return v.customers.filter((u) => u.state === 'order');
+}
+
+function renderBrew() {
+  if (!brew.open) return;
+  const body = $('#brewBody');
+  if (!brew.id) {
+    $('#brewTitle').textContent = 'Orders';
+    const list = waitingOrders();
+    const me = myPlayer(currentView(performance.now()));
+    if (me?.carry) {
+      body.innerHTML = `<p class="hint">You're holding ${aOrAn(DRINKS[me.carry].name)}. Tap the customer who ordered it to serve.</p>`;
+      return;
+    }
+    body.innerHTML = list.length ? list.map((u) => {
+      const taken = u.claimed && u.claimed !== S.myId;
+      return `<button class="order${taken ? ' taken' : ''}" data-order="${u.id}"><img src="${cupCanvas(u.order, 1, false, 3).toDataURL()}" alt="">
+        <div><b>${DRINKS[u.order].name}</b><small>for ${escapeHtml(u.name)}${taken ? ' · your friend is on it' : ''}</small></div></button>`;
+    }).join('') : '<p class="hint">No orders right now. Customers drop by every little while; enjoy the cats meanwhile.</p>';
+    return;
+  }
+  const u = waitingOrders().find((o) => o.id === brew.id);
+  const d = DRINKS[brew.drink];
+  $('#brewTitle').textContent = d.name;
+  const done = brew.step >= d.steps.length;
+  const progress = done ? 1 : brew.step / d.steps.length;
+  body.innerHTML = `<div class="brew-cup"><canvas id="brewCup"></canvas></div>
+    <div class="step-list">${d.steps.map((_, i) => `<span class="${i < brew.step ? 'done' : ''}"></span>`).join('')}</div>
+    ${done ? `<p class="hint">Ready! Tap <b>${escapeHtml(u?.name || 'the customer')}</b> to serve it.</p><button class="btn primary" id="brewDone">Okay</button>`
+      : `<button class="btn primary step-btn" id="stepBtn"><i></i>${d.steps[brew.step][1]}</button>`}`;
+  const big = cupCanvas(brew.drink, progress, true, 4);
+  const cv = $('#brewCup'); cv.width = big.width; cv.height = big.height;
+  cv.getContext('2d').drawImage(big, 0, 0);
+}
+
+function startOrder(id) {
+  const u = waitingOrders().find((o) => o.id === id);
+  if (!u) return renderBrew();
+  if (u.claimed && u.claimed !== S.myId) { toast('Your friend is already making that one'); sfx.nope(); return renderBrew(); }
+  const err = act('claim', { id });
+  if (err) return renderBrew();
+  brew.id = id; brew.drink = u.order; brew.step = 0;
+  renderBrew();
+}
+
+$('#brew').addEventListener('click', (e) => {
+  const o = e.target.closest('[data-order]');
+  if (o) { sfx.click(); return startOrder(o.dataset.order); }
+  if (e.target.closest('#brewDone')) { sfx.click(); return closeBrew(); }
+  const btn = e.target.closest('#stepBtn');
+  if (!btn || brew.busy) return;
+  brew.busy = true;
+  const bar = btn.querySelector('i'), key = DRINKS[brew.drink].steps[brew.step][0];
+  stepSound(key);
+  const t0 = performance.now(), dur = 650;
+  (function fill(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    bar.style.width = `${k * 100}%`;
+    if (k < 1) return requestAnimationFrame(fill);
+    brew.busy = false;
+    brew.step++;
+    buzz(12);
+    if (brew.step >= DRINKS[brew.drink].steps.length) { act('brewed', { id: brew.id }); sfx.coin(); }
+    renderBrew();
+  })(t0);
+});
+
+function stepSound(key) {
+  if (key === 'grind') for (let i = 0; i < 8; i++) setTimeout(() => tone(140 + Math.random() * 60, 0.05, 'sawtooth', 0.025), i * 70);
+  else if (key === 'shot' || key === 'pour' || key === 'choc') tone(300, 0.5, 'sine', 0.03, -120);
+  else if (key === 'milk' || key === 'foam' || key === 'whisk') for (let i = 0; i < 10; i++) setTimeout(() => tone(2000 + Math.random() * 800, 0.04, 'triangle', 0.012), i * 55);
+  else if (key === 'ice') [0, 90, 170].forEach((d) => setTimeout(() => tone(1800 + Math.random() * 400, 0.05, 'square', 0.02), d));
+  else tone(660, 0.12, 'triangle', 0.04);
+}
+// keep the order list fresh while the panel is open
+setInterval(() => { if (brew.open && !brew.id) renderBrew(); }, 1000);
+
 // ---------- decorating ----------
-const TABS = [['all', 'All'], ['furniture', 'Furniture'], ['counter', 'Counter'], ['decor', 'Decor'], ['cat', 'For cats'], ['storage', 'Storage']];
+const TABS = [['all', 'All'], ['furniture', 'Furniture'], ['counter', 'Counter'], ['decor', 'Decor'], ['cat', 'For cats'], ['recipes', 'Recipes'], ['storage', 'Storage']];
 function openBuild() {
   S.build = { tab: 'all', ghost: null, selectedId: null };
   $('#tray').hidden = false;
@@ -410,6 +553,15 @@ function renderTray() {
     actions.innerHTML = `<div class="label">Pick something to buy, or tap furniture in the café to move it.</div><button class="btn primary" data-a="done">${iconImg('check', 2)}Done</button>`;
   }
   $('#trayTabs').innerHTML = TABS.map(([k, n]) => `<button class="chip${b.tab === k ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
+  if (b.tab === 'recipes') {
+    const have = S.cafe.recipes || [];
+    $('#trayItems').innerHTML = DRINK_ORDER.map((id) => {
+      const d = DRINKS[id], owned = have.includes(id);
+      return `<button class="recipe${owned ? ' have' : ''}" data-recipe="${id}"><img src="${cupCanvas(id, 1, false, 3).toDataURL()}" alt=""><b>${d.name}</b>
+        <span>${owned ? 'On the menu' : `${iconImg('coin', 1)}${d.unlock}`}</span><span>sells for ${d.price}</span></button>`;
+    }).join('');
+    return;
+  }
   let list;
   if (b.tab === 'storage') list = Object.entries(S.cafe.inventory || {}).map(([type, n]) => ({ type, n }));
   else list = SHOP_ORDER.filter((t) => b.tab === 'all' || CATALOG[t].cat === b.tab).map((type) => ({ type }));
@@ -439,7 +591,15 @@ $('#tray').addEventListener('click', (e) => {
   if (!btn) return;
   const b = S.build;
   sfx.click();
-  if (btn.dataset.tab) { b.tab = btn.dataset.tab; return renderTray(); }
+  if (btn.dataset.tab) { b.tab = btn.dataset.tab; b.ghost = null; return renderTray(); }
+  if (btn.dataset.recipe) {
+    const id = btn.dataset.recipe, d = DRINKS[id];
+    if ((S.cafe.recipes || []).includes(id)) return toast(`${d.name} is already on the menu`);
+    if (S.cafe.money < d.unlock) { toast('Not enough coins yet'); sfx.nope(); return; }
+    act('build', { op: { op: 'recipe', id } });
+    sfx.coin(); toast(`${d.name} added to the menu!`);
+    return;
+  }
   if (btn.dataset.item) {
     const type = btn.dataset.item, src = btn.dataset.src;
     if (src === 'shop' && CATALOG[type].price > S.cafe.money) { toast('Not enough coins yet'); sfx.nope(); return; }
@@ -630,4 +790,4 @@ goMenu();
 requestAnimationFrame(frame);
 
 // hooks for automated tests
-window.__wc = { S, renderer, act, startHosting, joinCafe, playSolo, newCafe, goMenu };
+window.__wc = { S, renderer, act, startHosting, joinCafe, playSolo, newCafe, goMenu, currentView, openBrew };

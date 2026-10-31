@@ -57,4 +57,28 @@ check('cats move between behaviours', states.size >= 3);
 const snap = sim.snapshot();
 check('snapshot carries players and cats', snap.p.length === 1 && snap.c.length === cafe.cats.length && !('t' in snap));
 
+// customers: arrive, sit, order, get a drink made and served, and pay
+{
+  const c2 = newCafe('Shop');
+  const sim2 = new Sim(c2, () => {});
+  sim2.addPlayer('me', 'Tester', {});
+  check('café starts with three recipes', c2.recipes.length === 3);
+  check('customer finds a seat', sim2.shop.spawn());
+  const cust = [...sim2.shop.list.values()][0];
+  for (let i = 0; i < 400 && cust.state === 'enter'; i++) sim2.step(0.05);
+  check('customer sits and orders', cust.state === 'order' && c2.recipes.includes(cust.order) && cust.z > 0);
+  check('claiming the order works', sim2.shop.claim('me', cust.id) === null);
+  sim2.addPlayer('friend', 'Friend', {});
+  check('a friend cannot claim the same order', sim2.shop.claim('friend', cust.id) !== null);
+  check('drink is made', sim2.shop.brewed('me', cust.id) === null && sim2.players.get('me').carry.drink === cust.order);
+  const money = c2.money;
+  sim2.shop.serve('me', cust.id);
+  for (let i = 0; i < 400 && cust.state === 'order'; i++) sim2.step(0.05);
+  check('serving pays for the drink', cust.state === 'drink' && c2.money > money && !sim2.players.get('me').carry);
+  for (let i = 0; i < 2000 && sim2.shop.list.has(cust.id); i++) sim2.step(0.05);
+  check('the customer leaves happily afterwards', !sim2.shop.list.has(cust.id));
+  check('unlock a recipe', applyBuild(c2, { op: 'recipe', id: 'cappuccino' }) === null && c2.recipes.includes('cappuccino'));
+  check('snapshot carries customers', Array.isArray(sim2.snapshot().u));
+}
+
 process.exit(failed ? 1 : 0);

@@ -2,6 +2,7 @@
 // This is plain data so it can be saved, sent over the network and checked anywhere.
 import { CATALOG } from './catalog.js';
 import { DEFAULT_WALLS } from '../art/room.js';
+import { DRINKS } from '../art/drinks.js';
 
 export const ROOM_W = 11, ROOM_H = 9;
 // tiles kept clear so the front door always works
@@ -33,6 +34,8 @@ export function newCafe(name = 'Our Café') {
       { id: uid('c'), name: 'Biscuit', coat: 'orange', mood: 'playful', affection: 0 },
     ],
     inventory: {},
+    recipes: ['espresso', 'latte', 'hotchoc'],
+    stats: { served: 0 },
   };
 }
 
@@ -168,6 +171,14 @@ export function applyBuild(cafe, op) {
     cafe.inventory[op.type]--;
     if (!cafe.inventory[op.type]) delete cafe.inventory[op.type];
     cafe.furniture.push(it);
+  } else if (op.op === 'recipe') {
+    const d = DRINKS[op.id];
+    cafe.recipes = cafe.recipes || ['espresso', 'latte', 'hotchoc'];
+    if (!d) return 'Unknown recipe';
+    if (cafe.recipes.includes(op.id)) return 'Already on the menu';
+    if (cafe.money < d.unlock) return 'Not enough coins';
+    cafe.money -= d.unlock;
+    cafe.recipes.push(op.id);
   } else return 'Unknown action';
   cafe.modified = Date.now();
   return null;

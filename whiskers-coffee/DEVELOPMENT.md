@@ -54,10 +54,14 @@ Godot 4. I chose otherwise for three practical reasons:
   - [x] Saved copy of the café on both phones
   - [x] Reconnection
   - [x] Tested with two separate browsers over real WebRTC against a local PeerJS server
-- [ ] **3. Living café** — partly done:
+- [x] **3. Living café**
   - [x] Cat AI: sitting, grooming, wandering, sleeping in beds, perching on cat trees, visiting players
   - [x] Petting with hearts, purring and affection
-  - [ ] Customers, orders, coffee making, expressions
+  - [x] Customers who sit, order, drink and react to cats
+  - [x] Coffee-making steps
+  - [x] Serving, coins and tips
+  - [x] Recipe unlocks
+  - [x] Order-claim conflict handling in co-op
 - [ ] **4. Customisation** — partly done:
   - [x] Shop with prices
   - [x] Storage

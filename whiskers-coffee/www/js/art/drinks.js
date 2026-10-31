@@ -2,21 +2,26 @@
 import { Pix, grid } from './pix.js';
 
 export const DRINKS = {
-  espresso: { name: 'Espresso', price: 12, unlock: 0, fill: '#4a2a18', top: '#b0773f', steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot']] },
-  latte: { name: 'Latte', price: 18, unlock: 0, fill: '#c89a6a', top: '#f4ead2', art: true, steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot'], ['milk', 'Steam the milk'], ['art', 'Pour a heart']] },
-  hotchoc: { name: 'Hot chocolate', price: 15, unlock: 0, fill: '#6b3a22', top: '#fff6ea', dots: '#f2a0b4', steps: [['choc', 'Melt the chocolate'], ['milk', 'Steam the milk'], ['marsh', 'Add marshmallows']] },
-  cappuccino: { name: 'Cappuccino', price: 20, unlock: 80, fill: '#a8774c', top: '#fbf3e4', dust: '#7a4e30', steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot'], ['foam', 'Foam the milk'], ['cocoa', 'Dust with cocoa']] },
-  matcha: { name: 'Matcha latte', price: 24, unlock: 140, fill: '#86b25a', top: '#d8ecb6', art: true, steps: [['whisk', 'Whisk the matcha'], ['milk', 'Steam the milk'], ['art', 'Pour a leaf']] },
+  espresso: { name: 'Espresso', price: 12, unlock: 0, fill: '#4a2a18', top: '#b0773f', surface: '#5a3420', ring: '#b0773f', small: true, steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot']] },
+  latte: { name: 'Latte', price: 18, unlock: 0, fill: '#c89a6a', top: '#f4ead2', surface: '#c89a6a', accent: '#fbf3e4', art: true, steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot'], ['milk', 'Steam the milk'], ['art', 'Pour a heart']] },
+  hotchoc: { name: 'Hot chocolate', price: 15, unlock: 0, fill: '#6b3a22', top: '#fff6ea', surface: '#6b3a22', accent: '#fff6ea', dots: '#f2a0b4', steps: [['choc', 'Melt the chocolate'], ['milk', 'Steam the milk'], ['marsh', 'Add marshmallows']] },
+  cappuccino: { name: 'Cappuccino', price: 20, unlock: 80, fill: '#a8774c', top: '#fbf3e4', surface: '#fbf3e4', dust: '#8a5a36', steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot'], ['foam', 'Foam the milk'], ['cocoa', 'Dust with cocoa']] },
+  matcha: { name: 'Matcha latte', price: 24, unlock: 140, fill: '#86b25a', top: '#d8ecb6', surface: '#86b25a', accent: '#e4f3c8', art: true, steps: [['whisk', 'Whisk the matcha'], ['milk', 'Steam the milk'], ['art', 'Pour a leaf']] },
   strawberry: { name: 'Strawberry milk', price: 22, unlock: 120, fill: '#f2a0b4', top: '#fde2ea', dots: '#c23a52', cold: true, steps: [['berry', 'Mash the strawberries'], ['pour', 'Pour cold milk'], ['ice', 'Add ice']] },
   iced: { name: 'Iced coffee', price: 18, unlock: 100, fill: '#7a4e30', top: '#e9d2b0', cold: true, steps: [['grind', 'Grind the beans'], ['shot', 'Pull the shot'], ['ice', 'Pour over ice']] },
 };
+function shadeHex(hex, k) {
+  const c = [1, 3, 5].map((i) => Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k))));
+  return '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
 export const DRINK_ORDER = ['espresso', 'latte', 'hotchoc', 'cappuccino', 'iced', 'strawberry', 'matcha'];
 
 // a cup filled up to `progress` (0..1), drawn at small (icon) or large (brewing) size
 export function cupPix(id, progress = 1, big = false) {
   const d = DRINKS[id];
   if (d.cold) return glassPix(d, progress, big);
-  const W = big ? 30 : 11, H = big ? 26 : 10;
+  const W = big ? (d.small ? 24 : 30) : (d.small ? 9 : 11), H = big ? (d.small ? 18 : 26) : (d.small ? 7 : 10);
   const p = new Pix(W + (big ? 8 : 3), H + 2);
   const ink = '#24160f', white = '#f4efe6', shade = '#d9d2c4';
   const cw = W, top = 1, bottom = H;
@@ -33,19 +38,24 @@ export function cupPix(id, progress = 1, big = false) {
   for (let y = hy; y <= hy + hh; y++) { p.set(hx + 1, y, white); p.set(hx + (big ? 4 : 2), y, ink); }
   p.hline(hx, hx + (big ? 4 : 2), hy - 1, ink); p.hline(hx, hx + (big ? 4 : 2), hy + hh + 1, ink);
   if (big) for (let y = hy; y <= hy + hh; y++) { p.set(hx + 2, y, white); p.set(hx + 3, y, shade); }
-  // the drink, seen from slightly above as a band at the rim
+  // the drink seen from slightly above: a band of colour at the rim, with latte art,
+  // marshmallows or cocoa dust once it's finished
   if (progress > 0) {
-    const rows = big ? 4 : 2;
-    for (let y = top; y < top + rows; y++) for (let x = 1; x < cw - 1; x++) p.set(x, y, progress >= 0.999 ? d.top : progress > 0.5 ? d.fill : '#00000000');
-    if (progress >= 0.999) {
-      if (d.art) { const cx = Math.floor(cw / 2); p.set(cx, top + 1, d.fill); if (big) { p.set(cx - 1, top + 1, d.fill); p.set(cx + 1, top + 1, d.fill); p.set(cx, top + 2, d.fill); } }
-      if (d.dots) for (let x = 2; x < cw - 2; x += big ? 4 : 3) p.set(x, top + (x % 2), d.dots);
-      if (d.dust) for (let x = 2; x < cw - 2; x += 2) p.set(x, top + ((x >> 1) % 2), d.dust);
-    }
-    if (big && progress < 0.999) {
-      // a little coffee level visible through a "window" so the cup fills step by step
-      const lvl = Math.round((bottom - top - 3) * progress);
-      for (let y = bottom - lvl; y < bottom; y++) for (let x = 6; x < 9; x++) p.set(x, y, d.fill);
+    const rows = big ? 6 : 3;
+    const done = progress >= 0.999;
+    const col = done ? d.surface || d.fill : progress >= 0.5 ? d.fill : shadeHex(d.fill, 0.75);
+    const lvl = done ? rows : Math.max(1, Math.round(rows * progress));
+    for (let y = top + rows - lvl; y < top + rows; y++) for (let x = 1; x < cw - 1; x++) p.set(x, y, col);
+    if (done) {
+      const cx = Math.floor(cw / 2), my = top + Math.floor(rows / 2);
+      if (d.ring) for (let x = 1; x < cw - 1; x++) { p.set(x, top, d.ring); p.set(x, top + rows - 1, d.ring); }
+      if (d.art) {
+        // a little heart or leaf of milk foam
+        p.set(cx - 1, my - (big ? 1 : 0), d.accent); p.set(cx + 1, my - (big ? 1 : 0), d.accent); p.set(cx, my, d.accent);
+        if (big) { p.set(cx - 2, my - 1, d.accent); p.set(cx + 2, my - 1, d.accent); p.set(cx - 1, my, d.accent); p.set(cx + 1, my, d.accent); p.set(cx, my + 1, d.accent); }
+      }
+      if (d.dots) for (let x = 2; x < cw - 2; x += big ? 4 : 3) { p.set(x, top + 1 + (x % 2), d.accent); if (big) p.set(x + 1, top + 1 + (x % 2), x % 3 ? d.dots : d.accent); else if (x % 2) p.set(x, top + 1, d.dots); }
+      if (d.dust) for (let x = 2; x < cw - 2; x += 2) p.set(x, top + 1 + ((x >> 1) % 2), d.dust);
     }
   }
   return p;
