@@ -111,13 +111,17 @@ index 955f203..1d3d751 100644
      Display *d = XOpenDisplay((char*)0);
      if(d)
 diff --git a/src/engine/engine.h b/src/engine/engine.h
-index e574a69..415c7ef 100644
+index e574a69..8f5d5e3 100644
 --- a/src/engine/engine.h
 +++ b/src/engine/engine.h
-@@ -298,6 +298,13 @@ extern vec curfogcolor;
+@@ -298,6 +298,17 @@ extern vec curfogcolor;
  extern int wireframe;
  
  extern float cursorx, cursory;
++
++// full path for files SDL opens itself; on Android SDL resolves relative paths against
++// the app's storage root instead of the working directory
++extern const char *sdlfilepath(const char *name);
 +
 +namespace touch
 +{
@@ -129,7 +133,7 @@ index e574a69..415c7ef 100644
  
  extern int glerr;
 diff --git a/src/engine/main.cpp b/src/engine/main.cpp
-index a44e379..c2acf63 100644
+index a44e379..c941369 100644
 --- a/src/engine/main.cpp
 +++ b/src/engine/main.cpp
 @@ -375,17 +375,24 @@ void setupscreen(bool dogl = true)
@@ -197,7 +201,30 @@ index a44e379..c2acf63 100644
          if(amt > 0 && diff >= 0 && diff < (1000 + curprog-1)/curprog) return;
          lastprogress = ticks;
      }
-@@ -913,6 +926,11 @@ int main(int argc, char **argv)
+@@ -897,6 +910,22 @@ ICOMMAND(0, readpixel, "s", (char *act), readpixel(act));
+ 
+ VAR(0, numcpus, 1, 1, 16);
+ 
++const char *sdlfilepath(const char *name)
++{
++#ifdef __ANDROID__
++    if(!name || !*name || name[0] == '/') return name;
++    static string bufs[4];
++    static int cur = 0;
++    char *buf = bufs[cur = (cur+1)%4];
++    if(!getcwd(buf, sizeof(string))) return name;
++    concatstring(buf, "/", sizeof(string));
++    concatstring(buf, name, sizeof(string));
++    return buf;
++#else
++    return name;
++#endif
++}
++
+ int main(int argc, char **argv)
+ {
+     #ifdef WIN32
+@@ -913,6 +942,11 @@ int main(int argc, char **argv)
      clockoffset = currenttime-clocktime;
  
      setlogfile(NULL);
@@ -209,7 +236,7 @@ index a44e379..c2acf63 100644
      setlocations(argv[0]);
  
      char *initscript = NULL;
-@@ -998,6 +1016,8 @@ int main(int argc, char **argv)
+@@ -998,6 +1032,8 @@ int main(int argc, char **argv)
      numcpus = clamp(SDL_GetCPUCount(), 1, 16);
  
      conoutf("Loading SDL..");
@@ -370,8 +397,30 @@ index ddad595..34b4f3b 100644
          {
              parts[numparts++] =
                  "#define texture2DRect(sampler, coords) texture(sampler, coords)\n"
+diff --git a/src/engine/sound.cpp b/src/engine/sound.cpp
+index 055216d..5207992 100644
+--- a/src/engine/sound.cpp
++++ b/src/engine/sound.cpp
+@@ -215,7 +215,7 @@ Mix_Music *loadmusic(const char *name)
+         if(!musicrw) DELETEP(musicstream);
+     }
+     if(musicrw) music = Mix_LoadMUSType_RW(musicrw, MUS_NONE, 0);
+-    else music = Mix_LoadMUS(findfile(name, "rb"));
++    else music = Mix_LoadMUS(sdlfilepath(findfile(name, "rb")));
+     if(!music)
+     {
+         if(musicrw) { SDL_FreeRW(musicrw); musicrw = NULL; }
+@@ -304,7 +304,7 @@ static Mix_Chunk *loadwav(const char *name)
+         }
+         delete z;
+     }
+-    if(!c) c = Mix_LoadWAV(findfile(name, "rb"));
++    if(!c) c = Mix_LoadWAV(sdlfilepath(findfile(name, "rb")));
+     return c;
+ }
+ 
 diff --git a/src/engine/texture.cpp b/src/engine/texture.cpp
-index a3056d6..f9a791e 100644
+index a3056d6..064692b 100644
 --- a/src/engine/texture.cpp
 +++ b/src/engine/texture.cpp
 @@ -1072,6 +1072,26 @@ static GLenum textype(GLenum &component, GLenum &format)
@@ -401,6 +450,24 @@ index a3056d6..f9a791e 100644
      if(!format) format = component;
      return type;
  }
+@@ -1537,7 +1557,7 @@ SDL_Surface *loadsurface(const char *name)
+         }
+         delete z;
+     }
+-    if(!s) s = IMG_Load(findfile(name, "rb"));
++    if(!s) s = IMG_Load(sdlfilepath(findfile(name, "rb")));
+     return fixsurfaceformat(s);
+ }
+ #endif
+@@ -4050,7 +4070,7 @@ SDL_Surface *loadsurface(const char *name, bool noload)
+         if(!s)
+         {
+             const char *fname = findfile(buf, "rb");
+-            if(fname && *fname) s = IMG_Load(fname);
++            if(fname && *fname) s = IMG_Load(sdlfilepath(fname));
+         }
+         if(s) return fixsurfaceformat(s);
+     }
 diff --git a/src/engine/touch.cpp b/src/engine/touch.cpp
 new file mode 100644
 index 0000000..5e10bd5
