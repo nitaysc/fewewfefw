@@ -138,12 +138,19 @@ export function surfaceCanvas(b) {
 }
 
 // ---------- a drink from the side, standing with its bottom centre at (cx, by) ----------
-export function drawDrink3(g, cx, by, b) {
+// opts: fill (the level to show, eased by the caller), wobble (px the surface sways), t (time),
+// lift (px above its spot, for the cup dropping in), squash (-0.2..0.2)
+export function drawDrink3(g, cx, by, b, opts = {}) {
   if (!b.vessel) return;
+  if (opts.lift || opts.squash) {
+    g.save(); g.translate(cx, by - (opts.lift || 0)); g.scale(1 + (opts.squash || 0), 1 - (opts.squash || 0)); g.translate(-cx, -by);
+    drawDrink3(g, cx, by, b, { ...opts, lift: 0, squash: 0 });
+    g.restore(); return;
+  }
   const V = ST3.ves[b.vessel];
   const rimY = by - V.h, botY = by - V.bot;
-  const fill = Math.min(1, fillOf(b));
-  const levelY = botY - fill * (botY - rimY - 0.4);
+  const fill = Math.min(1, opts.fill ?? fillOf(b));
+  const levelY = botY - fill * (botY - rimY - 0.4) + (opts.wobble ? Math.sin((opts.t || 0) * 15) * opts.wobble : 0);
   const ryk = V.ry;
   const surf = fill > 0.02 ? surfaceCanvas(b) : null;
   const atLevel = (y) => V.rxb + (V.rx - V.rxb) * Math.min(1, Math.max(0, (botY - y) / (botY - rimY)));
@@ -219,6 +226,39 @@ export function drawDrink3(g, cx, by, b) {
 }
 
 // a liquid stream from (x, y0) down to y1
+// where the surface of the drink is (scene y) for a cup standing at by
+export function surfaceY(b, by, fill) {
+  if (!b.vessel) return by;
+  const V = ST3.ves[b.vessel], botY = by - V.bot, rimY = by - V.h;
+  return botY - Math.min(1, fill) * (botY - rimY - 0.4);
+}
+
+// little particles: droplets, ripples, sparkles, confetti
+export function stepParts(parts, dt) {
+  for (const q of parts) {
+    q.t += dt;
+    if (q.kind === 'drop' || q.kind === 'confetti') { q.vy += (q.kind === 'drop' ? 260 : 200) * dt; q.vx *= 1 - dt * (q.kind === 'drop' ? 0.5 : 1.6); q.x += q.vx * dt; q.y += q.vy * dt; q.rot = (q.rot || 0) + dt * 9; }
+  }
+  return parts.filter((q) => q.t < q.life && !(q.kind === 'drop' && q.floor && q.y > q.floor));
+}
+export function drawParts(g, parts) {
+  for (const q of parts) {
+    const k = q.t / q.life, a = 1 - k;
+    if (q.kind === 'drop') { g.fillStyle = tone(q.c, 1.05, Math.min(1, a * 1.5)); g.beginPath(); g.arc(q.x, q.y, q.r * (1 - k * 0.4), 0, 6.283); g.fill(); }
+    else if (q.kind === 'ring') { g.strokeStyle = tone(q.c, 1.2, a * 0.8); g.lineWidth = 0.5; g.beginPath(); g.ellipse(q.x, q.y, 0.5 + k * q.r, (0.5 + k * q.r) * q.flat, 0, 0, 6.283); g.stroke(); }
+    else if (q.kind === 'confetti') { g.save(); g.translate(q.x, q.y); g.rotate(q.rot || 0); g.globalAlpha = Math.min(1, a * 2); g.fillStyle = q.c; g.fillRect(-1.2, -0.6, 2.4, 1.2); g.restore(); }
+    else if (q.kind === 'spark') { const r = q.r * Math.sin(k * Math.PI); g.fillStyle = `rgba(255,236,170,${a})`; g.beginPath(); g.moveTo(q.x, q.y - r * 2); g.lineTo(q.x + r * 0.5, q.y); g.lineTo(q.x, q.y + r * 2); g.lineTo(q.x - r * 0.5, q.y); g.closePath(); g.fill(); g.beginPath(); g.moveTo(q.x - r * 2, q.y); g.lineTo(q.x, q.y + r * 0.5); g.lineTo(q.x + r * 2, q.y); g.lineTo(q.x, q.y - r * 0.5); g.closePath(); g.fill(); }
+  }
+}
+export function splash(parts, x, y, c, n = 5, flat = 0.34, floor = null) {
+  for (let i = 0; i < n; i++) parts.push({ kind: 'drop', x: x + (Math.random() - 0.5) * 3, y, vx: (Math.random() - 0.5) * 50, vy: -30 - Math.random() * 50, r: 0.5 + Math.random() * 0.5, c, t: 0, life: 0.5, floor: floor ?? y + 1 });
+  parts.push({ kind: 'ring', x, y, r: 6, flat, c, t: 0, life: 0.45 });
+}
+export function confetti(parts, x, y) {
+  for (let i = 0; i < 46; i++) parts.push({ kind: 'confetti', x: x + (Math.random() - 0.5) * 20, y, vx: (Math.random() - 0.5) * 150, vy: -90 - Math.random() * 110, c: ['#ffd27a', '#f6c4d2', '#8fd16a', '#fbf6ea', '#e88aa0', '#9ec8f0'][i % 6], t: 0, life: 1.8, rot: Math.random() * 6 });
+  for (let i = 0; i < 8; i++) parts.push({ kind: 'spark', x: x + (Math.random() - 0.5) * 50, y: y + (Math.random() - 0.5) * 30, r: 1.5 + Math.random() * 1.5, t: -Math.random() * 0.5, life: 0.7 });
+}
+
 export function stream(g, x, y0, y1, col, w = 1.3, now = 0) {
   if (y1 <= y0) return;
   g.save();

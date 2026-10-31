@@ -128,6 +128,10 @@ game's `WALL_STYLES`. Floor: `FLOORS` plus `FLOOR_STYLES`. Wall feature: a branc
 
 ## 6. Quality checklist (what the owner noticed before)
 
+- `rcone` has round ends. Anything that stands on a flat bottom (cups, jugs, bowls) must use
+  `fcone` or be clipped, or a half-ball shows under it (the "plate inside the cup" bug).
+- Nothing may poke out of a container: clip contents to the inside (`inter(...)`).
+
 - Nothing cut off: no sprite may touch its canvas edge. `crop_save` crops, but the canvas you
   render into must be big enough.
 - No white or pale halos and no stray pixels around sprites.

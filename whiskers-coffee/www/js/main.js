@@ -84,6 +84,9 @@ const sfx = {
   bell() { tone(1568, 0.5, 'sine', 0.06); setTimeout(() => tone(2093, 0.6, 'sine', 0.04), 120); },
   nope() { tone(180, 0.15, 'square', 0.04); },
 };
+// feel like an app, not a web page: no long-press menus, no browser zoom gestures
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
 function buzz(ms = 20) { if (Plugins.Haptics) Plugins.Haptics.vibrate({ duration: ms }).catch(() => {}); }
 
 let toastTimer;
@@ -362,7 +365,23 @@ function currentView(now) {
     }
     tips = (b.tp || []).map((x) => ({ id: x[0], x: x[1], y: x[2], z: x[3], amount: x[4] }));
   }
+  smoothMoves(now, [['p', players], ['c', cats], ['u', customers]]);
   return { cafe, players, cats, customers, tips, build: S.build, time: now / 1000, sky: skyFor(dayNow()) };
+}
+// the simulation ticks in steps; ease what we draw toward it every frame so walking is smooth
+const smoothed = new Map();
+let smoothAt = 0;
+function smoothMoves(now, groups) {
+  const dt = Math.min(0.1, Math.max(0, (now - smoothAt) / 1000)); smoothAt = now;
+  const k = 1 - Math.exp(-dt * 22), seen = new Set();
+  for (const [tag, list] of groups) for (const e of list) {
+    const key = tag + e.id; seen.add(key);
+    let d = smoothed.get(key);
+    if (!d || Math.hypot(d.x - e.x, d.y - e.y) > 1.5) { d = { x: e.x, y: e.y, z: e.z || 0 }; smoothed.set(key, d); }
+    d.x += (e.x - d.x) * k; d.y += (e.y - d.y) * k; d.z += ((e.z || 0) - d.z) * k;
+    e.x = d.x; e.y = d.y; if (e.z != null) e.z = d.z;
+  }
+  for (const key of smoothed.keys()) if (!seen.has(key)) smoothed.delete(key);
 }
 
 // the simulation and networking tick on a timer, so the café keeps running for a guest
@@ -376,7 +395,7 @@ setInterval(() => {
   if (S.host && S.host.count && now - snapAt > 90) { snapAt = now; S.host.broadcast({ t: 'snap', ...S.sim.snapshot() }); }
   if (S.dirty && now - saveAt > 4000 && S.cafe && S.role && S.role !== 'guest') { saveAt = now; S.dirty = false; saveCafe(S.cafe); }
   if (now - clockAt > 500 && S.cafe && S.screen !== 'menu') { clockAt = now; refreshClock(); if (brew.open) renderBrew(); }
-}, 33);
+}, 16);
 let shownMoney = null;
 function frame(now) {
   requestAnimationFrame(frame);

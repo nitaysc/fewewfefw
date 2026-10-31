@@ -662,4 +662,22 @@ look maps to one of the baristas. HUD buttons were restyled (cream, rounded, col
   hopper of individual-looking beans, a steel lid and the crank attached to its side; the light
   is more frontal so shadows fall behind things; the salad bowl is a deep white bowl with a
   blue rim, heaped with leaves, so it doesn't read as a plate on a plate.
+- Third pass ("plate inside the cup", "feels like a browser game", "make things sit in the food"):
+  - The cup bug was `rcone`: it is a *rounded* cone, so the cup's bottom was a half-ball poking
+    out under the saucer. `sdf.fcone(y0, y1, r0, r1, c)` is a flat-ended cone; use it for cups,
+    jugs, buckets, hoppers and anything that stands on a surface.
+  - Kitchen physics (`kitchen.js` `surfH`, `phys`, `onFood`, `inBowl`): pieces rest on the food's
+    real top (cake, toast, pancakes, croissant, salad heap) instead of plate level, drop in from
+    above, bounce, squash and swing while dragged; sauces and dust follow the surface; things
+    behind a cake are hidden by it; in the salad bowl pieces sit inside under the bowl's front
+    wall (`k_bowl_front`) and are kept away from the rim; the salad leaves are clipped to the
+    bowl. Shaker sprinkles fall, confetti when a dish is good.
+  - Station feel (`st3.js` particles: `splash`, `confetti`, `stepParts`, `drawParts`): the level
+    rises smoothly, the surface sways and ripples with droplets while pouring, ice and syrups
+    splash, marshmallows splash in the top view, grounds stream from the grinder, the cup drops
+    onto the tray with a squash, confetti on a good drink.
+  - Café smoothness: the simulation ticks at 60 Hz (was 30) and `smoothMoves` in main.js eases
+    every character and cat toward its position each frame, so walking no longer steps.
+  - App feel: no long-press menu, press animations on buttons/chips/tools, the station and
+    kitchen slide in, panels pop in, shelf icons are drawn smooth.
 

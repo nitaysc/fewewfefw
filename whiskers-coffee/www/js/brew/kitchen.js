@@ -99,10 +99,25 @@ export class Kitchen {
 
   // plate coordinates: x, y in -1..1 over the plate's surface
   toPlate(x, y) { return [(x - PL.x) / (PL.r * 0.8), (y - PL.y) / (PL.r * 0.66)]; }
+  // the point on the food under the finger (the top of a cake is higher than the plate)
+  onFood(x, y) {
+    const flat = this.toPlate(x, y);
+    if (!this.l3) return flat;
+    const up = this.toPlate(x, y + this.surfH(...flat));
+    const p = this.surfH(...up) > 0 ? this.toPlate(x, y + this.surfH(...up)) : flat;
+    return this.inBowl(p);
+  }
+  // keep things that land in the salad bowl inside it (a little in from the rim)
+  inBowl([x, y]) {
+    if (this.pl.base !== 'bowl') return [x, y];
+    const wx = 0.8 * x, wz = 0.805 * y, r = Math.hypot(wx, wz), MAX = 0.33;
+    if (r > 0.64 || r <= MAX) return [x, y];
+    return [x * MAX / r, y * MAX / r];
+  }
   onPlate(x, y) { return ((x - PL.x) / PL.r) ** 2 + ((y - PL.y) / (PL.r * 0.82)) ** 2 <= 1; }
   itemAt(x, y) {
     let best = -1, bd = 9;
-    this.pl.items.forEach((it, i) => { const sx = PL.x + it.x * PL.r * 0.8, sy = PL.y + it.y * PL.r * 0.66, d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = i; } });
+    this.pl.items.forEach((it, i) => { const sx = PL.x + it.x * PL.r * 0.8, sy = PL.y + it.y * PL.r * 0.66 - (this.l3 ? this.surfH(it.x, it.y) : 0), d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = i; } });
     return best;
   }
 
@@ -116,17 +131,17 @@ export class Kitchen {
       if (!pl.base) { this.say('Pick a plate first'); return; }
       if (!k) { this.say('Pick something from the shelves below'); return; }
       if (type === 'item') {
-        const [px, py] = this.toPlate(x, y);
+        const [px, py] = this.onFood(x, y);
         pl.items.push({ k, x: px, y: py, r: Math.floor(Math.random() * 4) });
         this.hist.push({ op: 'item' });
         this.drag = { i: pl.items.length - 1, moved: false, fresh: true };
         this.hooks.sound('plop');
       } else if (type === 'sauce') {
-        this.stroke = { k, pts: [this.toPlate(x, y)] }; pl.strokes.push(this.stroke); this.hist.push({ op: 'stroke' }); this.hooks.sound('pour');
+        this.stroke = { k, pts: [this.onFood(x, y)] }; pl.strokes.push(this.stroke); this.hist.push({ op: 'stroke' }); this.hooks.sound('pour');
       } else if (type === 'shake') { this.lastX = x; this.dir = 0; this.travel = 0; this.shakeStart = pl.dust.length; }
     } else if (kind === 'move' && this.down) {
-      if (this.drag) { const it = pl.items[this.drag.i]; if (it) { [it.x, it.y] = this.toPlate(x, y); this.drag.moved = true; } }
-      else if (this.stroke) { const p = this.toPlate(x, y), l = this.stroke.pts[this.stroke.pts.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 0.05) this.stroke.pts.push(p); }
+      if (this.drag) { const it = pl.items[this.drag.i]; if (it) { [it.x, it.y] = this.onFood(x, y); this.drag.moved = true; } }
+      else if (this.stroke) { const p = this.onFood(x, y), l = this.stroke.pts[this.stroke.pts.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 0.05) this.stroke.pts.push(p); }
       else if (type === 'shake' && this.lastX != null) {
         const dx = x - this.lastX; this.lastX = x;
         if (dx) {
@@ -134,7 +149,7 @@ export class Kitchen {
           if (dir !== this.dir) {
             if (this.travel > 4) {
               const c = SHAKERS[k].c;
-              for (let i = 0; i < 18; i++) { const px = x + (Math.random() - 0.5) * 28, py = y + (Math.random() - 0.5) * 20; if (this.onPlate(px, py)) pl.dust.push([...this.toPlate(px, py), c, k]); }
+              for (let i = 0; i < 18; i++) { const px = x + (Math.random() - 0.5) * 28, py = y + (Math.random() - 0.5) * 20; if (this.onPlate(px, py)) pl.dust.push([...this.onFood(px, py), c, k]); }
               this.hooks.sound('shake'); this.renderCard();
             }
             this.dir = dir; this.travel = 0;
@@ -223,8 +238,46 @@ export class Kitchen {
     if (!this.icons.has(k)) this.icons.set(k, ingIcon(k).toCanvas(2).toDataURL()); return this.icons.get(k); }
 
   // ---------- the rendered kitchen (tools/art3d) ----------
+  // how high the food's top is under plate point (x, y), in scene px: things rest on the cake,
+  // on the toast or in the salad instead of floating at plate level
+  surfH(x, y) {
+    const base = this.pl.base, wx = 0.8 * x, wz = 0.805 * y, UP = 0.574 * PL.r;   // cos 55° * px per unit
+    if (!base || base === 'plate') return 0;
+    const S = BASE_SCALE[base] || 1, lx = wx / S, lz = wz / S;
+    if (base === 'vanilla' || base === 'chocolate' || base === 'cheesecake') {
+      const tx = lx + 0.36, inside = Math.hypot(tx, lz) < 0.73 && Math.abs(lz) <= tx * 0.53;
+      return inside ? (base === 'cheesecake' ? 0.35 : 0.38) * S * UP : 0;
+    }
+    if (base === 'toast') return Math.abs(lx) < 0.5 && lz < 0.47 && (lz > -0.2 || Math.hypot(lx, lz + 0.2) < 0.52) ? 0.15 * S * UP : 0;
+    if (base === 'pancakes') return Math.hypot(lx, lz) < 0.7 ? 0.33 * UP : 0;
+    if (base === 'croissant') {
+      const d = Math.hypot(lx, lz - 0.25), ang = Math.abs(Math.atan2(lx, 0.25 - lz));
+      return Math.abs(d - 0.42) < 0.2 && ang < 1.25 ? (0.3 - Math.abs(d - 0.42) * 0.6) * S * UP : 0;
+    }
+    if (base === 'bowl') { const r = Math.hypot(wx, wz); return r < 0.64 ? (0.22 + 0.27 * Math.max(0, 1 - r / 0.6)) * UP : 0; }
+    return 0;
+  }
+  // a little physics for each piece: it drops in, bounces, squashes, and swings when dragged
+  phys(it, dt, sx, sy, dragging) {
+    let p = this.ph.get(it);
+    if (!p) { p = { h: 30, vh: 0, sq: 0, vs: 0, tilt: 0, vt: 0, px: sx, py: sy }; this.ph.set(it, p); }
+    const vx = dt > 0 ? (sx - p.px) / dt : 0; p.px = sx; p.py = sy;
+    if (dragging) { p.h += (9 - p.h) * Math.min(1, dt * 14); p.vh = 0; p.vt += (Math.max(-0.7, Math.min(0.7, -vx * 0.006)) - p.tilt) * 60 * dt; }
+    else {
+      p.vh -= 900 * dt; p.h += p.vh * dt;
+      if (p.h <= 0) {
+        if (p.vh < -70) { p.vs -= p.vh * 0.012; p.vh = -p.vh * 0.32; } else p.vh = 0;
+        p.h = 0;
+      }
+    }
+    p.vt += (-p.tilt * 160 - p.vt * 9) * dt; p.tilt += p.vt * dt;
+    p.vs += (-p.sq * 300 - p.vs * 14) * dt; p.sq += p.vs * dt;
+    return p;
+  }
+
   draw3(now) {
-    if (!this.l3) { PL.x = ST3.kitchen.plate[0]; PL.y = ST3.kitchen.plate[1]; this.l3 = true; if (this.open) this.renderTools(); }
+    if (!this.l3) { PL.x = ST3.kitchen.plate[0]; PL.y = ST3.kitchen.plate[1]; this.l3 = true; this.ph = new WeakMap(); if (this.open) this.renderTools(); }
+    const dt = Math.min(0.05, Math.max(0, now - (this.lastT ?? now))); this.lastT = now;
     const g = this.g, s = this.scale, pl = this.pl;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = '#1d130d'; g.fillRect(0, 0, this.el.canvas.width, this.el.canvas.height);
@@ -232,31 +285,65 @@ export class Kitchen {
     g.save(); g.beginPath(); g.rect(0, 0, SW, SH); g.clip();
     g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
     spr(g, 'k_bg', 0, 0);
-    if (pl.base && pl.base !== 'plate') spr(g, 'k_' + pl.base, PL.x, PL.y, BASE_SCALE[pl.base] || 1);
+    // the plate settles with a little bounce when a base goes on
+    if (pl.base !== this.lastBase) { this.lastBase = pl.base; this.baseT = 0; }
+    this.baseT = (this.baseT ?? 1) + dt;
+    const bk = Math.min(1, this.baseT / 0.35), drop = (1 - bk) * (1 - bk) * 26, bsq = Math.sin(Math.min(1, this.baseT / 0.5) * Math.PI) * 0.06 * (1 - bk * 0.5);
     const P = (x, y) => [PL.x + x * PL.r * 0.8, PL.y + y * PL.r * 0.66];
+    // pieces: where they are, how high their surface is, what they're doing
+    const pieces = pl.items.map((it, i) => {
+      const [x, y] = P(it.x, it.y), dragging = this.drag && this.drag.i === i && this.down;
+      const ph = this.phys(it, dt, x, y, dragging), sh = this.surfH(it.x, it.y);
+      return { it, x, y, ph, sh, inBowl: pl.base === 'bowl' && sh > 0 };
+    }).sort((a, b) => a.y - b.y);
+    const piece = (q) => {
+      const { it, x, ph } = q, ground = q.y - q.sh, h = Math.max(0, ph.h);
+      const sk = 1 / (1 + h / 30);
+      g.fillStyle = `rgba(70,40,25,${0.24 * sk})`; g.beginPath(); g.ellipse(x + 0.8, ground + 1, 4.2 * sk, 2.2 * sk, 0, 0, 6.283); g.fill();
+      const sq = Math.max(-0.25, Math.min(0.35, ph.sq)), sc = 1.15 * (1 + sq * 0.5);
+      spr(g, it.k === 'macaron' ? 'k_i_macaron' + ((it.r || 0) % 4) : 'k_i_' + it.k, x, ground - h, sc, { flip: (it.r || 0) % 2 === 1, rot: ph.tilt, sy: (1 - sq) / (1 + sq * 0.5) });
+    };
+    const behind = pieces.filter((q) => !q.sh && q.it.y < 0 && pl.base && pl.base !== 'plate');
+    for (const q of behind) piece(q);
+    if (pl.base && pl.base !== 'plate') {
+      g.save(); g.translate(PL.x, PL.y - drop); g.scale(1 + bsq, 1 - bsq); g.translate(-PL.x, -PL.y);
+      spr(g, 'k_' + pl.base, PL.x, PL.y, BASE_SCALE[pl.base] || 1);
+      g.restore();
+    }
+    // sauces run over the food: each point follows the surface under it
     g.lineCap = 'round'; g.lineJoin = 'round';
     for (const st of pl.strokes) {
-      const c = SAUCES[st.k].c, path = () => { g.beginPath(); st.pts.forEach((q, i) => { const [x, y] = P(...q); i ? g.lineTo(x, y) : g.moveTo(x, y); }); };
+      const c = SAUCES[st.k].c, pts = st.pts.map(([x, y]) => { const [sx, sy] = P(x, y); return [sx, sy - this.surfH(x, y)]; });
+      const path = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); };
       g.save(); g.translate(0, 0.5); path(); g.strokeStyle = tone(c, 0.7, 0.8); g.lineWidth = 2.4; g.stroke(); g.restore();
       path(); g.strokeStyle = c; g.lineWidth = 2.1; g.stroke();
       g.save(); g.translate(-0.3, -0.4); path(); g.strokeStyle = tone(c, 1.35, 0.7); g.lineWidth = 0.6; g.stroke(); g.restore();
     }
-    const item = (k, x, y, r, a = 1) => {
-      g.fillStyle = `rgba(70,40,25,${0.2 * a})`; g.beginPath(); g.ellipse(x + 0.8, y + 1, 4, 2.2, 0, 0, 6.283); g.fill();
-      spr(g, k === 'macaron' ? 'k_i_macaron' + ((r || 0) % 4) : 'k_i_' + k, x, y, 1.15, { flip: (r || 0) % 2 === 1, alpha: a });
-    };
-    for (const it of [...pl.items].sort((a, b) => a.y - b.y)) { const [x, y] = P(it.x, it.y); item(it.k, x, y, it.r); }
-    for (const [x, y, c] of pl.dust) { const [px, py] = P(x, y); g.fillStyle = tone(c, 1, 0.9); g.beginPath(); g.arc(px, py, 0.55, 0, 6.283); g.fill(); }
+    for (const q of pieces) if (!behind.includes(q) && q.inBowl) piece(q);
+    if (pl.base === 'bowl') spr(g, 'k_bowl_front', PL.x, PL.y - drop);
+    for (const q of pieces) if (!behind.includes(q) && !q.inBowl) piece(q);
+    for (const [x, y, c] of pl.dust) { const [px, py] = P(x, y); g.fillStyle = tone(c, 1, 0.9); g.beginPath(); g.arc(px, py - this.surfH(x, y), 0.55, 0, 6.283); g.fill(); }
+    // falling sprinkles from the shaker
+    this.motes = (this.motes || []).filter((m) => (m.t += dt) < m.life);
+    for (const m of this.motes) { m.vy += 300 * dt; m.x += m.vx * dt; m.y += m.vy * dt; g.fillStyle = tone(m.c, 1, 1 - m.t / m.life); g.beginPath(); g.arc(m.x, m.y, 0.6, 0, 6.283); g.fill(); }
     if (!pl.base && Math.floor(now * 2) % 2) { g.strokeStyle = '#ffd27a'; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.ellipse(PL.x, PL.y, PL.r + 3, PL.r * 0.82 + 3, 0, 0, 6.283); g.stroke(); g.setLineDash([]); }
-    if (this.drag && this.pointer) { const [x, y] = this.pointer; g.strokeStyle = this.onPlate(x, y) ? '#ffd27a' : '#e46a5a'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, 10, 0, 6.283); g.stroke(); }
-    if (this.tool && kindOf(this.tool) === 'shake' && this.pointer && this.down) { const [x, y] = this.pointer; spr(g, 'k_h_' + this.tool, x, y - 8, 1.6, { rot: Math.PI * 0.85 + Math.sin(now * 20) * 0.1 }); }
-    this.fx = this.fx.filter((f) => now - (f.t0 ??= now) < 0.8);
-    for (const f of this.fx) { const k = now - f.t0; item(f.k, f.x, f.y + k * k * 120, 0, 1); }
-    if (this.result && this.result.q >= REFUSE_BELOW) for (let i = 0; i < 6; i++) {
-      const a = now * 1.2 + i * 1.05, x = PL.x + Math.cos(a) * 46, y = PL.y + Math.sin(a) * 36, r = 1.5 + Math.sin(now * 6 + i);
-      g.fillStyle = '#ffd27a'; g.beginPath(); g.moveTo(x, y - r * 2); g.lineTo(x + r * 0.6, y); g.lineTo(x, y + r * 2); g.lineTo(x - r * 0.6, y); g.closePath(); g.fill();
-      g.beginPath(); g.moveTo(x - r * 2, y); g.lineTo(x, y + r * 0.6); g.lineTo(x + r * 2, y); g.lineTo(x, y - r * 0.6); g.closePath(); g.fill();
+    if (this.drag && this.pointer && this.down) { const [x, y] = this.pointer; g.strokeStyle = this.onPlate(x, y) ? 'rgba(255,210,122,0.9)' : 'rgba(228,106,90,0.9)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, 9 + Math.sin(now * 8), 0, 6.283); g.stroke(); }
+    if (this.tool && kindOf(this.tool) === 'shake' && this.pointer && this.down) {
+      const [x, y] = this.pointer; spr(g, 'k_h_' + this.tool, x, y - 8, 1.6, { rot: Math.PI * 0.85 + Math.sin(now * 20) * 0.1 });
+      if (Math.random() < 0.7) this.motes.push({ x: x + (Math.random() - 0.5) * 4, y: y - 2, vx: (Math.random() - 0.5) * 20, vy: 10, t: 0, life: 0.35, c: SHAKERS[this.tool].c });
     }
+    // dropped off the plate: it tumbles away
+    this.fx = this.fx.filter((f) => now - (f.t0 ??= now) < 0.8);
+    for (const f of this.fx) {
+      const k = now - f.t0;
+      g.save(); g.globalAlpha = Math.max(0, 1 - k / 0.8);
+      spr(g, f.k === 'macaron' ? 'k_i_macaron0' : 'k_i_' + f.k, f.x + k * 30, f.y + k * k * 140, 1.15, { rot: k * 7 });
+      g.restore();
+    }
+    if (this.result && this.result.q >= REFUSE_BELOW) {
+      if (!this.confetti) { this.confetti = Array.from({ length: 40 }, () => ({ x: PL.x + (Math.random() - 0.5) * 60, y: PL.y - 20, vx: (Math.random() - 0.5) * 140, vy: -80 - Math.random() * 120, r: Math.random() * 6, c: ['#ffd27a', '#f6c4d2', '#8fd16a', '#fbf6ea', '#e88aa0'][Math.floor(Math.random() * 5)] })); }
+      for (const c of this.confetti) { c.vy += 260 * dt; c.vx *= 1 - dt * 1.5; c.x += c.vx * dt; c.y += c.vy * dt; c.r += dt * 8; g.save(); g.translate(c.x, c.y); g.rotate(c.r); g.fillStyle = c.c; g.fillRect(-1.2, -0.6, 2.4, 1.2); g.restore(); }
+    } else this.confetti = null;
     g.restore();
     g.setTransform(1, 0, 0, 1, 0, 0);
   }

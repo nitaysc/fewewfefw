@@ -293,3 +293,24 @@ input.code { font-size: 34px; text-align: center; letter-spacing: 10px; text-tra
 }
 
 .order img { height: 42px; width: auto; max-width: 56px; object-fit: contain; image-rendering: pixelated; }
+
+/* feel: things react to your finger and screens slide in instead of blinking on */
+.btn, .chip, .tool, .sq, .big, .item { transition: transform .09s ease-out, filter .09s ease-out, box-shadow .12s; }
+.chip:active, .tool:active, .sq:active, .big:active, .item:active { transform: scale(.93); filter: brightness(1.12); }
+.btn:active { filter: brightness(1.08); }
+.tool img { image-rendering: auto; transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); }
+.tool:active img { transform: scale(1.18) rotate(-6deg); }
+.tool.on img { animation: toolOn .32s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes toolOn { from { transform: scale(.7) rotate(8deg); } to { transform: none; } }
+.station:not([hidden]) { animation: stFade .22s ease-out; }
+.station:not([hidden]) .st-card { animation: stLeft .34s cubic-bezier(.2, .9, .3, 1.15); }
+.station:not([hidden]) .st-side { animation: stRight .34s cubic-bezier(.2, .9, .3, 1.15); }
+.station:not([hidden]) .st-stage { animation: stZoom .38s cubic-bezier(.2, .9, .3, 1.1); }
+@keyframes stFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes stLeft { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes stRight { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes stZoom { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.screen.dim.show .panel { animation: panelIn .3s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes panelIn { from { transform: translateY(18px) scale(.95); opacity: 0; } to { transform: none; opacity: 1; } }
+.st-end:not(:empty) { animation: stLeft .3s ease-out; }
+.st-hint { transition: opacity .2s; }

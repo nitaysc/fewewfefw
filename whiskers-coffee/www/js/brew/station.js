@@ -6,7 +6,7 @@
 // the recipe (amounts, cup, toppings) for a star rating that decides the tip.
 import { Pix, shade, mix, hash } from '../art/pix.js';
 import { DRINKS, EXTRAS, C, INK, VESSELS, VESSEL_ORDER, COMPONENT_NAMES, COUNTED, TOPPINGS, newBuild, pour, fillOf, drawDrink, surfaceMap, guideShape, needFor, starsFor, judge, orderName, MAP_SIZE } from '../art/drinks.js';
-import { st3Ready, ST3, spr, sprSize, drawDrink3, surfaceCanvas, stream, iconURL, tone } from '../art/st3.js';
+import { st3Ready, ST3, spr, sprSize, drawDrink3, surfaceCanvas, stream, iconURL, tone, surfaceY as surfY, stepParts, drawParts, splash, confetti } from '../art/st3.js';
 import { t } from '../i18n.js';
 
 const SW = 150, SH = 100;
@@ -289,7 +289,7 @@ export class Station {
         c.acc += Math.abs(da);
         if (Math.floor(c.acc / (Math.PI / 2)) > before) this.hooks.sound(c.key === 'grind' ? 'grind' : 'stir');
         const k = Math.min(1, c.acc / (cfg.turns * Math.PI * 2));
-        if (c.key === 'grind') { this.crank = ang; this.beans = Math.max(0.3, this.beans - Math.abs(da) * 0.01); this.pf.grounds = k; this.pf.tamped = 0; this.pf.left = Math.max(0.45, (this.need.espresso || 0) + 0.2); if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: 19 + Math.random() * 2, y: 49, t: 0 }); }
+        if (c.key === 'grind') { this.crank = ang; this.beans = Math.max(0.3, this.beans - Math.abs(da) * 0.01); this.pf.grounds = k; this.pf.tamped = 0; this.pf.left = Math.max(0.45, (this.need.espresso || 0) + 0.2); if (Math.random() < 0.5) this.fx.push({ kind: 'ground', x: (this.l3 ? ST3.bar.chute[0] : 19) + Math.random() * 2 - 1, y: this.l3 ? ST3.bar.chute[1] + 1.5 : 49, t: 0 }); }
         else {
           // melting the chocolate pieces: they turn into a smooth layer as you stir
           this.spoon = [x, y];
@@ -532,6 +532,13 @@ export class Station {
       if (this.open) this.renderTools();
     }
     const view = this.cur && !this.result ? this.cur.cfg.view : 'bar';
+    const dt = Math.min(0.05, Math.max(0, now - (this.t3 ?? now))); this.t3 = now;
+    const b = this.b, f = Math.min(1, fillOf(b));
+    if (b !== this.lastB || b.vessel !== this.lastVessel) { this.lastB = b; this.lastVessel = b.vessel; this.vFill = f; this.cupT = 0; this.parts = []; this.seenMarsh = b.marsh.length; }
+    this.vFill += (f - this.vFill) * Math.min(1, dt * 10);
+    this.cupT += dt;
+    this.parts = stepParts(this.parts || [], dt);
+    if (this.result && this.result.q >= REFUSE_BELOW) { if (!this.partied) { this.partied = true; confetti(this.parts, CUP.x, CUP.by - 20); } } else this.partied = false;
     const g = this.g, s = this.scale;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = '#1d130d'; g.fillRect(0, 0, this.el.canvas.width, this.el.canvas.height);
@@ -592,8 +599,13 @@ export class Station {
     }
     const V = b.vessel ? ST3.ves[b.vessel] : null;
     const cupTop = V ? CUP.by - V.h : CUP.by - 10;
-    const fill = Math.min(1, fillOf(b));
-    const surfaceY = V ? CUP.by - V.bot - fill * (V.h - V.bot - 0.4) : CUP.by;
+    const surfaceY = V ? surfY(b, CUP.by, this.vFill) : CUP.by;
+    const pouring = c && c.held && c.cfg.mech === 'hold' && !c.cfg.heat && !c.cfg.cream;
+    if (pouring && V) {
+      const col = key === 'shot' ? C.espresso : key === 'water' ? '#cfe8ee' : key === 'coldwater' ? '#d6ecf0' : key === 'coldmilk' ? C.coldmilk : C.milk;
+      this.pourAcc = (this.pourAcc || 0) + (now - (this.pourLast || now)); this.pourLast = now;
+      if (this.pourAcc > 0.09) { this.pourAcc = 0; splash(this.parts, CUP.x + (key === 'water' ? 2.5 : 0), surfaceY, b.layers[b.layers.length - 1]?.c || col, 1, ST3.ves[b.vessel].ry); }
+    } else this.pourLast = null;
     const steaming = c && c.cfg.heat;
     const pouringMilk = key === 'pourmilk' && c.held;
     const coldPour = c && c.held && (key === 'coldmilk' || key === 'coldwater');
@@ -618,8 +630,10 @@ export class Station {
     if (key === 'shot' && c.held) { stream(g, SPOUT.x - 0.9, SPOUT.y, surfaceY, C.espresso, 0.45, now); stream(g, SPOUT.x + 0.9, SPOUT.y, surfaceY, C.espresso, 0.45, now + 0.3); }
     if (key === 'water' && c.held) stream(g, SPOUT.x + 2.5, SPOUT.y, surfaceY, '#cfe8ee', 0.8, now);
     // the drink, or an empty spot waiting for a cup
-    if (b.vessel) drawDrink3(g, CUP.x, CUP.by, b);
-    else if (Math.floor(now * 2) % 2) ring(p, Math.round(CUP.x), Math.round(CUP.by - 8), 6, '#ffd27a');
+    if (b.vessel) {
+      const k = Math.min(1, this.cupT / 0.32), lift = (1 - k) * (1 - k) * 22, squash = this.cupT < 0.6 ? Math.sin(Math.min(1, (this.cupT - 0.32) / 0.28) * Math.PI) * 0.08 * (this.cupT > 0.32) : 0;
+      drawDrink3(g, CUP.x, CUP.by, b, { fill: this.vFill, wobble: pouring ? 0.35 : 0, t: now, lift, squash });
+    } else if (Math.floor(now * 2) % 2) ring(p, Math.round(CUP.x), Math.round(CUP.by - 8), 6, '#ffd27a');
     // tools for the current step
     if (key === 'ice' || this.fx.some((f) => f.kind === 'ice')) spr(g, 'st_bucket', SLOT.x, SLOT.by);
     if (key === 'berry') spr(g, 'st_berries', SLOT.x, SLOT.by);
@@ -629,6 +643,8 @@ export class Station {
     if (c?.cfg.each && key !== 'berry' && key !== 'lemon' && key !== 'orange') spr(g, { vanilla: 'st_bottle_vanilla', caramelsyrup: 'st_bottle_caramel', chocsyrup: 'st_bottle_choc', chai: 'st_bottle_chai' }[key] || 'st_bottle_vanilla', SLOT.x, SLOT.by);
     if (key === 'cream') spr(g, 'st_creamcan', CUP.x + 1, cupTop - 24 - Math.min(1.3, b.cream) * 7, 1, { rot: Math.PI });
     for (const f of this.fx) {
+      if (f.kind === 'ice' && f.t >= 0.4 && !f.splashed && V) { f.splashed = true; splash(this.parts, CUP.x, surfaceY, b.layers[b.layers.length - 1]?.c || '#cfe8ee', 7, V.ry); }
+      if ((f.kind === 'drip' || f.kind === 'mash') && f.t >= 0.25 && !f.splashed && V) { f.splashed = true; splash(this.parts, CUP.x + 1, surfaceY, f.c || C.berry, 4, V.ry); }
       if (f.kind === 'ice' && f.t < 0.4) {
         const k = Math.min(1, f.t / 0.4);
         spr(g, 'st_ice', SLOT.x + (CUP.x - SLOT.x) * k, SLOT.by - 14 - Math.sin(k * Math.PI) * 14 + (cupTop + 4 - SLOT.by + 14) * k, 1.2, { rot: k * 3 });
@@ -639,7 +655,7 @@ export class Station {
         g.fillStyle = '#c08a55'; g.beginPath(); g.roundRect(CUP.x - 0.9, y, 1.2, 14, 0.6); g.fill();
       }
       if (f.kind === 'drip' && f.t < 0.5) stream(g, CUP.x + 2, cupTop - 8, Math.min(surfaceY, cupTop - 8 + f.t * 30), f.c, 0.5, now);
-      if (f.kind === 'ground' && f.t < 0.4) { g.fillStyle = '#3b2014'; g.beginPath(); g.arc(f.x, f.y + f.t * 20, 0.6, 0, 6.283); g.fill(); }
+      if (f.kind === 'ground' && f.t < 0.4) { g.fillStyle = '#3b2014'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(f.x + i * 0.7 - 0.7, f.y + f.t * f.t * 90 + i * 1.3, 0.5, 0, 6.283); g.fill(); } }
     }
     if (this.result && this.result.q >= REFUSE_BELOW) {
       for (let i = 0; i < 6; i++) {
@@ -658,6 +674,7 @@ export class Station {
       drawProgress(p, 4, 92, 34, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2)));
       if (!c.acc) { const a = now * 3; p.set(CRANK.x + Math.cos(a) * 10, CRANK.y + Math.sin(a) * 10, '#ffd27a'); p.set(CRANK.x + Math.cos(a - 0.3) * 10, CRANK.y + Math.sin(a - 0.3) * 10, '#ffd27a88'); }
     }
+    drawParts(g, this.parts);
     if (key === 'wipe') {
       drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
       if (this.pointer && this.down) spr(g, 'st_rag', this.pointer[0], this.pointer[1] + 2, 1, { rot: Math.sin(now * 12) * 0.15 });
@@ -691,6 +708,9 @@ export class Station {
     if (c.cfg.mech === 'shake' && ptr) { if (key === 'matcha') spr(g, 'st_whisk', ptr[0], ptr[1] + 2); else spr(g, key === 'cocoa' ? 'st_shaker_cocoa' : 'st_shaker_cinnamon', ptr[0], ptr[1] + 2, 1, { rot: Math.PI * 0.8 }); }
     if (c.cfg.mech === 'shake') drawProgress(p, 120, 92, 26, c.count / c.cfg.count);
     if (key === 'choc') { if (this.spoon) spr(g, 'st_spoon', this.spoon[0], this.spoon[1]); drawProgress(p, 120, 92, 26, Math.min(1, c.acc / (c.cfg.turns * Math.PI * 2))); if (!c.acc) { const a = now * 3; ring(p, Math.round(TOP.x + Math.cos(a) * 22), Math.round(TOP.y + Math.sin(a) * 22), 2, '#ffd27a'); } }
+    if (b.marsh.length > (this.seenMarsh || 0)) { for (const [mx, my] of b.marsh.slice(this.seenMarsh || 0)) splash(this.parts, TOP.x + mx * TOP.r, TOP.y + my * TOP.r, topC(b), 6, 1, TOP.y + TOP.r * 2); }
+    this.seenMarsh = b.marsh.length;
+    drawParts(g, this.parts);
     if (key === 'marsh') spr(g, 'st_jar', 22, 86, 1.3);
     if (key === 'mint') spr(g, 'st_mint', 22, 74, 3);
   }
@@ -760,6 +780,8 @@ export class Station {
     if (key === 'cream') drawCreamCan(p, CUP.x + 2, cupTop - 6 - Math.round(Math.min(1.3, b.cream) * 9), c.held);
     if (b.counts.teabag && b.vessel) { p.line(CUP.x + 4, cupTop - 1, CUP.x + 9, cupTop - 6, '#f4ecd6'); p.rect(CUP.x + 8, cupTop - 9, 4, 4, '#f6e070'); p.set(CUP.x + 9, cupTop - 8, '#b5483c'); }
     for (const f of this.fx) {
+      if (f.kind === 'ice' && f.t >= 0.4 && !f.splashed && V) { f.splashed = true; splash(this.parts, CUP.x, surfaceY, b.layers[b.layers.length - 1]?.c || '#cfe8ee', 7, V.ry); }
+      if ((f.kind === 'drip' || f.kind === 'mash') && f.t >= 0.25 && !f.splashed && V) { f.splashed = true; splash(this.parts, CUP.x + 1, surfaceY, f.c || C.berry, 4, V.ry); }
       if (f.kind === 'ice' && f.t < 0.4) {
         const k = Math.min(1, f.t / 0.4), x = Math.round(SLOT.x + (CUP.x - SLOT.x) * k), y = Math.round(SLOT.by - 14 - Math.sin(k * Math.PI) * 14 + (cupTop + 4 - SLOT.by + 14) * k);
         p.rect(x - 2, y - 2, 5, 5, '#eef9fb'); p.hline(x - 2, x + 2, y - 3, INK); p.vline(x + 3, y - 2, y + 2, '#a9d3dc');
@@ -818,6 +840,7 @@ export class Station {
   }
 }
 
+const topC = (b) => b.top || b.layers[b.layers.length - 1]?.c || C.milk;
 // ---------- tool icons for the shelves ----------
 // pictures from tools/art3d for each tool (stacked on one anchor)
 const TOOL_PICS = {

@@ -87,7 +87,7 @@ def bar_scene():
     body = O(Mat('#c0453a', 6, 0.4, spec=0.5, hs=-0.03), (90, 30, 26))
     sc += [
         (rbox((gx, 0.1, -0.3), (0.95, 0.1, 0.72), 0.05), steelD),
-        (rcone((gx, 0.2, -0.4), (gx, 2.15, -0.4), 0.78, 0.55), body),
+        (fcone(0.2, 2.15, 0.78, 0.55, (gx, -0.4)), body),
         (cyl((gx, 2.2, -0.4), 0.6, 0.08, 0.03), steelD),
         (rbox((gx, P['chute'][1], 0.25), (0.18, 0.13, 0.2), 0.05), steelD),
         (rbox((gx, 1.75, 0.3), (0.32, 0.12, 0.04), 0.03), O(Mat('#fbf6ea', 4, 0.3))),
@@ -110,8 +110,8 @@ def hopper(part):
     a, b = P['hopper_bot'], P['hopper_top']
     loc = lambda q: (q[0] - a[0], q[1] - a[1], q[2] - a[2])
     A, B = loc(a), loc(b)
-    if part == 'beans': return [(rcone(A, (B[0], B[1] - 0.1, B[2]), 0.42, 0.68), beans)]
-    return [(sub(rcone(A, B, 0.46, 0.74), rcone((A[0], A[1] + 0.05, A[2]), (B[0], B[1] + 0.2, B[2]), 0.42, 0.7)), O(Mat('#d4eaf0', 4, 0.25, spec=1.0), (120, 150, 160))),
+    if part == 'beans': return [(fcone(A[1], B[1] - 0.1, 0.42, 0.68, (A[0], A[2])), beans)]
+    return [(sub(fcone(A[1], B[1], 0.46, 0.74, (A[0], A[2])), fcone(A[1] + 0.05, B[1] + 0.2, 0.42, 0.75, (A[0], A[2]))), O(Mat('#d4eaf0', 4, 0.25, spec=1.0), (120, 150, 160))),
             (torus(B, 0.74, 0.05), glassJ), (cyl((B[0], B[1] + 0.12, B[2]), 0.8, 0.07, 0.04), steelD),
             (ell((B[0], B[1] + 0.2, B[2]), (0.7, 0.16, 0.7)), steelD), (ell((B[0], B[1] + 0.4, B[2]), (0.12, 0.1, 0.12)), O(Mat('#3b2a22', 5, 0.5)))]
 
@@ -124,8 +124,8 @@ def portafilter(full):
 def knob():
     return [(ell((0, 0, 0), (0.17, 0.17, 0.17)), O(Mat('#9c6a42', 5, 0.5, spec=0.3)))]
 def jug(milk=False):
-    body = rcone((0, 0.0, 0), (0, 1.15, 0), 0.5, 0.38)
-    inside = rcone((0, 0.1, 0), (0, 1.3, 0), 0.43, 0.32)
+    body = fcone(0.0, 1.15, 0.5, 0.38)
+    inside = fcone(0.08, 1.3, 0.44, 0.31)
     sc = [(sub(body, inside), steel), (cap((-0.42, 0.95, 0), (-0.72, 0.6, 0), 0.07), steelD), (ell((0.46, 1.12, 0), (0.12, 0.05, 0.1)), steel)]
     if milk: sc.append((cyl((0, 0.85, 0), 0.4, 0.02), O(Mat('#f6efe0', 4, 0.25), (200, 185, 165))))
     return sc
@@ -136,7 +136,7 @@ def pitcher():
     body = cyl((0, 0.7, 0), 0.42, 0.7, 0.06)
     return [(body, glassJ), (cyl((0, 0.5, 0), 0.38, 0.5, 0.04), O(Mat('#cfe6ee', 4, 0.3), (110, 140, 150))), (torus((0.48, 0.75, 0), 0.22, 0.05, 'z'), glassJ)]
 def bucket():
-    sc = [(sub(rcone((0, 0.0, 0), (0, 0.8, 0), 0.5, 0.64), rcone((0, 0.1, 0), (0, 0.9, 0), 0.44, 0.58)), steel), (torus((0, 0.8, 0), 0.64, 0.04), steelD)]
+    sc = [(sub(fcone(0.0, 0.8, 0.5, 0.64), fcone(0.08, 0.9, 0.45, 0.59)), steel), (torus((0, 0.8, 0), 0.64, 0.04), steelD)]
     for i, (x, z) in enumerate(((-0.25, 0.1), (0.2, 0.15), (0.0, -0.2), (0.3, -0.15), (-0.3, -0.2))):
         sc.append((xform(rbox((x, 0.82 + 0.05 * (i % 2), z), (0.14, 0.12, 0.14), 0.04), rot_y=i * 0.7, about=(x, 0.82, z)), O(Mat('#e8f6fa', 4, 0.3, spec=1.0), (140, 170, 180))))
     return sc
@@ -228,8 +228,8 @@ def vessel(v, empty_inside=True):
         inside = O(Mat('#f3ebdc' if v != 'mug' else '#f1e4d6', 5, 0.3, hs=-0.02))
         L = LIFT.get(v, 0.0)
         tap = 0.78 if v != 'mug' else 0.95
-        outer = rcone((0, L, 0), (0, L + h, 0), r * tap, r)
-        inner = rcone((0, L + 0.07, 0), (0, L + h + 0.2, 0), r * tap - 0.06, r - 0.06)
+        outer = fcone(L, L + h, r * tap, r)
+        inner = fcone(L + 0.07, L + h + 0.2, r * tap - 0.06, r - 0.06 + 0.2 * (1 - tap) * r / h)
         cup = lambda p: np.maximum(np.maximum(outer(p), p[:, 1] - L - h), -inner(p))
         lining = lambda p: np.maximum(np.maximum(inner(p) - 0.015, -inner(p) - 0.03), p[:, 1] - L - h + 0.01)
         sc.append((cup, bm))
@@ -277,9 +277,10 @@ def bowl_base():
           (torus((0, H, 0), R - 0.03, 0.035), O(Mat('#6f8fc9', 5, 0.4), (40, 60, 100))),
           (cyl((0, 0.03, 0), 0.38, 0.03, 0.02), O(Mat('#e6e2da', 4, 0.3)))]
     for i in range(30):
-        a = i * 2.39; rr = 0.04 + 0.52 * np.sqrt((i * 0.618) % 1)
-        y = 0.2 + 0.28 * (1 - rr / 0.6) + 0.03 * (i % 3)
-        sc.append((xform(ell((np.cos(a) * rr, y, np.sin(a) * rr), (0.22, 0.05, 0.15)), rot_y=a, rot_x=0.25 * ((i % 3) - 1), about=(np.cos(a) * rr, y, np.sin(a) * rr)),
+        a = i * 2.39; rr = 0.04 + 0.36 * np.sqrt((i * 0.618) % 1)
+        y = 0.22 + 0.24 * (1 - rr / 0.45) + 0.03 * (i % 3)
+        leaf = xform(ell((np.cos(a) * rr, y, np.sin(a) * rr), (0.22, 0.05, 0.15)), rot_y=a, rot_x=0.25 * ((i % 3) - 1), about=(np.cos(a) * rr, y, np.sin(a) * rr))
+        sc.append((inter(leaf, lambda p: np.hypot(p[:, 0], p[:, 2]) - (R - 0.1)),
                    O(Mat('#8fc25a' if i % 3 else '#a8d070', 5, 0.5, hs=-0.04, tex=lambda p, n: 0.25 * (np.abs(np.sin(p[:, 0] * 40 + p[:, 2] * 40)) < 0.08)), (60, 100, 40)) if i % 2 else M['leaf']))
     return sc
 def toast_base():
@@ -435,6 +436,18 @@ def job(args):
         img = render(kitchen_bg() + plate_scene(), KSIZE, ppu=KIT_PPU, center=(0, 0, 0), pitch=55, yaw=0, light=KLIGHT)
         Image.fromarray(img, 'RGBA').save(os.path.join(OUT, 'k_bg.png'), optimize=True)
         return 'k_bg', [KSIZE[0], KSIZE[1], 0, 0]
+    if kind == 'kbowlfront':
+        # the front wall of the salad bowl, drawn over what's inside so it sits in the bowl
+        sc = bowl_base()[:2]; size = (680, 600); cen = (0, 0.25, 0)
+        img = render(sc, size, ppu=KIT_PPU, center=cen, pitch=55, light=KLIGHT)
+        R, H = 0.72, 0.42
+        cx, cy = project((0, H, 0), size, KIT_PPU, cen, 55, 0)
+        rx = (R - 0.03) * KIT_PPU; ry = rx * np.sin(np.radians(55))
+        yy, xx = np.mgrid[0:size[1], 0:size[0]]
+        inside = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 < 1
+        img[(yy < cy) | inside] = 0
+        ax, ay = project((0, 0, 0), size, KIT_PPU, cen, 55, 0)
+        return crop_save('k_bowl_front', img, ax + 0.5, ay + 0.5)
     if kind == 'kplate':
         return prop_job('k_plate', plate_scene(), size=(680, 560), ppu=KIT_PPU, cen=(0, 0, 0), pitch=55)
     if kind == 'kbase':
@@ -481,7 +494,7 @@ if __name__ == '__main__':
     if 'all' in want or 'props' in want: jobs += [('prop', k) for k in PROPS]
     if 'all' in want or 'ves' in want: jobs += [('ves', k) for k in VES] + [('vestop', k) for k in VES]
     if 'all' in want or 'kitchen' in want:
-        jobs += [('kbg', None), ('kplate', None)] + [('kbase', k) for k in BASES] + [('king', k) for k in ING if k != 'macaron'] + [('kmac', i) for i in range(4)]
+        jobs += [('kbg', None), ('kplate', None), ('kbowlfront', None)] + [('kbase', k) for k in BASES] + [('king', k) for k in ING if k != 'macaron'] + [('kmac', i) for i in range(4)]
         jobs += [('ksauce', kv) for kv in SAUCE_C.items()] + [('kshaker', kv) for kv in SHAKER_C.items()]
     only = os.environ.get('ONLY')
     if only: jobs = [j for j in jobs if only in str(j)]

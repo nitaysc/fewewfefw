@@ -223,3 +223,11 @@ def rcone(a, b, ra, rb):
 def inter(a, b): return lambda p: np.maximum(a(p), b(p))
 def rot_all(scene, yaw=0.0, about=(0, 0, 0)):
     return [(xform(f, rot_y=yaw, about=about), m) for f, m in scene]
+def fcone(y0, y1, r0, r1, c=(0, 0)):
+    """flat-ended vertical cone (a frustum) from height y0 (radius r0) to y1 (radius r1), axis at x, z = c"""
+    k = (r1 - r0) / (y1 - y0); cs = 1 / np.sqrt(1 + k * k)
+    def f(p):
+        q = np.hypot(p[:, 0] - c[0], p[:, 2] - c[1])
+        side = (q - (r0 + k * (np.clip(p[:, 1], y0, y1) - y0))) * cs
+        return np.maximum(side, np.maximum(y0 - p[:, 1], p[:, 1] - y1))
+    return f
