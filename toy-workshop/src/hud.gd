@@ -656,9 +656,13 @@ func _on_level(lvl: int, unlocked: Array) -> void:
 	Sfx.buzz(60)
 	var box := _modal()
 	var v: VBoxContainer = box.get_child(0)
-	v.add_child(label("Level %d!" % lvl, 54, ORANGE, 0))
+	var title := label("Level %d!" % lvl, 54, ORANGE, 0)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(title)
 	if unlocked.size() > 0:
-		v.add_child(label("New in the workshop:", 22))
+		var nl := label("New in the workshop:", 22)
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(nl)
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_theme_constant_override("separation", 14)
@@ -673,6 +677,12 @@ func _on_level(lvl: int, unlocked: Array) -> void:
 	var ok := button("Hooray!")
 	ok.custom_minimum_size = Vector2(220, 64)
 	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if Data.TIPS.has(lvl):
+		var tip := label(Data.TIPS[lvl], 19, Color("7a6470"))
+		tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tip.custom_minimum_size.x = 460
+		tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(tip)
 	ok.pressed.connect(func(): _close_modal())
 	v.add_child(ok)
 	_confetti()
@@ -680,7 +690,9 @@ func _on_level(lvl: int, unlocked: Array) -> void:
 func _intro() -> void:
 	var box := _modal()
 	var v: VBoxContainer = box.get_child(0)
-	v.add_child(label("Tiny Toyworks", 60, ORANGE))
+	var tt := label("Tiny Toyworks", 60, ORANGE)
+	tt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(tt)
 	var s := label("Run a cozy toy workshop. Conveyor belts carry wood to your saw and lathe,\nthe bench builds toys, and the shipping box sends them to kids who ordered them.\nFill orders, earn coins, unlock new toys, and grow the workshop.", 20, Color("7a6470"))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)

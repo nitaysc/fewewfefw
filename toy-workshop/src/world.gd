@@ -56,7 +56,7 @@ func _ready() -> void:
 	grid_overlay.position = Vector3(0, 0.012, 0)
 	grid_overlay.visible = false
 	add_child(grid_overlay)
-	sel_ring = Meshes.put(self, Meshes.torus(0.56, 0.64), Meshes.glow(Color("ffd36b"), 1.6), Vector3(0, 0.03, 0), Vector3.ZERO, Vector3(1, 0.15, 1))
+	sel_ring = Meshes.put(self, Meshes.torus(0.6, 0.68), Meshes.glow(Color("ffd36b"), 1.6), Vector3(0, 0.1, 0), Vector3.ZERO, Vector3(1, 0.4, 1))
 	sel_ring.visible = false
 	tile = Meshes.put(self, Meshes.rbox(Vector3(0.96, 0.02, 0.96), 0.08), Meshes.clear_mat(Color("7dffb0"), 0.35), Vector3.ZERO)
 	tile.visible = false
@@ -248,7 +248,7 @@ func _process(dt: float) -> void:
 	_sync_items(dt)
 	if sel_ring.visible:
 		var s := 1.0 + sin(t * 5.0) * 0.04
-		sel_ring.scale = Vector3(s, 0.15, s)
+		sel_ring.scale = Vector3(s, 0.4, s)
 	if ghost:
 		ghost.position = ghost.position.lerp(cell_pos(hover) + Vector3(0, 0.05 + sin(t * 6.0) * 0.03, 0), 1.0 - exp(-dt * 20.0))
 		ghost.rotation.y = lerp_angle(ghost.rotation.y, dir_rot(build_dir), 1.0 - exp(-dt * 18.0))
@@ -511,7 +511,7 @@ func select(p) -> void:
 	sel = p
 	sel_ring.visible = p != null
 	if p != null:
-		sel_ring.position = cell_pos(p) + Vector3(0, 0.03, 0)
+		sel_ring.position = cell_pos(p) + Vector3(0, 0.1, 0)
 		var rec = machine_nodes.get(p)
 		if rec:
 			rec.node.scale = Vector3(1.1, 0.9, 1.1)

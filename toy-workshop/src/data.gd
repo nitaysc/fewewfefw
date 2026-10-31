@@ -61,6 +61,15 @@ const MACHINES := {
 }
 const SHOP_ORDER := ["belt", "crate_wood", "saw", "lathe", "painter", "assembler", "dock", "crate_metal", "press", "crate_cloth", "loom"]
 
+# a tip shown after each level-up, so the player always knows what to try next
+const TIPS := {
+	2: "Buy a Paint Booth and place it on the belt right after the Saw. Tap it to choose a colour.",
+	3: "Trains need 2 blocks and 2 wheels. Tap the Assembly Bench to switch it to Trains, or build a second line.",
+	4: "Metal Crate + Tube Press make tubes. Rockets need a tube and a block.",
+	5: "Cloth Crate + Stuffing Loom make fluff. Teddy Bears need two fluffs.",
+	6: "Robots need a tube, a block and two pegs. Set a Lathe to Pegs!",
+}
+
 const BELT_SPEED := 1.25        # cells per second
 const BUFFER := 4               # how many things a machine holds waiting
 

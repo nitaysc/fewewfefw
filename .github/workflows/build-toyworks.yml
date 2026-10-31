@@ -18,17 +18,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Godot export templates and a signing key
+      - name: Set up Godot export templates, Android settings and a signing key
         run: |
-          mkdir -p ~/.local/share/godot/export_templates ~/.config
-          cp -r /root/.local/share/godot/export_templates/* ~/.local/share/godot/export_templates/ || true
-          cp -r /root/.config/godot ~/.config/ || true
-          ls ~/.local/share/godot/export_templates
+          export HOME=/root
+          ls /root/.local/share/godot/export_templates
+          ls -la /root/.config/godot || true
+          cat /root/.config/godot/editor_settings-4*.tres || true
           keytool -genkeypair -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android \
             -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          JAVA_DIR=$(dirname $(dirname $(readlink -f $(which java))))
+          echo "java: $JAVA_DIR"
+          mkdir -p /root/.config/godot
+          for f in editor_settings-4.tres editor_settings-4.6.tres; do
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "/usr/lib/android-sdk"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "/tmp/debug.keystore"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' "$JAVA_DIR" > /root/.config/godot/$f
+          done
+          ls /usr/lib/android-sdk /usr/lib/android-sdk/build-tools || true
 
       - name: Import and run the game's checks
         working-directory: toy-workshop
+        env:
+          HOME: /root
         run: |
           godot --headless --path . --import || true
           godot --headless --path . --script res://tests/run_tests.gd
@@ -36,6 +45,7 @@ jobs:
       - name: Export APK
         working-directory: toy-workshop
         env:
+          HOME: /root
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
@@ -43,7 +53,8 @@ jobs:
           sed -i "s|^version/code=.*|version/code=${{ github.run_number }}|; s|^version/name=.*|version/name=\"0.1.${{ github.run_number }}\"|" export_presets.cfg
           sed -i "s|^keystore/debug=.*|keystore/debug=\"/tmp/debug.keystore\"|; s|^keystore/debug_user=.*|keystore/debug_user=\"androiddebugkey\"|; s|^keystore/debug_password=.*|keystore/debug_password=\"android\"|" export_presets.cfg
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/tiny-toyworks.apk
+          godot --headless --verbose --path . --export-debug "Android" build/tiny-toyworks.apk 2>&1 | grep -v fontconfig | tail -80
+          test -f build/tiny-toyworks.apk
           ls -la build
 
       - uses: actions/upload-artifact@v4
