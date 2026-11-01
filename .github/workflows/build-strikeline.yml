@@ -1,0 +1,93 @@
+name: Build Strikeline APK
+
+on:
+  push:
+    paths:
+      - 'strikeline/**'
+      - '.github/workflows/build-strikeline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.4.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: strikeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-cache
+          key: godot-${{ env.GODOT_VERSION }}-android
+
+      - name: Download Godot and the Android export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p ~/godot-cache
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot-cache
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz 'templates/android_*' 'templates/version.txt' -d ~/godot-cache
+
+      - name: Install Godot
+        run: |
+          sudo ln -sf ~/godot-cache/Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cp ~/godot-cache/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          mkdir -p ~/.config/godot
+          for v in 4 4.4; do
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' \
+              "$ANDROID_HOME" "$JAVA_HOME" > ~/.config/godot/editor_settings-$v.tres
+          done
+          godot --version
+
+      - name: Import the project
+        run: godot --headless --import || true
+
+      - name: Touch controls work
+        run: godot --headless --fixed-fps 60 res://test/touch_test.tscn 2>&1 | tee touch.log; grep -q "RESULT OK" touch.log
+
+      - name: CPU matches finish on every stage
+        run: timeout 600 godot --headless --fixed-fps 60 res://test/sim.tscn 2>&1 | tee sim.log; grep -q "ALL DONE" sim.log
+
+      - name: Export the APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/strikeline/android/strikeline.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: strikeline
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: strikeline
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.0.${{ github.run_number }}\"/" export_presets.cfg
+          mkdir -p build
+          godot --headless --export-release "Android" build/strikeline.apk
+          test -s build/strikeline.apk
+          cp build/strikeline.apk ../strikeline.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strikeline-apk
+          path: strikeline.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "strikeline-v1.0.${{ github.run_number }}" ../strikeline.apk \
+            --target "${{ github.sha }}" \
+            --title "Strikeline v1.0.${{ github.run_number }}" \
+            --notes "Download: tap strikeline.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false
