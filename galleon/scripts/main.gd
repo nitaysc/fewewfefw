@@ -18,6 +18,8 @@ const HelmScript := preload("res://scripts/helm.gd")
 const RoseScript := preload("res://scripts/rose.gd")
 
 const CAMS := ["Chase", "Orbit", "Cinematic", "Quarterdeck"]
+const BRIG_PATH := "res://assets/brig/brig.glb"
+const SAIL_DESIGNS := ["white", "dirty_white", "pirate", "black", "british", "spanish", "templar", "dutch"]
 const SAIL_LEVELS := [0.0, 0.5, 1.0]
 const SAIL_NAMES := ["Furled", "Half sail", "Full sail"]
 
@@ -49,6 +51,7 @@ var dist0 := 0.0
 
 var running := false
 var sail_idx := 1
+var sail_design := "white"
 var perf_level := 0 ## 0 = full quality; raised automatically if the phone cannot keep up
 var key_rudder := 0.0
 
@@ -112,6 +115,9 @@ func _ready() -> void:
 		cam_dist = float(args.dist)
 	if args.has("debug"):
 		ocean.mat.set_shader_parameter("debug_view", int(args.debug))
+	if args.has("sails") and ship.brig_sails:
+		sail_design = args.sails
+		_apply_sail_design()
 	if args.has("notaa"):
 		get_viewport().use_taa = false
 	if args.has("shot"):
@@ -202,12 +208,19 @@ func _place_sun() -> void:
 func _build_ship() -> void:
 	ship = ShipScript.new()
 	add_child(ship)
-	ship.attach_model(load("res://assets/ship/galleon.glb"), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
+	# the purchased brig if its (git-ignored, licensed) files are present, else the built-in galleon
+	var model_path := BRIG_PATH if ResourceLoader.exists(BRIG_PATH) and not args.has("galleon") else "res://assets/ship/galleon.glb"
+	ship.attach_model(load(model_path), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
+	if ship.brig_sails:
+		var cfg := ConfigFile.new()
+		cfg.load("user://settings.cfg")
+		sail_design = cfg.get_value("ship", "sails", "white")
+		_apply_sail_design()
 	_place_sun_deferred.call_deferred()
 	# bow wave sheets, droplets and mist
 	bow_wave = BowWaveScript.new()
 	ship.add_child(bow_wave)
-	bow_wave.build(ShipScript)
+	bow_wave.build(ShipScript, ship.bow_scale)
 	var noise := NoiseTexture2D.new()
 	noise.seamless = true
 	noise.noise = FastNoiseLite.new()
@@ -220,7 +233,7 @@ func _build_ship() -> void:
 		drops.amount = 380
 		drops.lifetime = 1.1
 		drops.local_coords = false
-		drops.position = Vector3(side * 3.4, 1.0, 14.5)
+		drops.position = Vector3(side * 3.4, 1.0, 14.5 * ship.bow_scale)
 		drops.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY
 		var dm := ParticleProcessMaterial.new()
 		dm.direction = Vector3(side * 1.0, 1.3, 0.6)
@@ -249,7 +262,7 @@ func _build_ship() -> void:
 		mist.amount = 40
 		mist.lifetime = 1.6
 		mist.local_coords = false
-		mist.position = Vector3(side * 3.6, 1.2, 13.5)
+		mist.position = Vector3(side * 3.6, 1.2, 13.5 * ship.bow_scale)
 		var mm := ParticleProcessMaterial.new()
 		mm.direction = Vector3(side * 0.8, 0.7, 0.2)
 		mm.spread = 35.0
@@ -443,6 +456,11 @@ func _build_hud() -> void:
 	cam_btn.add_theme_font_size_override("font_size", 18)
 	cam_btn.pressed.connect(func(): _set_cam(cam_mode + 1))
 	rose = RoseScript.new()
+	if ship.brig_sails:
+		var sails_btn := _round_button("SAILS", 72)
+		sails_btn.add_theme_font_size_override("font_size", 14)
+		sails_btn.pressed.connect(_next_sail_design)
+		tr.add_child(sails_btn)
 	tr.add_child(cam_btn)
 	tr.add_child(rose)
 	hud_root.add_child(tr)
@@ -551,6 +569,26 @@ func _set_cam(i: int) -> void:
 		cam_lbl.text = CAMS[cam_mode]
 		cam_lbl.modulate.a = 1.0
 		create_tween().tween_property(cam_lbl, "modulate:a", 0.0, 1.2).set_delay(0.8)
+
+
+## Sail designs that came with the brig (white, pirate, black, British, Spanish...).
+func _next_sail_design() -> void:
+	sail_design = SAIL_DESIGNS[(SAIL_DESIGNS.find(sail_design) + 1) % SAIL_DESIGNS.size()]
+	_apply_sail_design()
+	var cfg := ConfigFile.new()
+	cfg.load("user://settings.cfg")
+	cfg.set_value("ship", "sails", sail_design)
+	cfg.save("user://settings.cfg")
+	if cam_lbl:
+		cam_lbl.text = "Sails: " + sail_design.replace("_", " ").capitalize()
+		cam_lbl.modulate.a = 1.0
+		create_tween().tween_property(cam_lbl, "modulate:a", 0.0, 1.2).set_delay(0.8)
+
+
+func _apply_sail_design() -> void:
+	var path := "res://assets/brig/sails/%s.jpg" % sail_design
+	if ResourceLoader.exists(path):
+		ship.set_sail_design(load(path))
 
 
 # ------------------------------------------------------------------ input

@@ -35,6 +35,8 @@ var sails: Array = [] ## {node: MeshInstance3D, pivot: Node3D, kind}
 var flags: Array = []
 var rudder_node: Node3D
 var furl_vis := 0.0
+var brig_sails: ShaderMaterial ## set when the purchased brig model is used
+var bow_scale := 1.0 ## where the stem is, relative to the built-in hull (the brig's waterline is shorter)
 
 
 func _ready() -> void:
@@ -226,6 +228,10 @@ func attitude() -> Vector2: ## (heel, pitch) in degrees
 func attach_model(scene: PackedScene, sail_shader: Shader, flag_shader: Shader) -> void:
 	model = scene.instantiate()
 	add_child(model)
+	var sails_node := model.find_child("BrigSails", true, false) as MeshInstance3D
+	if sails_node:
+		_attach_brig(sails_node)
+		return
 	var sail_tex: Texture2D = load("res://assets/ship/tex/sail_albedo.png")
 	var sail_nrm: Texture2D = load("res://assets/ship/tex/sail_normal.png")
 	var flag_tex: Texture2D = load("res://assets/ship/tex/flag_albedo.png")
@@ -286,6 +292,29 @@ func _use_baked_ao(mi: MeshInstance3D) -> void:
 		mi.set_surface_override_material(i, m)
 
 
+## The purchased brig: one sail mesh whose vertices are tagged for the wind shader.
+func _attach_brig(sails_node: MeshInstance3D) -> void:
+	bow_scale = 0.8
+	for node in _all(model):
+		if node is MeshInstance3D and node != sails_node:
+			(node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var src := sails_node.mesh.surface_get_material(0) as StandardMaterial3D
+	brig_sails = ShaderMaterial.new()
+	brig_sails.shader = load("res://shaders/brig_sail.gdshader")
+	if src:
+		brig_sails.set_shader_parameter("albedo_tex", src.albedo_texture)
+		brig_sails.set_shader_parameter("normal_tex", src.normal_texture)
+		brig_sails.set_shader_parameter("orm_tex", src.roughness_texture)
+	sails_node.material_override = brig_sails
+	sails_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	sails_node.extra_cull_margin = 4.0
+
+
+func set_sail_design(tex: Texture2D) -> void:
+	if brig_sails and tex:
+		brig_sails.set_shader_parameter("albedo_tex", tex)
+
+
 func _all(n: Node) -> Array:
 	var out := [n]
 	for c in n.get_children():
@@ -337,6 +366,13 @@ func animate(dt: float) -> void:
 	var ws := maxf(0.1, wl.length())
 	var wind_angle := atan2(wl.x, wl.z)
 	furl_vis += (sail - furl_vis) * minf(1.0, dt * 3.0)
+	if brig_sails:
+		var n := wl.z / ws # wind blowing toward the bow fills the square sails
+		brig_sails.set_shader_parameter("fill", clampf(n * (0.75 + 0.6 * drive) + 0.15, -0.6, 1.0))
+		brig_sails.set_shader_parameter("side_fill", clampf(wl.x / ws * 1.3, -1.0, 1.0))
+		brig_sails.set_shader_parameter("furl", furl_vis)
+		brig_sails.set_shader_parameter("gust", 0.4 * sin(sim_time * 0.37) * sin(sim_time * 0.23))
+		return
 	for s in sails:
 		var pivot: Node3D = s.pivot
 		var mi: MeshInstance3D = s.node

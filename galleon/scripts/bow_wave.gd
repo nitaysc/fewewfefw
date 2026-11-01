@@ -5,7 +5,7 @@ extends MeshInstance3D
 var mat: ShaderMaterial
 
 
-func build(ship_script) -> void:
+func build(ship_script, bow_scale := 1.0) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var na := 40
@@ -15,8 +15,8 @@ func build(ship_script) -> void:
 		for i in na + 1:
 			var a := float(i) / na
 			var u := 1.0 - a * 0.42 # from the stem back to about 40 % of the hull
-			var hw: float = ship_script.half_width(u, 0.3)
-			var z: float = ship_script.z_at(u) - 0.3
+			var hw: float = ship_script.half_width(u, 0.3) * lerpf(1.0, 0.9, 1.0 - bow_scale)
+			var z: float = ship_script.z_at(u) * bow_scale - 0.3
 			# the sheet flares out further as it runs aft
 			var spread := 0.6 + 3.2 * pow(a, 0.7)
 			var row := []

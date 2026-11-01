@@ -70,3 +70,19 @@ xvfb-run -a godot --resolution 1600x740 -- --play --warm=30 --shot=/tmp/s.png --
 ```
 (`--notaa`: at ~2 fps TAA would smear the image; `--skyres=1024` bakes a smaller sky (the CPU renderer is slow);
 `--focus=x,y,z` aims the camera at a point on the ship; `--debug=1|2|3` shows FFT foam / slopes / uniforms.)
+
+## The purchased ship (Ocean Brig)
+
+The game uses the "Ocean Brig" from CGTrader (royalty-free licence) when its converted files are in
+`assets/brig/` (`brig.glb` + `sails/*.jpg`); otherwise it falls back to the built-in galleon.
+**These files are licensed and must not be published**, so `assets/brig/` is git-ignored while this
+repository is public. Convert the original download with:
+
+```sh
+python3 tools/import_brig.py <Ship_Blender.blend> <folder with the unpacked Sails_Mat_1/2 archives>
+```
+
+It scales/seats the ship on the physics hull, tags every sail vertex for the wind shader
+(`shaders/brig_sail.gdshader`: square sails belly forward, staysails to the side, pennants stream),
+shrinks the 4K textures to 2K, and exports 8 sail designs (white, dirty white, pirate, black,
+British, Spanish, Templar, Dutch) that the **SAILS** button cycles through.
