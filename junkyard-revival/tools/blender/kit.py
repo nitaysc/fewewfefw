@@ -168,18 +168,24 @@ def poly_prism(name, verts, faces, mat=None, parent=None, bev=0.0, segs=3):
     return ob
 
 
-def curve_tube(name, pts, radius, mat=None, parent=None, res=12):
+def curve_tube(name, pts, radius, mat=None, parent=None, res=12, poly=False):
     cu = bpy.data.curves.new(name, 'CURVE')
     cu.dimensions = '3D'
     cu.bevel_depth = radius
     cu.bevel_resolution = 4
     cu.resolution_u = res
     cu.use_fill_caps = True
-    sp = cu.splines.new('BEZIER')
-    sp.bezier_points.add(len(pts) - 1)
-    for bp, p in zip(sp.bezier_points, pts):
-        bp.co = p
-        bp.handle_left_type = bp.handle_right_type = 'AUTO'
+    if poly:
+        sp = cu.splines.new('POLY')
+        sp.points.add(len(pts) - 1)
+        for pt, p in zip(sp.points, pts):
+            pt.co = (*p, 1)
+    else:
+        sp = cu.splines.new('BEZIER')
+        sp.bezier_points.add(len(pts) - 1)
+        for bp, p in zip(sp.bezier_points, pts):
+            bp.co = p
+            bp.handle_left_type = bp.handle_right_type = 'AUTO'
     ob = bpy.data.objects.new(name, cu)
     bpy.context.collection.objects.link(ob)
     if mat:

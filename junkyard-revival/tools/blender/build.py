@@ -7,6 +7,7 @@
 Needs `pip install bpy` (Blender as a Python module), nothing else.
 """
 import math
+PI = math.pi
 import os
 import sys
 import time
@@ -40,7 +41,10 @@ def build_all(M):
         toolbox=models.toolbox(M), tires=models.tire_stack(M),
         drum_blue=models.drum(M, 'drum_blue', 'DrumBlue'),
         drum_red=models.drum(M, 'drum_red', 'DrumRed'),
-        shelves=models.shelf_unit(M), bucket=models.bucket(M), garage=models.garage(M))
+        shelves=models.shelf_unit(M), bucket=models.bucket(M), garage=models.garage(M),
+        lift=models.car_lift(M), washer_unit=models.washer_unit(M), cone=models.cone(M),
+        jerry_can=models.jerry_can(M), extinguisher=models.extinguisher(M),
+        sign=models.wall_sign(M), drain=models.floor_drain(M))
 
 
 # ------------------------------------------------------------------ export
@@ -299,6 +303,13 @@ def dress_garage(o):
     move(o['drum_blue'], (3.7, 5.0, 0))
     move(o['drum_red'], (4.4, 4.6, 0), 1.0)
     move(o['bucket'], (2.0, -1.5, 0))
+    move(o['lift'], (-3.6, 0.4, 0))
+    move(o['washer_unit'], (2.9, -2.2, 0), 2.4)
+    move(o['cone'], (-2.6, -2.6, 0))
+    move(o['jerry_can'], (4.9, 3.4, 0), 0.4)
+    move(o['extinguisher'], (5.3, 1.5, 0), PI)
+    move(o['sign'], (-1.2, 5.38, 2.55))
+    move(o['drain'], (0.3, -1.6, 0))
     for x in (-2.5, 0.0, 2.5):
         for y in (-0.5, 2.5):
             area((x, y, 3.2), (1.3, 0.3), 220, color=(1, 0.96, 0.9), rot=(0, 0, 0))
@@ -380,7 +391,12 @@ def preview_props():
     o = dict(workbench=models.workbench(M), toolbox=models.toolbox(M),
              tires=models.tire_stack(M), drum_blue=models.drum(M, 'drum_blue', 'DrumBlue'),
              drum_red=models.drum(M, 'drum_red', 'DrumRed'), shelves=models.shelf_unit(M),
-             bucket=models.bucket(M))
+             bucket=models.bucket(M), washer_unit=models.washer_unit(M), cone=models.cone(M),
+             jerry_can=models.jerry_can(M), extinguisher=models.extinguisher(M))
+    move(o['washer_unit'], (4.6, -0.3, 0), 2.6)
+    move(o['cone'], (-2.3, -0.9, 0))
+    move(o['jerry_can'], (0.0, -0.9, 0), 0.5)
+    move(o['extinguisher'], (1.3, -0.9, 0))
     move(o['shelves'], (-3.4, 0.4, 0))
     move(o['workbench'], (-1.2, 0.3, 0))
     move(o['toolbox'], (0.65, 0.3, 0))
@@ -389,7 +405,7 @@ def preview_props():
     move(o['drum_red'], (3.75, 0.5, 0))
     move(o['bucket'], (2.6, -0.6, 0))
     studio()
-    camera((0.4, -6.8, 2.4), (0.1, 0.3, 0.85), lens=32)
+    camera((0.6, -7.6, 2.5), (0.5, 0.2, 0.8), lens=30)
     render('props')
 
 
