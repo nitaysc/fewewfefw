@@ -118,6 +118,10 @@ func _ready() -> void:
 	if args.has("sails") and ship.brig_sails:
 		sail_design = args.sails
 		_apply_sail_design()
+	if args.has("sail"): # screenshots: --sail=0|1|2 sets the sails at once
+		_set_sail(int(args.sail))
+		ship.sail = SAIL_LEVELS[sail_idx]
+		ship.furl_vis = ship.sail
 	if args.has("notaa"):
 		get_viewport().use_taa = false
 	if args.has("shot"):

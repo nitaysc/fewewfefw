@@ -1,6 +1,7 @@
 // Wind on the brig's sails and pennants. Each vertex carries (from tools/import_brig.py):
 //   COLOR.rgb = which way this cloth bellies out, COLOR.a = how free it is (0 at the edges),
-//   UV2.x = kind (0 square sail, 0.5 fore-and-aft sail, 1 pennant), UV2.y = metres below the head / 50.
+//   UV2.x = kind (0 square sail, 0.5 fore-and-aft sail, 1 pennant, 2 static cloth),
+//   1 - UV2.y = metres below the sail's head / 50 (glTF export flips V, hence the 1 -).
 shader_type spatial;
 render_mode cull_disabled, specular_schlick_ggx;
 
@@ -13,20 +14,21 @@ uniform float furl = 1.0;       // 1 = set, 0 = hauled up to the yards
 uniform float gust = 0.0;
 
 vec3 cloth(vec3 v, vec4 c, vec2 k, float t) {
+	if (k.x > 1.5) return v; // static cloth (covers, coils...)
 	float w = c.a;
 	vec3 dir = c.rgb * 2.0 - 1.0;
-	if (w <= 0.0) return v;
 	float belly = sin(min(w, 1.0) * PI * 0.5);
+	float below = clamp(1.0 - k.y, 0.0, 1.0) * 50.0; // metres below the yard
 	if (k.x < 0.25) {
 		float luff = max(0.0, 0.3 - abs(fill));
 		v += dir * (fill * (2.3 + gust) * belly * furl);
 		v += dir * luff * 0.7 * sin(t * 8.0 + v.x * 0.6 + v.y * 0.4) * belly;
-		v.y += k.y * 50.0 * (1.0 - furl);
+		v.y += below * (1.0 - furl);
 	} else if (k.x < 0.75) {
 		float luff = max(0.0, 0.3 - abs(side_fill));
 		v += dir * (side_fill * 1.4 * belly * furl);
 		v += dir * luff * 0.6 * sin(t * 9.0 + v.z * 0.5 + v.y * 0.4) * belly;
-		v.y += k.y * 50.0 * (1.0 - furl) * 0.6;
+		v.y += below * (1.0 - furl) * 0.6;
 	} else {
 		// pennant streaming and snapping in the wind
 		v += dir * (sin(t * 7.0 - w * 9.0) * 0.55 + sin(t * 13.0 - w * 15.0) * 0.15) * w;
@@ -42,8 +44,10 @@ void vertex() {
 	vec3 px = cloth(VERTEX + TANGENT * 0.15, COLOR, UV2, t);
 	vec3 py = cloth(VERTEX + BINORMAL * 0.15, COLOR, UV2, t);
 	vec3 n = normalize(cross(px - p, py - p));
-	if (COLOR.a > 0.0 && dot(n, NORMAL) < 0.0) n = -n;
-	if (COLOR.a > 0.0) NORMAL = n;
+	if (UV2.x < 1.5 && length(n) > 0.5) {
+		if (dot(n, NORMAL) < 0.0) n = -n;
+		NORMAL = n;
+	}
 	VERTEX = p;
 }
 

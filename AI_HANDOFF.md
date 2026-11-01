@@ -11,6 +11,8 @@ an AI. Each project has its own notes:
   Read it before adding or changing any art; it explains the style, units, cameras,
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
+- **`galleon/HANDOFF.md`: start here for the ship game** (history, architecture, the licensed brig
+  model and how to rebuild it, build/test/screenshot commands, open issues).
 - `galleon/README.md`: realistic galleon sailing simulator in **Godot 4.3** (ocean, buoyancy, sails).
   The ship is built by `galleon/tools/build_galleon.py` (Blender via `pip install bpy`).
   Release link: `https://github.com/nitaysc/fewewfefw/releases/tag/galleon-v0.1.<run number>`.

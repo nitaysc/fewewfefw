@@ -12,7 +12,7 @@ What it does:
 - splits the sail mesh into its loose pieces and tags each for the wind shader:
     COLOR.rgb  = direction the cloth bellies out (ship space, *0.5+0.5)
     COLOR.a    = how free the cloth is at this vertex (0 at the edges, 1 in the belly / flag tip)
-    UV2.x      = kind: 0 square sail, 0.5 fore-and-aft sail, 1 flag, (static pieces: weight 0)
+    UV2.x      = kind: 0 square sail, 0.5 fore-and-aft sail, 1 flag, 2 static cloth
     UV2.y      = metres below the sail's head (used to haul the square sails up to their yards)
 - downsizes the 4K textures to 2K (phones) and exports JPEG textures inside the .glb.
 """
@@ -80,6 +80,7 @@ def tag_sails(obj):
     col = np.zeros((n, 4))
     col[:, :3] = 0.5
     uv2 = np.zeros((n, 2))
+    uv2[:, 0] = 2.0  # static cloth unless tagged below
     masts_y = []
     parts = loose_parts(bm)
     counts = {'square': 0, 'fore_aft': 0, 'flag': 0, 'static': 0}
@@ -127,6 +128,9 @@ def tag_sails(obj):
     for i, c in enumerate(col):
         attr.data[i].color = tuple(c)
     me.color_attributes.active_color = attr
+    # keep only the texture UVs, so 'Flex' is exported as the second UV set (Godot UV2)
+    while len(me.uv_layers) > 1:
+        me.uv_layers.remove(me.uv_layers[-1])
     layer = me.uv_layers.new(name='Flex')
     for loop in me.loops:
         layer.data[loop.index].uv = tuple(uv2[loop.vertex_index])
