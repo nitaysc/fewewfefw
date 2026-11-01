@@ -51,7 +51,7 @@ void vertex() {
 void fragment() {
 	ALBEDO = texture(albedo_tex, UV).rgb;
 	NORMAL_MAP = texture(normal_tex, UV).rgb;
-	NORMAL_MAP_DEPTH = 0.5;
+	NORMAL_MAP_DEPTH = 0.35;
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.3;
 	BACKLIGHT = vec3(0.5, 0.47, 0.4);

@@ -98,7 +98,7 @@ def hull():
     W, H = 2048, 1024
     ppm = H / (HULL_Y1 - HULL_Y0)
     row = lambda y: int((1 - (y - HULL_Y0) / (HULL_Y1 - HULL_Y0)) * H)
-    col, height, rough = planks(W, H, int(0.24 * ppm), True, '#b07a40', 0.10, seed=3)
+    col, height, rough = planks(W, H, int(0.24 * ppm), True, '#94602f', 0.12, seed=3)
 
     # darker, weathered wood toward the waterline; sun-bleached near the top
     yy = np.linspace(HULL_Y1, HULL_Y0, H)[:, None]
@@ -123,7 +123,7 @@ def hull():
 
     # painted decoration: deep red strakes with gold fillets
     for y0, y1 in [(3.4, 3.95), (5.6, 6.1), (7.95, 8.45)]:
-        band(y0, y1, '#8d2416', 1.1, 0.5)
+        band(y0, y1, '#7c1e13', 1.1, 0.5)
         band(y1, y1 + 0.07, '#d4a24a', 1.2, 0.35)
         band(y0 - 0.07, y0, '#d4a24a', 1.2, 0.35)
         # carved panels
@@ -151,7 +151,7 @@ def hull():
 
 def deck():
     W = H = 1024
-    col, height, rough = planks(W, H, 64, False, '#a08a6a', 0.09, seed=11)
+    col, height, rough = planks(W, H, 64, False, '#857258', 0.1, seed=11)
     # caulking dots and wear
     wear = noise(H, W, 8, 8, 5)
     col *= (0.85 + 0.25 * wear[..., None])
@@ -189,8 +189,7 @@ def sail():
     dirt = noise(H, W, 4, 4, 5)
     v = np.linspace(0, 1, H)[:, None]
     col *= (1 - 0.12 * dirt[..., None] - 0.08 * (v ** 3)[..., None])
-    col *= (0.96 + 0.06 * weave[..., None])
-    # patches
+        # patches
     for _ in range(7):
         x, y = rng.integers(0, W - 120), rng.integers(80, H - 160)
         w, h = rng.integers(50, 110), rng.integers(60, 150)
@@ -199,7 +198,7 @@ def sail():
     # bolt rope
     col[:8] *= 0.7; col[-8:] *= 0.7; col[:, :8] *= 0.7; col[:, -8:] *= 0.7
     save('sail_albedo.png', col)
-    save('sail_normal.png', normal_from_height(height + weave * 0.3, 1.2))
+    save('sail_normal.png', normal_from_height(height, 1.2))
 
 
 def stern():

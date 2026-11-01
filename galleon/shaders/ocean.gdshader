@@ -1,25 +1,34 @@
-// Open ocean. A radial grid that follows the camera, displaced by the same
-// Gerstner waves the physics uses (waves.gdshaderinc, generated from waves.gd), with FFT
-// detail normals, refraction and absorption, whitecaps on pinched crests,
-// foam where the sea meets the hull, and the ship's wake from a foam map.
+// Open ocean.
+//  - Swell: the analytic Gerstner waves the ship's physics rides on (waves.gdshaderinc).
+//  - Chop: three FFT cascades simulated on the GPU (ocean_fft/, JONSWAP spectrum), with
+//    foam that accumulates where crests fold over and slowly dissipates.
+//  - Ship: wake foam map, foam where the sea touches the hull, refraction and absorption.
+// A radial grid follows the camera: dense under the ship, coarse at the horizon.
 shader_type spatial;
 render_mode blend_mix, cull_back, depth_draw_always, specular_schlick_ggx;
 
 #include "res://shaders/waves.gdshaderinc"
+#define MAX_CASCADES 8
+
+global uniform uint num_cascades;
+global uniform sampler2DArray displacements;
+global uniform sampler2DArray normals : hint_normal;
+uniform vec4 map_scales[MAX_CASCADES]; // per cascade: uv scale (xy), displacement scale, normal scale
 
 uniform vec2 center;
 uniform float sea_time;
 uniform sampler2D detail_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D foam_tex : filter_linear_mipmap, repeat_enable;
+uniform sampler2D foam_tex : filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D wake_tex : filter_linear, repeat_disable;
 uniform vec2 wake_center;
 uniform float wake_size = 300.0;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
-uniform vec3 deep_color : source_color = vec3(0.02, 0.11, 0.24);
-uniform vec3 scatter_color : source_color = vec3(0.05, 0.42, 0.50);
+uniform vec3 deep_color : source_color = vec3(0.015, 0.09, 0.22);
+uniform vec3 scatter_color : source_color = vec3(0.04, 0.45, 0.52);
 uniform vec3 sun_dir = vec3(-0.55, 0.62, -0.56);
-uniform float detail_strength = 0.75;
+uniform float fft_strength = 1.0;
+uniform int debug_view = 0; // 1 = FFT foam, 2 = FFT slopes
 
 varying vec2 grid;
 varying vec3 world;
@@ -28,7 +37,7 @@ varying float height;
 void vertex() {
 	vec2 g = VERTEX.xz + center;
 	float dist = length(VERTEX.xz);
-	float spacing = max(0.25, dist * 0.035);
+	float spacing = max(0.2, dist * 0.03);
 	vec3 p = vec3(g.x, 0.0, g.y);
 	for (int i = 0; i < NW; i++) {
 		vec4 a = WA[i];
@@ -40,6 +49,14 @@ void vertex() {
 		p.z += a.y * h;
 		p.y += a.w * sin(f) * fade;
 	}
+	// FFT chop, faded out where the grid becomes too coarse to hold it
+	float dfade = clamp(exp(-(dist - 150.0) * 0.007), 0.0, 1.0) * fft_strength;
+	vec3 fd = vec3(0.0);
+	for (uint i = 0U; i < num_cascades; ++i) {
+		vec4 s = map_scales[i];
+		fd += texture(displacements, vec3(g * s.xy, float(i))).xyz * s.z;
+	}
+	p += fd * dfade;
 	grid = g;
 	world = p;
 	height = p.y;
@@ -53,7 +70,7 @@ void fragment() {
 	vec2 g = grid;
 	float t = sea_time;
 
-	// swell: analytic Gerstner normal and Jacobian (folding -> whitecaps)
+	// swell: analytic Gerstner normal and Jacobian
 	vec3 n = vec3(0.0, 1.0, 0.0);
 	float jxx = 1.0, jzz = 1.0, jxz = 0.0;
 	for (int i = 0; i < NW; i++) {
@@ -72,12 +89,17 @@ void fragment() {
 	}
 	float jac = jxx * jzz - jxz * jxz;
 
-	// chop: two scrolling layers of an FFT ocean patch
-	float fade = 1.0 - smoothstep(80.0, 900.0, dist);
-	vec2 s1 = texture(detail_tex, g / 48.0 + vec2(t * 0.011, t * 0.006)).rg * 2.0 - 1.0;
-	vec2 s2 = texture(detail_tex, g / 15.0 + vec2(-t * 0.017, t * 0.013)).rg * 2.0 - 1.0;
-	vec2 s3 = texture(detail_tex, g / 5.3 + vec2(t * 0.03, t * 0.021)).rg * 2.0 - 1.0;
-	vec2 slope = s1 * 0.75 + s2 * 0.5 * fade + s3 * 0.3 * (1.0 - smoothstep(10.0, 90.0, dist));
+	// FFT cascades: slopes and accumulated foam
+	vec3 grad = vec3(0.0);
+	for (uint i = 0U; i < num_cascades; ++i) {
+		vec4 s = map_scales[i];
+		grad += texture(normals, vec3(g * s.xy, float(i))).xyw * vec3(s.ww, 1.0);
+	}
+	float far = exp(-dist * 0.012);
+	vec2 slope = grad.xy * mix(0.06, fft_strength, far);
+	// very fine ripples close to the camera
+	vec2 s3 = texture(detail_tex, g / 4.7 + vec2(t * 0.03, t * 0.021)).rg * 2.0 - 1.0;
+	slope += s3 * 0.12 * (1.0 - smoothstep(8.0, 60.0, dist));
 
 	// wake foam map around the ship
 	vec2 wuv = (world.xz - wake_center) / wake_size + 0.5;
@@ -85,50 +107,57 @@ void fragment() {
 	if (wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
 		wake = texture(wake_tex, wuv).rgb;
 	}
-	slope += vec2(sin(g.x * 1.7 + t * 3.1), cos(g.y * 1.9 - t * 2.6)) * wake.g * 0.25;
+	slope += vec2(sin(g.x * 1.7 + t * 3.1), cos(g.y * 1.9 - t * 2.6)) * wake.g * 0.22;
 
-	n.xz -= slope * detail_strength;
+	n.xz -= slope;
 	vec3 N = normalize(n);
 
-	// water depth behind this pixel, for absorption and contact foam
+	// water thickness behind this pixel: absorption, refraction and contact foam
 	float raw = texture(depth_tex, SCREEN_UV).r;
 	vec4 vp = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
 	vp.xyz /= vp.w;
 	float thickness = max(0.0, length(vp.xyz) - length(VERTEX));
-	vec2 off = N.xz * 0.04 * clamp(thickness * 0.3, 0.0, 1.0) / max(1.0, dist * 0.02);
+	vec2 off = N.xz * 0.035 * clamp(thickness * 0.3, 0.0, 1.0) / max(1.0, dist * 0.02);
 	float raw2 = texture(depth_tex, SCREEN_UV + off).r;
 	vec4 vp2 = INV_PROJECTION_MATRIX * vec4((SCREEN_UV + off) * 2.0 - 1.0, raw2, 1.0);
 	vp2.xyz /= vp2.w;
-	vec2 ruv = (length(vp2.xyz) > length(VERTEX)) ? SCREEN_UV + off : SCREEN_UV;
-	float thick2 = (length(vp2.xyz) > length(VERTEX)) ? length(vp2.xyz) - length(VERTEX) : thickness;
-	thick2 = clamp(thick2, 0.0, 1000.0);
+	bool behind = length(vp2.xyz) > length(VERTEX);
+	vec2 ruv = behind ? SCREEN_UV + off : SCREEN_UV;
+	float thick2 = clamp(behind ? length(vp2.xyz) - length(VERTEX) : thickness, 0.0, 1000.0);
 	vec3 refr = textureLod(screen_tex, ruv, 0.0).rgb;
 
-	// foam
-	float fn = texture(foam_tex, g * 0.07 + vec2(t * 0.01, 0.0)).r * 0.6
-			+ texture(foam_tex, g * 0.19 - vec2(0.0, t * 0.013)).r * 0.4;
-	float crest = smoothstep(0.7, 0.3, jac) * smoothstep(-0.2, 1.0, height + 0.4);
-	crest = max(crest, smoothstep(0.55, 0.85, texture(detail_tex, g / 48.0 + vec2(t * 0.011, t * 0.006)).b) * smoothstep(0.2, 1.4, height) * 0.7);
-	float contact = (1.0 - smoothstep(0.0, 1.4, thickness)) * smoothstep(400.0, 0.0, dist);
-	float amt = clamp(max(max(crest * 0.85, wake.r), contact), 0.0, 1.0);
-	float foam = smoothstep(1.0 - amt, 1.0 - amt + 0.3, fn) * min(1.0, amt * 2.5);
+	// foam: breaking crests (FFT, accumulated over time), swell crests, wake, hull contact
+	float fn = texture(foam_tex, g * 0.06 + vec2(t * 0.008, 0.0)).r * 0.55
+			+ texture(foam_tex, g * 0.17 - vec2(0.0, t * 0.011)).r * 0.45;
+	float fft_foam = smoothstep(0.0, 1.0, grad.z * 0.8) * exp(-dist * 0.004);
+	float crest = smoothstep(0.7, 0.3, jac) * smoothstep(0.0, 1.2, height) * 0.6;
+	float contact = (1.0 - smoothstep(0.0, 1.3, thickness)) * smoothstep(300.0, 0.0, dist);
+	float amt = clamp(max(max(max(fft_foam, crest), wake.r), contact), 0.0, 1.0);
+	float foam = smoothstep(1.0 - amt, 1.0 - amt + 0.35, fn) * min(1.0, amt * 2.2);
+	foam = max(foam, smoothstep(0.55, 1.0, fft_foam) * 0.8);
 	foam = max(foam, smoothstep(0.8, 1.0, wake.r) * 0.85);
+	float film = amt * 0.25; // a translucent sheet of bubbles under the lace
 
 	// light
 	vec3 L = normalize(sun_dir);
 	float ndv = clamp(dot(N, V), 0.0, 1.0);
 	float fres = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
-	float trans = exp(-thick2 * 0.28);
-	vec3 body = deep_color;
-	// light scattered through thin, sunlit crests and churned water
-	float sss = pow(clamp(dot(V, -normalize(L + N * 0.6)), 0.0, 1.0), 3.0) * 1.2 + 0.25 * clamp(dot(N, L), 0.0, 1.0);
-	vec3 glow = scatter_color * (sss * smoothstep(-0.8, 1.6, height) * 0.55 + wake.g * 0.9);
-	vec3 seen = mix(body * 0.9, refr * vec3(0.35, 0.8, 0.85), trans);
+	float trans = exp(-thick2 * 0.3);
+	float sss = pow(clamp(dot(V, -normalize(L + N * 0.6)), 0.0, 1.0), 3.0) * 1.3 + 0.2 * clamp(dot(N, L), 0.0, 1.0);
+	vec3 glow = scatter_color * (sss * smoothstep(-1.0, 2.0, height) * 0.5 + wake.g * 0.85 + film * 0.6);
+	vec3 seen = mix(deep_color * 0.9, refr * vec3(0.3, 0.75, 0.82), trans);
 
-	ALBEDO = mix(body * 0.25, vec3(0.9, 0.93, 0.95), foam);
+	ALBEDO = mix(deep_color * 0.25, vec3(0.88, 0.9, 0.92), foam);
 	EMISSION = (seen * 0.85 + glow) * (1.0 - fres) * (1.0 - foam);
-	ROUGHNESS = mix(mix(0.02, 0.12, smoothstep(30.0, 900.0, dist)), 0.85, foam);
+	// specular anti-aliasing: widen the highlight where the normal varies faster than a pixel
+	vec3 dn = fwidth(N);
+	float variance = clamp(dot(dn, dn) * 4.0, 0.0, 0.25);
+	float base_rough = mix(0.04, 0.16, smoothstep(30.0, 900.0, dist));
+	ROUGHNESS = mix(sqrt(base_rough * base_rough + variance), 0.85, foam);
 	SPECULAR = mix(0.35, 0.2, foam);
 	METALLIC = 0.0;
 	NORMAL = normalize((VIEW_MATRIX * vec4(N, 0.0)).xyz);
+	if (debug_view == 1) { EMISSION = vec3(grad.z); ALBEDO = vec3(0.0); }
+	if (debug_view == 3) { EMISSION = vec3(float(num_cascades) / 3.0, map_scales[0].x * 50.0, texture(normals, vec3(fract(g / 88.0), 0.0)).w); ALBEDO = vec3(0.0); }
+	if (debug_view == 2) { EMISSION = vec3(abs(grad.xy), 0.0); ALBEDO = vec3(0.0); }
 }

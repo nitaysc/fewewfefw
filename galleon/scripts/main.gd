@@ -11,6 +11,7 @@ extends Node3D
 
 const ShipScript := preload("res://scripts/ship.gd")
 const OceanScript := preload("res://scripts/ocean.gd")
+const FftOceanScript := preload("res://scripts/fft_ocean.gd")
 const WakeScript := preload("res://scripts/wake.gd")
 const HelmScript := preload("res://scripts/helm.gd")
 const RoseScript := preload("res://scripts/rose.gd")
@@ -22,6 +23,9 @@ const SAIL_NAMES := ["Furled", "Half sail", "Full sail"]
 var args := {}
 var ship: Node3D
 var ocean: MeshInstance3D
+var fft: Node3D
+var sea_audio: AudioStreamPlayer
+var wind_audio: AudioStreamPlayer
 var wake: SubViewport
 var camera: Camera3D
 var sun: DirectionalLight3D
@@ -41,7 +45,7 @@ var dist0 := 0.0
 
 var running := false
 var sail_idx := 1
-var quality := "high"
+var perf_level := 0 ## 0 = full quality; raised automatically if the phone cannot keep up
 var key_rudder := 0.0
 
 # HUD
@@ -67,15 +71,10 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv: PackedStringArray = a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	var cfg := ConfigFile.new()
-	if cfg.load("user://settings.cfg") == OK:
-		quality = cfg.get_value("gfx", "quality", "high")
-	if args.has("q"):
-		quality = args.q
-
 	_build_world()
 	_build_ship()
 	_build_hud()
+	_build_audio()
 	_apply_quality()
 
 	var wind: Vector3 = Waves.wind()
@@ -107,6 +106,10 @@ func _ready() -> void:
 		cam_pitch = float(args.pitch)
 	if args.has("dist"):
 		cam_dist = float(args.dist)
+	if args.has("debug"):
+		ocean.mat.set_shader_parameter("debug_view", int(args.debug))
+	if args.has("notaa"):
+		get_viewport().use_taa = false
 	if args.has("shot"):
 		shot_timer = float(args.get("wait", "3"))
 
@@ -138,6 +141,17 @@ func _build_world() -> void:
 	env.fog_density = 0.00035
 	env.fog_sky_affect = 0.0
 	env.fog_aerial_perspective = 0.75
+	env.ssao_enabled = true
+	env.ssao_radius = 1.6
+	env.ssao_intensity = 1.6
+	env.ssao_power = 1.4
+	env.ssao_detail = 0.6
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.0016
+	env.volumetric_fog_albedo = Color(0.85, 0.9, 0.95)
+	env.volumetric_fog_anisotropy = 0.6
+	env.volumetric_fog_length = 160.0
+	env.volumetric_fog_sky_affect = 0.0
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.12
 	env.adjustment_contrast = 1.06
@@ -169,7 +183,11 @@ func _build_world() -> void:
 
 	ocean = OceanScript.new()
 	add_child(ocean)
-	ocean.setup(200, 256, wake.get_texture())
+	ocean.setup(220, 288, wake.get_texture())
+	fft = FftOceanScript.new()
+	add_child(fft)
+	if fft.ok:
+		fft.register_material(ocean.mat)
 
 
 func _place_sun() -> void:
@@ -184,77 +202,94 @@ func _build_ship() -> void:
 	add_child(ship)
 	ship.attach_model(load("res://assets/ship/galleon.glb"), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
 	_place_sun_deferred.call_deferred()
-	# bow spray
-	var tex := GradientTexture2D.new()
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 1))
-	grad.set_color(1, Color(1, 1, 1, 0))
-	tex.gradient = grad
-	for side in [1.0, -1.0]:
-		var p := GPUParticles3D.new()
-		p.amount = 220
-		p.lifetime = 1.5
-		p.local_coords = false
-		p.position = Vector3(side * 3.0, 0.4, 15.5)
-		var pm := ParticleProcessMaterial.new()
-		pm.direction = Vector3(side * 1.0, 0.9, 0.35)
-		pm.spread = 22.0
-		pm.initial_velocity_min = 3.0
-		pm.initial_velocity_max = 7.5
-		pm.gravity = Vector3(0, -9.8, 0)
-		pm.damping_min = 0.5
-		pm.damping_max = 1.5
-		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-		pm.emission_box_extents = Vector3(0.6, 0.3, 3.0)
-		pm.scale_min = 0.7
-		pm.scale_max = 2.2
-		var sc := Curve.new()
-		sc.add_point(Vector2(0, 0.5))
-		sc.add_point(Vector2(1, 1.6))
-		var sct := CurveTexture.new()
-		sct.curve = sc
-		pm.scale_curve = sct
-		var ag := Gradient.new()
-		ag.set_color(0, Color(1, 1, 1, 0.55))
-		ag.set_color(1, Color(1, 1, 1, 0.0))
-		var agt := GradientTexture1D.new()
-		agt.gradient = ag
-		pm.color_ramp = agt
-		p.process_material = pm
-		var q := QuadMesh.new()
-		q.size = Vector2(1.4, 1.4)
-		var m := StandardMaterial3D.new()
-		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.vertex_color_use_as_albedo = true
-		m.albedo_texture = tex
-		m.albedo_color = Color(0.93, 0.96, 1.0)
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		q.material = m
-		p.draw_pass_1 = q
-		p.visibility_aabb = AABB(Vector3(-30, -10, -30), Vector3(60, 30, 60))
-		p.amount_ratio = 0.0
-		ship.add_child(p)
-		sprays.append(p)
+	# bow spray and the white water pushed along the hull
+	var noise := NoiseTexture2D.new()
+	noise.seamless = true
+	noise.noise = FastNoiseLite.new()
+	var spray_shader: Shader = load("res://shaders/bow_spray.gdshader")
+	var spray_tex: Texture2D = load("res://ocean_fft/sea_spray.png")
+	# [position, direction, spread, speed min/max, size min/max, lifetime, amount, box half-size]
+	var kinds := [
+		[Vector3(3.2, 0.4, 15.0), Vector3(1.0, 1.1, 0.5), 20.0, 4.0, 9.0, 1.2, 3.2, 1.6, 260, Vector3(0.5, 0.3, 2.5)],
+		[Vector3(4.6, 0.0, 6.0), Vector3(1.0, 0.25, -0.2), 30.0, 1.0, 3.0, 2.0, 4.5, 2.2, 160, Vector3(0.3, 0.2, 9.0)],
+	]
+	for k in kinds:
+		for side in [1.0, -1.0]:
+			var p := GPUParticles3D.new()
+			p.amount = k[8]
+			p.lifetime = k[7]
+			p.local_coords = false
+			p.position = Vector3(k[0].x * side, k[0].y, k[0].z)
+			var pm := ParticleProcessMaterial.new()
+			pm.direction = Vector3(k[1].x * side, k[1].y, k[1].z)
+			pm.spread = k[2]
+			pm.initial_velocity_min = k[3]
+			pm.initial_velocity_max = k[4]
+			pm.gravity = Vector3(0, -9.8, 0)
+			pm.damping_min = 0.6
+			pm.damping_max = 1.8
+			pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+			pm.emission_box_extents = k[9]
+			pm.scale_min = k[5]
+			pm.scale_max = k[6]
+			pm.angle_min = -180.0
+			pm.angle_max = 180.0
+			var sc := Curve.new()
+			sc.add_point(Vector2(0, 0.4))
+			sc.add_point(Vector2(1, 1.8))
+			var sct := CurveTexture.new()
+			sct.curve = sc
+			pm.scale_curve = sct
+			p.process_material = pm
+			var q := QuadMesh.new()
+			var m := ShaderMaterial.new()
+			m.shader = spray_shader
+			m.set_shader_parameter("albedo_texture", spray_tex)
+			m.set_shader_parameter("dissolve_texture", noise)
+			q.material = m
+			p.draw_pass_1 = q
+			p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			p.visibility_aabb = AABB(Vector3(-40, -10, -40), Vector3(80, 30, 80))
+			p.amount_ratio = 0.0
+			ship.add_child(p)
+			sprays.append(p)
 
 
 func _place_sun_deferred() -> void:
 	_place_sun()
 
 
+## Full quality by default. If the phone can't hold ~30 fps the game steps down
+## by itself (render scale first, then the most expensive effects); no menu needed.
 func _apply_quality() -> void:
 	var vp := get_viewport()
-	if quality == "high":
-		vp.msaa_3d = Viewport.MSAA_4X
-		vp.scaling_3d_scale = 1.0
-		RenderingServer.directional_shadow_atlas_set_size(4096, true)
-	else:
-		vp.msaa_3d = Viewport.MSAA_2X
-		vp.scaling_3d_scale = 0.75
-		RenderingServer.directional_shadow_atlas_set_size(2048, true)
+	var scales := [1.0, 0.85, 0.72, 0.62, 0.55]
+	vp.scaling_3d_scale = scales[mini(perf_level, scales.size() - 1)]
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if vp.scaling_3d_scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
+	env.volumetric_fog_enabled = perf_level < 3
+	env.ssao_enabled = perf_level < 4
+	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 2 else 2048, true)
+
+
+func _looped(s: AudioStreamWAV) -> AudioStreamWAV:
+	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	s.loop_begin = 0
+	s.loop_end = s.data.size() / 2
+	return s
+
+
+func _build_audio() -> void:
+	# procedurally made loops (tools/make_audio.py): surf and wind
+	sea_audio = AudioStreamPlayer.new()
+	sea_audio.stream = _looped(load("res://assets/audio/sea_loop.wav"))
+	sea_audio.volume_db = -6.0
+	sea_audio.autoplay = true
+	add_child(sea_audio)
+	wind_audio = AudioStreamPlayer.new()
+	wind_audio.stream = _looped(load("res://assets/audio/wind_loop.wav"))
+	wind_audio.volume_db = -14.0
+	wind_audio.autoplay = true
+	add_child(wind_audio)
 
 
 # ------------------------------------------------------------------ HUD
@@ -344,12 +379,8 @@ func _build_hud() -> void:
 	var cam_btn := _round_button("CAM", 72)
 	cam_btn.add_theme_font_size_override("font_size", 18)
 	cam_btn.pressed.connect(func(): _set_cam(cam_mode + 1))
-	var q_btn := _round_button("HD" if quality == "high" else "SD", 72)
-	q_btn.add_theme_font_size_override("font_size", 18)
-	q_btn.pressed.connect(_toggle_quality)
 	rose = RoseScript.new()
 	tr.add_child(cam_btn)
-	tr.add_child(q_btn)
 	tr.add_child(rose)
 	hud_root.add_child(tr)
 	cam_lbl = _label("", 18)
@@ -459,14 +490,6 @@ func _set_cam(i: int) -> void:
 		create_tween().tween_property(cam_lbl, "modulate:a", 0.0, 1.2).set_delay(0.8)
 
 
-func _toggle_quality() -> void:
-	quality = "low" if quality == "high" else "high"
-	var cfg := ConfigFile.new()
-	cfg.set_value("gfx", "quality", quality)
-	cfg.save("user://settings.cfg")
-	_apply_quality()
-
-
 # ------------------------------------------------------------------ input
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch:
@@ -520,16 +543,20 @@ func _process(delta: float) -> void:
 
 	_update_camera(dt)
 	ocean.follow(camera.global_position, wake.center, sun_dir)
+	fft.follow(camera.global_position)
+	var spd: float = maxf(0.0, ship.speed())
+	sea_audio.volume_db = lerpf(-8.0, -1.0, clampf(spd / 4.0, 0.0, 1.0))
+	sea_audio.pitch_scale = lerpf(0.95, 1.08, clampf(spd / 4.0, 0.0, 1.0))
 	_update_hud()
 
 	fps_time += delta
 	fps_frames += 1
-	if fps_time > 4.0 and running and not tuned:
+	if fps_time > 3.0 and running and not tuned and not args.has("shot"):
 		var fps := fps_frames / fps_time
-		var vp := get_viewport()
-		if fps < 40.0 and vp.scaling_3d_scale > 0.6:
-			vp.scaling_3d_scale = maxf(0.6, vp.scaling_3d_scale - 0.15)
-		else:
+		if fps < 28.0 and perf_level < 4:
+			perf_level += 1
+			_apply_quality()
+		elif fps >= 28.0:
 			tuned = true
 		fps_time = 0.0
 		fps_frames = 0

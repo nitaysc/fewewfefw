@@ -233,6 +233,7 @@ func attach_model(scene: PackedScene, sail_shader: Shader, flag_shader: Shader) 
 		if node is MeshInstance3D:
 			var mi := node as MeshInstance3D
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			_use_baked_ao(mi)
 			if mi.name.begins_with("Sail_"):
 				var m := ShaderMaterial.new()
 				m.shader = sail_shader
@@ -264,6 +265,25 @@ func attach_model(scene: PackedScene, sail_shader: Shader, flag_shader: Shader) 
 				flags.append(mi)
 		if node.name == "Rudder":
 			rudder_node = node
+
+
+## Multiply the ambient occlusion baked in Blender (vertex colours) into the materials,
+## and give the wood a slightly oiled, weathered finish.
+func _use_baked_ao(mi: MeshInstance3D) -> void:
+	if mi.mesh == null:
+		return
+	for i in mi.mesh.get_surface_count():
+		var m := mi.mesh.surface_get_material(i) as StandardMaterial3D
+		if m == null:
+			continue
+		m = m.duplicate()
+		if mi.mesh.surface_get_format(i) & Mesh.ARRAY_FORMAT_COLOR:
+			m.vertex_color_use_as_albedo = true
+		m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+		if m.resource_name in ["Hull", "HullInside", "Deck", "Stern"]:
+			m.roughness = 0.62
+			m.normal_scale = 1.3
+		mi.set_surface_override_material(i, m)
 
 
 func _all(n: Node) -> Array:

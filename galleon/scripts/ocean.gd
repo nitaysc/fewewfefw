@@ -13,6 +13,7 @@ func setup(rings: int, segments: int, wake_tex: Texture2D) -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mat = ShaderMaterial.new()
 	mat.shader = load(SHADER_PATH)
+	mat.set_shader_parameter("map_scales", PackedVector4Array())
 	mat.set_shader_parameter("detail_tex", load("res://assets/ocean/detail_normal.png"))
 	mat.set_shader_parameter("foam_tex", load("res://assets/ocean/foam.png"))
 	mat.set_shader_parameter("wake_tex", wake_tex)

@@ -711,6 +711,31 @@ def build_flags(mats, info):
     del P
 
 
+# ------------------------------------------------------------------ ambient occlusion
+def bake_ambient_occlusion(samples=48):
+    """Bakes Cycles ambient occlusion into a vertex colour layer on every solid mesh.
+    Godot multiplies it into the albedo: dark creases under rails, around guns and decks."""
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.cycles.samples = samples
+    scene.render.bake.target = 'VERTEX_COLORS'
+    scene.world = scene.world or bpy.data.worlds.new('World')
+    scene.world.light_settings.distance = 1.2  # local creases only, not the sails high above
+    for o in bpy.data.objects:
+        if o.type != 'MESH' or o.name.startswith(('Sail_', 'Flag_')):
+            continue
+        mesh = o.data
+        # subdivide nothing; give the occlusion enough vertices to show on long flat faces
+        attr = mesh.color_attributes.new(name='AO', type='BYTE_COLOR', domain='CORNER')
+        mesh.color_attributes.active_color = attr
+        bpy.ops.object.select_all(action='DESELECT')
+        o.select_set(True)
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.bake(type='AO', target='VERTEX_COLORS')
+        print('baked AO', o.name, len(mesh.vertices))
+
+
 # ------------------------------------------------------------------ main
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -790,7 +815,9 @@ def main():
 
     # export, with the lateen geometry the Godot sail shader needs written as custom props
     hull['lateen_a'] = list(lateen['lateen_a'])
-    bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', export_yup=True, export_apply=True)
+    bake_ambient_occlusion()
+    bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', export_yup=True, export_apply=True,
+                              export_vertex_color='ACTIVE', export_all_vertex_colors=False)
     tris = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == 'MESH')
     print('exported', OUT, 'faces:', tris)
     print('LATEEN', [round(c, 3) for c in lateen['lateen_a']], [round(c, 3) for c in lateen['lateen_b']], [round(c, 3) for c in lateen['lateen_c']])
