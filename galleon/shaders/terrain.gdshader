@@ -23,6 +23,9 @@ varying vec3 wnormal;
 void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	// the mesh has no tangents; textures are laid along world x/z, so build them here
+	TANGENT = normalize(vec3(1.0, 0.0, 0.0) - NORMAL * NORMAL.x);
+	BINORMAL = normalize(cross(TANGENT, NORMAL));
 }
 
 // two scales, the larger one rotated, blended so neither repeat is obvious
@@ -46,6 +49,21 @@ void fragment() {
 	vec3 sand = two_scale(coast_sand_01_diff, uv, far);
 	vec3 floor_ = two_scale(forest_leaves_02_diff, uv * 1.5, far);
 	floor_ = mix(vec3(dot(floor_, vec3(0.3, 0.59, 0.11))) * vec3(0.32, 0.5, 0.16), floor_ * 0.5, 0.25); // moist green undergrowth
+	// jungle canopy seen from the sea: clumps of crowns ~10 m across with dark gaps between.
+	// Real trees only fringe the beach (island.gd); this is far cheaper than thousands of trees.
+	float c1 = texture(noise_tex, world.xz * 0.085).r;
+	// big clumps of trees (~40 m) with shadowed hollows between them: what survives at range
+	vec2 cq = world.xz * 0.028 + 0.5;
+	float c2 = texture(noise_tex, cq).r;
+	float c2x = texture(noise_tex, cq + vec2(0.012, 0.0)).r;
+	float c2z = texture(noise_tex, cq + vec2(0.0, 0.012)).r;
+	float crowns = smoothstep(0.3, 0.75, c1);
+	vec3 canopy = mix(vec3(0.012, 0.03, 0.008), vec3(0.06, 0.11, 0.028), crowns * 0.5 + smoothstep(0.35, 0.7, c2) * 0.5);
+	canopy *= 0.55 + 0.7 * smoothstep(0.25, 0.75, c2);
+	canopy = mix(canopy, vec3(0.09, 0.1, 0.035), smoothstep(0.75, 0.95, texture(noise_tex, world.xz * 0.007).r) * 0.4); // paler patches
+	float canopy_w = smoothstep(16.0, 26.0, h + n2 * 6.0) * (1.0 - smoothstep(110.0, 150.0, h + n2 * 20.0));
+	canopy_w = max(canopy_w, smoothstep(200.0, 500.0, dist) * smoothstep(5.0, 9.0, h)); // far away, the fringe merges into canopy
+	floor_ = mix(floor_, canopy, canopy_w);
 	// rock on cliffs: project along whichever horizontal axis faces the slope
 	vec2 ruv = (abs(wnormal.x) > abs(wnormal.z) ? world.zy : world.xy) / 9.0;
 	vec3 rock = mix(two_scale(aerial_rocks_02_diff, ruv, far), two_scale(aerial_rocks_02_diff, world.xz / 9.0, far), wnormal.y * wnormal.y) * 0.75;
@@ -54,7 +72,7 @@ void fragment() {
 	float w_wet = smoothstep(-1.5, 0.0, h);
 	float w_sand = smoothstep(0.6, 1.6, h);
 	float w_floor = smoothstep(3.0, 6.5, h + n2 * 2.0);
-	float w_rock = smoothstep(0.42, 0.68, slope + (n2 - 0.5) * 0.3) * smoothstep(1.0, 4.0, h);
+	float w_rock = smoothstep(0.55, 0.8, slope + (n2 - 0.5) * 0.3) * smoothstep(1.0, 4.0, h);
 	w_rock = max(w_rock, smoothstep(140.0, 180.0, h + n2 * 25.0));
 	col = mix(col, wet, w_wet);
 	col = mix(col, sand, w_sand);
@@ -65,7 +83,7 @@ void fragment() {
 	vec3 nm = texture(coral_ground_02_nor, uv).rgb;
 	nm = mix(nm, texture(damp_beach_sand_nor, uv * 1.2).rgb, w_wet);
 	nm = mix(nm, texture(coast_sand_01_nor, uv).rgb, w_sand);
-	nm = mix(nm, texture(forest_leaves_02_nor, uv * 1.5).rgb, w_floor);
+	nm = mix(nm, mix(texture(forest_leaves_02_nor, uv * 1.5).rgb, vec3(0.5 + (c2 - c2x) * 14.0 + (c1 - 0.5) * 0.3, 0.5 + (c2 - c2z) * 14.0, 1.0), canopy_w), w_floor);
 	nm = mix(nm, texture(aerial_rocks_02_nor, ruv).rgb, w_rock);
 	NORMAL_MAP = nm;
 	NORMAL_MAP_DEPTH = mix(1.0, 0.4, far);

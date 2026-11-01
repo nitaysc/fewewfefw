@@ -109,7 +109,8 @@ void fragment() {
 	if (wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
 		wake = texture(wake_tex, wuv).rgb;
 	}
-	slope += vec2(sin(g.x * 1.7 + t * 3.1), cos(g.y * 1.9 - t * 2.6)) * wake.g * 0.22;
+	// the wake band is choppier (small breaking ripples) and the Kelvin arms ride as waves
+	slope += vec2(sin(g.x * 1.7 + t * 3.1), cos(g.y * 1.9 - t * 2.6)) * wake.g * 0.35;
 
 	// the island: turquoise shallows over sand, and surf breaking along the shore
 	float surf = 0.0;
@@ -162,7 +163,8 @@ void fragment() {
 	float fres = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
 	float trans = exp(-thick2 * 0.3);
 	float sss = pow(clamp(dot(V, -normalize(L + N * 0.6)), 0.0, 1.0), 3.0) * 1.3 + 0.2 * clamp(dot(N, L), 0.0, 1.0);
-	vec3 glow = scatter_color * (sss * smoothstep(-1.0, 2.0, height) * 0.5 + wake.g * 0.85 + film * 0.6);
+	// churned water: bubbles make it paler and a little greener, not neon turquoise
+	vec3 glow = scatter_color * (sss * smoothstep(-1.0, 2.0, height) * 0.5 + film * 0.35) + vec3(0.03, 0.09, 0.09) * wake.g;
 	vec3 seen = mix(deep_color * 0.9, refr * vec3(0.3, 0.75, 0.82), trans);
 	seen += vec3(0.02, 0.2, 0.17) * shallow * (1.0 - trans * 0.5);
 

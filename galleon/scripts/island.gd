@@ -11,7 +11,7 @@ var heights := PackedFloat32Array()
 var height_tex: ImageTexture
 var _noise: NoiseTexture2D
 var trees: Array = [] ## MultiMeshInstance3D per tree part, hidden on slow phones
-const TREES_PER_KIND := 600
+const TREES_PER_KIND := 200
 const CHUNK := 150.0 ## metres: trees are batched per tile so far tiles drop to low LODs and off-screen ones are culled
 var origin := Vector2.ZERO ## world x/z of the heightmap's corner
 
@@ -140,14 +140,12 @@ func _build_trees() -> void:
 		var x := rng.randf_range(-0.5, 0.5) * SIZE
 		var z := rng.randf_range(-0.5, 0.5) * SIZE
 		var h := height(x + position.x, z + position.z)
-		if h < 1.8 or h > 130.0:
+		if h < 1.8 or h > 22.0: # real trees fringe the beaches; the hills' jungle is drawn by terrain.gdshader
 			continue
 		var sl := absf(height(x + position.x + cell, z + position.z) - height(x + position.x - cell, z + position.z)) / (2.0 * cell)
 		if sl > 0.8:
 			continue
 		# thickest just behind the beach, thinning out up the hills
-		if rng.randf() > (1.0 if h < 14.0 else 0.6) or rng.randf() < smoothstep(90.0, 130.0, h):
-			continue
 		var k := rng.randi_range(0, 2)
 		if spots[k].size() >= TREES_PER_KIND:
 			continue
@@ -246,5 +244,7 @@ func _scatter_parts(parts: Array, scene: Node, xforms: Array, foliage: bool) -> 
 					m.backlight = Color(0.25, 0.35, 0.12)
 					mmi.material_override = m # one material per part (split in build_island_assets.py)
 			trees.append(mmi)
-			mmi.visibility_range_end = 2200.0
+			mmi.visibility_range_end = 700.0
+			mmi.visibility_range_end_margin = 120.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		add_child(mmi)

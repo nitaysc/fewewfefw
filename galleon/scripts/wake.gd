@@ -155,25 +155,31 @@ func _draw_ship(n: int, ship) -> int:
 		var sp := minf(1.0, s.speed / 3.5)
 		var churn := minf(1.0, sp + s.heave * 0.4)
 		var decay := exp(-age / 11.0)
-		n = _put(n, s.stern.x, s.stern.z, 3.0 + age * 0.32, s.rot + age * 0.1, churn * decay * 0.9, churn * exp(-age / 20.0) * 0.9)
-		if age < 22.0:
-			var spread: float = 5.2 + age * s.speed * 0.36
-			var arm := exp(-age / 6.5) * sp
+		# turbulent wake straight astern: patchy white water that breaks up within ~10 s,
+		# leaving a long, slowly widening band of smoother, paler water
+		var patch := 0.55 + 0.45 * sin(s.rot * 3.0)
+		n = _put(n, s.stern.x, s.stern.z, 2.6 + age * 0.28, s.rot + age * 0.1, churn * exp(-age / 4.5) * 0.75 * patch, churn * exp(-age / 25.0) * 0.45)
+		# Kelvin arms at 19.5°: these are waves, not foam. Only a thin broken line of white
+		# near the bow, then just a faint ripple band the shader roughens
+		if age < 16.0:
+			var spread: float = 5.0 + age * s.speed * 0.354
+			var arm := exp(-age / 5.0) * sp
 			for side in [1.0, -1.0]:
 				var p: Vector3 = s.bow + s.right * side * spread
-				n = _put(n, p.x, p.z, 1.5 + age * 0.22, s.rot + side, arm * 0.8, arm * 0.7)
+				var lace := arm * 0.35 * (1.0 if age < 3.0 else 0.0) * patch
+				n = _put(n, p.x, p.z, 0.9 + age * 0.12, s.rot + side, lace, arm * 0.25)
 		if age < 3.0:
 			var k := (1.0 - age / 3.0) * (0.35 + 0.65 * churn)
 			for i in s.sides.size():
 				var p: Vector3 = s.sides[i]
 				var bowish := 1.4 if i < 2 else 1.0 # the bow pushes up the most white water
-				n = _put(n, p.x, p.z, (2.4 + age * 1.4) * bowish, s.rot + age, minf(1.0, k * 0.9 * bowish), k)
+				n = _put(n, p.x, p.z, (1.6 + age * 0.9) * bowish, s.rot + age, minf(1.0, k * 0.7 * bowish), k * 0.5)
 	var idle := minf(1.0, absf(ship.vel.y) * 0.8 + minf(1.0, spd / 3.5) * 0.5)
 	for i in 9:
 		var u := 0.1 + i * 0.1
 		for side in [1.0, -1.0]:
 			var p: Vector3 = pos + b * Vector3(side * (ship.half_width(u, 0.0) + 0.2), 0.0, ship.z_at(u))
-			n = _put(n, p.x, p.z, 2.4, u * 10.0, 0.3 + 0.5 * idle, 0.5 + 0.4 * idle)
+			n = _put(n, p.x, p.z, 1.6, u * 10.0, 0.15 + 0.35 * idle, 0.2 + 0.25 * idle)
 	return n
 
 

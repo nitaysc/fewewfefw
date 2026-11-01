@@ -172,6 +172,12 @@ xvfb-run -a godot --path galleon --rendering-method forward_plus --resolution 16
   turns it on). Don't re-enable it until they ask; improve it first (see roadmap).
 - Island rebuilt with **Poly Haven CC0 scans** (trees, cliffs, rocks, ground textures). Re-run
   `python3 tools/fetch_island_assets.py && python3 tools/build_island_assets.py` to rebuild them.
+- Performance pass after the owner said it was "SO BAD AND LAGGY": real trees only fringe the
+  beaches (600, fade out at 700 m); the hills' jungle is painted by `terrain.gdshader` (crown
+  clumps + derived normals). Phones start at 85 % render scale without SSAO, and the governor
+  keeps stepping quality down all game (`slow_windows`). Wake toned down to real-ship proportions
+  (narrow broken white trail astern, Kelvin arms as faint ripples, no neon turquoise).
+- The order's direct-download links return 401 without the owner's logged-in session.
 - The **brig** is still not in: the repo is still public, and the download needs the owner's
   CGTrader login (cgtrader.com is now reachable from the container). Ask the owner to make the repo
   private and upload `Ship_Blender.rar` + `Sails_Mat_1/2.rar` to Google Drive with a share link.

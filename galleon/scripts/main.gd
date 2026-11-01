@@ -92,7 +92,7 @@ var hud_root: Control
 
 var fps_time := 0.0
 var fps_frames := 0
-var tuned := false
+var slow_windows := 0
 var shot_timer := -1.0
 
 
@@ -105,6 +105,8 @@ func _ready() -> void:
 	_build_ship()
 	_build_hud()
 	_build_audio()
+	if OS.has_feature("mobile"):
+		perf_level = 1 # dense phone screens: 85 % + FSR is hard to tell from native, and no SSAO
 	_apply_quality()
 
 	var wind: Vector3 = Waves.wind()
@@ -124,6 +126,7 @@ func _ready() -> void:
 	ship.terrain = island
 	ocean.mat.set_shader_parameter("island_tex", island.height_tex)
 	ocean.mat.set_shader_parameter("island_rect", island.rect())
+	_apply_quality() # now that the island exists, apply its tree settings
 	if combat:
 		_start_combat()
 
@@ -388,14 +391,16 @@ func _bake_sky() -> void:
 func _apply_quality() -> void:
 	var vp := get_viewport()
 	# phones have very dense screens: TAA + FSR upscaling from ~90 % is hard to tell apart
-	var scales := [1.0, 0.9, 0.8, 0.72, 0.65, 0.58]
+	var scales := [1.0, 0.85, 0.75, 0.67, 0.6, 0.55]
 	vp.scaling_3d_scale = scales[mini(perf_level, scales.size() - 1)]
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if vp.scaling_3d_scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
-	env.ssao_enabled = perf_level < 5
+	# SSAO costs a lot on phone GPUs for little gain out at sea: first thing to go
+	env.ssao_enabled = perf_level < 1
 	if island:
 		for t in island.trees:
-			t.visible = perf_level < 4 # the jungle canopy stays; the scanned trees go
-	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 3 else 2048, true)
+			t.visible = perf_level < 5 # the painted jungle stays; the scanned beach trees go last
+			t.visibility_range_end = 700.0 if perf_level < 3 else 380.0
+	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 2 else 2048, true)
 
 
 func _looped(s: AudioStreamWAV) -> AudioStreamWAV:
@@ -780,13 +785,15 @@ func _process(delta: float) -> void:
 
 	fps_time += delta
 	fps_frames += 1
-	if fps_time > 3.0 and running and not tuned and not args.has("shot"):
+	# keeps watching the whole game (sailing up to the island costs more than open sea):
+	# two slow windows in a row step the quality down; it never steps back up, so no flicker
+	if fps_time > 2.5 and running and not args.has("shot"):
 		var fps := fps_frames / fps_time
-		if fps < 40.0 and perf_level < 5:
+		slow_windows = slow_windows + 1 if fps < 36.0 else 0
+		if slow_windows >= 2 and perf_level < 6:
 			perf_level += 1
+			slow_windows = 0
 			_apply_quality()
-		elif fps >= 40.0:
-			tuned = true
 		fps_time = 0.0
 		fps_frames = 0
 
