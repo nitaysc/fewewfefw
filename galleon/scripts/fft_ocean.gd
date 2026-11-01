@@ -85,7 +85,7 @@ func register_material(m: ShaderMaterial) -> void:
 func _build_spray() -> void:
 	spray_mat = ShaderMaterial.new()
 	spray_mat.shader = load("res://ocean_fft/sea_spray_particle.gdshader")
-	spray_mat.set_shader_parameter(&"num_particles", 16384)
+	spray_mat.set_shader_parameter(&"num_particles", 12100)
 	spray_mat.set_shader_parameter(&"particle_scale", Vector3(14, 6, 14))
 	spray_mat.set_shader_parameter(&"lifetime", 3.0)
 	spray_mat.set_shader_parameter(&"lifetime_randomness", 0.25)
@@ -101,7 +101,7 @@ func _build_spray() -> void:
 	var quad := QuadMesh.new()
 	quad.material = draw
 	spray = GPUParticles3D.new()
-	spray.amount = 16384
+	spray.amount = 12100
 	spray.lifetime = 6.0
 	spray.process_material = spray_mat
 	spray.draw_pass_1 = quad

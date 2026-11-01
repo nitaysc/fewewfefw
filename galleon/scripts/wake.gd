@@ -13,11 +13,13 @@ var samples: Array = []
 var timer := 0.0
 var mm: MultiMesh
 var cam: Camera3D
+var buf := PackedFloat32Array() ## 12 transform + 4 custom floats per blob, uploaded in one go
+var redraw := 0.0
 
 
 func _init() -> void:
 	size = Vector2i(512, 512)
-	render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	render_target_update_mode = SubViewport.UPDATE_ONCE
 	transparent_bg = false
 	msaa_3d = Viewport.MSAA_DISABLED
 
@@ -62,6 +64,7 @@ void fragment() {
 	mm.mesh = quad
 	mm.instance_count = MAX_BLOBS
 	mm.visible_instance_count = 0
+	buf.resize(MAX_BLOBS * 16)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.layers = 1 << (LAYER - 1)
@@ -97,6 +100,11 @@ func update(dt: float, ship) -> void:
 	var texel := SIZE / size.x
 	center = Vector2(roundf(pos.x / texel) * texel, roundf(pos.z / texel) * texel)
 	cam.position = Vector3(center.x, 100.0, center.y)
+	# the foam map only needs refreshing ~30 times a second
+	redraw += dt
+	if redraw < 1.0 / 30.0:
+		return
+	redraw = 0.0
 
 	var n := 0
 	for s in samples:
@@ -123,13 +131,20 @@ func update(dt: float, ship) -> void:
 		for side in [1.0, -1.0]:
 			var p: Vector3 = pos + b * Vector3(side * (ship.half_width(u, 0.0) + 0.2), 0.0, ship.z_at(u))
 			n = _put(n, p.x, p.z, 2.4, u * 10.0, 0.3 + 0.5 * idle, 0.5 + 0.4 * idle)
+	mm.buffer = buf
+	render_target_update_mode = SubViewport.UPDATE_ONCE
 	mm.visible_instance_count = n
 
 
 func _put(n: int, x: float, z: float, r: float, rot: float, foam: float, aer: float) -> int:
 	if n >= MAX_BLOBS:
 		return n
-	var basis := Basis(Vector3.UP, rot).scaled(Vector3(r, 1.0, r))
-	mm.set_instance_transform(n, Transform3D(basis, Vector3(x, 0.0, z)))
-	mm.set_instance_custom_data(n, Color(foam, aer, 0.0, 0.0))
+	var c := cos(rot) * r
+	var sn := sin(rot) * r
+	var i := n * 16
+	# rows of the 3x4 transform (rotation about Y, scaled by r in x/z), then custom data
+	buf[i] = c; buf[i + 1] = 0.0; buf[i + 2] = sn; buf[i + 3] = x
+	buf[i + 4] = 0.0; buf[i + 5] = 1.0; buf[i + 6] = 0.0; buf[i + 7] = 0.0
+	buf[i + 8] = -sn; buf[i + 9] = 0.0; buf[i + 10] = c; buf[i + 11] = z
+	buf[i + 12] = foam; buf[i + 13] = aer; buf[i + 14] = 0.0; buf[i + 15] = 0.0
 	return n + 1

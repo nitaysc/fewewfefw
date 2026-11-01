@@ -12,6 +12,7 @@ extends Node3D
 const ShipScript := preload("res://scripts/ship.gd")
 const OceanScript := preload("res://scripts/ocean.gd")
 const FftOceanScript := preload("res://scripts/fft_ocean.gd")
+const BowWaveScript := preload("res://scripts/bow_wave.gd")
 const WakeScript := preload("res://scripts/wake.gd")
 const HelmScript := preload("res://scripts/helm.gd")
 const RoseScript := preload("res://scripts/rose.gd")
@@ -31,7 +32,10 @@ var camera: Camera3D
 var sun: DirectionalLight3D
 var sun_dir := Vector3(-0.55, 0.62, -0.56).normalized()
 var sprays: Array = []
+var bow_wave: MeshInstance3D
 var env: Environment
+var sky_mat: ShaderMaterial
+var sky_ready := false
 
 var cam_mode := 0
 var cam_yaw := 0.62
@@ -116,7 +120,7 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ world
 func _build_world() -> void:
-	var sky_mat := ShaderMaterial.new()
+	sky_mat = ShaderMaterial.new()
 	sky_mat.shader = load("res://shaders/sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
@@ -146,12 +150,8 @@ func _build_world() -> void:
 	env.ssao_intensity = 1.6
 	env.ssao_power = 1.4
 	env.ssao_detail = 0.6
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.0016
-	env.volumetric_fog_albedo = Color(0.85, 0.9, 0.95)
-	env.volumetric_fog_anisotropy = 0.6
-	env.volumetric_fog_length = 160.0
-	env.volumetric_fog_sky_affect = 0.0
+	# (volumetric fog was dropped for speed: at this thin haze the depth fog + aerial
+	#  perspective below look the same at a fraction of the cost)
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.12
 	env.adjustment_contrast = 1.06
@@ -163,8 +163,10 @@ func _build_world() -> void:
 	sun.light_color = Color(1.0, 0.95, 0.86)
 	sun.light_energy = 2.2
 	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 140.0
+	# one shadow cascade fitted around the ship: the ship is drawn into the shadow map
+	# once per frame instead of twice, at the same sharpness where it matters
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 110.0
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.2
 	sun.light_angular_distance = 0.5
@@ -202,73 +204,134 @@ func _build_ship() -> void:
 	add_child(ship)
 	ship.attach_model(load("res://assets/ship/galleon.glb"), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
 	_place_sun_deferred.call_deferred()
-	# bow spray and the white water pushed along the hull
+	# bow wave sheets, droplets and mist
+	bow_wave = BowWaveScript.new()
+	ship.add_child(bow_wave)
+	bow_wave.build(ShipScript)
 	var noise := NoiseTexture2D.new()
 	noise.seamless = true
 	noise.noise = FastNoiseLite.new()
-	var spray_shader: Shader = load("res://shaders/bow_spray.gdshader")
 	var spray_tex: Texture2D = load("res://ocean_fft/sea_spray.png")
-	# [position, direction, spread, speed min/max, size min/max, lifetime, amount, box half-size]
-	var kinds := [
-		[Vector3(3.2, 0.4, 15.0), Vector3(1.0, 1.1, 0.5), 20.0, 4.0, 9.0, 1.2, 3.2, 1.6, 260, Vector3(0.5, 0.3, 2.5)],
-		[Vector3(4.6, 0.0, 6.0), Vector3(1.0, 0.25, -0.2), 30.0, 1.0, 3.0, 2.0, 4.5, 2.2, 160, Vector3(0.3, 0.2, 9.0)],
-	]
-	for k in kinds:
-		for side in [1.0, -1.0]:
-			var p := GPUParticles3D.new()
-			p.amount = k[8]
-			p.lifetime = k[7]
-			p.local_coords = false
-			p.position = Vector3(k[0].x * side, k[0].y, k[0].z)
-			var pm := ParticleProcessMaterial.new()
-			pm.direction = Vector3(k[1].x * side, k[1].y, k[1].z)
-			pm.spread = k[2]
-			pm.initial_velocity_min = k[3]
-			pm.initial_velocity_max = k[4]
-			pm.gravity = Vector3(0, -9.8, 0)
-			pm.damping_min = 0.6
-			pm.damping_max = 1.8
-			pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-			pm.emission_box_extents = k[9]
-			pm.scale_min = k[5]
-			pm.scale_max = k[6]
-			pm.angle_min = -180.0
-			pm.angle_max = 180.0
-			var sc := Curve.new()
-			sc.add_point(Vector2(0, 0.4))
-			sc.add_point(Vector2(1, 1.8))
-			var sct := CurveTexture.new()
-			sct.curve = sc
-			pm.scale_curve = sct
-			p.process_material = pm
-			var q := QuadMesh.new()
-			var m := ShaderMaterial.new()
-			m.shader = spray_shader
-			m.set_shader_parameter("albedo_texture", spray_tex)
-			m.set_shader_parameter("dissolve_texture", noise)
-			q.material = m
-			p.draw_pass_1 = q
-			p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			p.visibility_aabb = AABB(Vector3(-40, -10, -40), Vector3(80, 30, 80))
-			p.amount_ratio = 0.0
-			ship.add_child(p)
-			sprays.append(p)
+	var mist_shader: Shader = load("res://shaders/bow_spray.gdshader")
+	var drop_shader: Shader = load("res://shaders/spray_droplet.gdshader")
+	for side in [1.0, -1.0]:
+		# droplets thrown off the crest of the bow wave
+		var drops := GPUParticles3D.new()
+		drops.amount = 380
+		drops.lifetime = 1.1
+		drops.local_coords = false
+		drops.position = Vector3(side * 3.4, 1.0, 14.5)
+		drops.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY
+		var dm := ParticleProcessMaterial.new()
+		dm.direction = Vector3(side * 1.0, 1.3, 0.6)
+		dm.spread = 24.0
+		dm.initial_velocity_min = 3.5
+		dm.initial_velocity_max = 9.0
+		dm.gravity = Vector3(0, -9.8, 0)
+		dm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		dm.emission_box_extents = Vector3(0.4, 0.4, 2.2)
+		dm.scale_min = 0.5
+		dm.scale_max = 1.4
+		drops.process_material = dm
+		var dq := QuadMesh.new()
+		dq.size = Vector2(0.05, 0.3)
+		var dmat := ShaderMaterial.new()
+		dmat.shader = drop_shader
+		dq.material = dmat
+		drops.draw_pass_1 = dq
+		drops.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		drops.visibility_aabb = AABB(Vector3(-40, -10, -40), Vector3(80, 30, 80))
+		drops.amount_ratio = 0.0
+		ship.add_child(drops)
+		sprays.append(drops)
+		# fine mist that drifts back over the bow wave
+		var mist := GPUParticles3D.new()
+		mist.amount = 40
+		mist.lifetime = 1.6
+		mist.local_coords = false
+		mist.position = Vector3(side * 3.6, 1.2, 13.5)
+		var mm := ParticleProcessMaterial.new()
+		mm.direction = Vector3(side * 0.8, 0.7, 0.2)
+		mm.spread = 35.0
+		mm.initial_velocity_min = 1.0
+		mm.initial_velocity_max = 3.0
+		mm.gravity = Vector3(0, -0.6, 0)
+		mm.damping_min = 0.4
+		mm.damping_max = 1.0
+		mm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		mm.emission_box_extents = Vector3(0.6, 0.4, 3.0)
+		mm.scale_min = 1.5
+		mm.scale_max = 3.2
+		mm.angle_min = -180.0
+		mm.angle_max = 180.0
+		var sc := Curve.new()
+		sc.add_point(Vector2(0, 0.5))
+		sc.add_point(Vector2(1, 1.7))
+		var sct := CurveTexture.new()
+		sct.curve = sc
+		mm.scale_curve = sct
+		mist.process_material = mm
+		var mq := QuadMesh.new()
+		var mmat := ShaderMaterial.new()
+		mmat.shader = mist_shader
+		mmat.set_shader_parameter("albedo_texture", spray_tex)
+		mmat.set_shader_parameter("dissolve_texture", noise)
+		mq.material = mmat
+		mist.draw_pass_1 = mq
+		mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mist.visibility_aabb = AABB(Vector3(-40, -10, -40), Vector3(80, 30, 80))
+		mist.amount_ratio = 0.0
+		ship.add_child(mist)
+		sprays.append(mist)
 
 
 func _place_sun_deferred() -> void:
 	_place_sun()
+	_bake_sky()
+
+
+## Raymarch the volumetric clouds into an HDR panorama, a strip per frame
+## (so a phone GPU never stalls), then hand it to the sky.
+func _bake_sky() -> void:
+	var w := int(args.get("skyres", "4096"))
+	var h := w / 4
+	var vp := SubViewport.new()
+	vp.size = Vector2i(w, h)
+	vp.use_hdr_2d = true
+	vp.transparent_bg = false
+	vp.render_target_clear_mode = SubViewport.CLEAR_MODE_NEVER
+	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var rect := ColorRect.new()
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/cloud_bake.gdshader")
+	m.set_shader_parameter("size", Vector2(w, h))
+	m.set_shader_parameter("sun_dir", sun_dir)
+	rect.material = m
+	vp.add_child(rect)
+	add_child(vp)
+	var strips := 16
+	for i in strips:
+		rect.position = Vector2(0, h * i / strips)
+		rect.size = Vector2(w, ceili(float(h) / strips))
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		await RenderingServer.frame_post_draw
+	var img := vp.get_texture().get_image()
+	sky_mat.set_shader_parameter("panorama", ImageTexture.create_from_image(img))
+	sky_mat.set_shader_parameter("ready", 1.0)
+	vp.queue_free()
+	sky_ready = true
 
 
 ## Full quality by default. If the phone can't hold ~30 fps the game steps down
 ## by itself (render scale first, then the most expensive effects); no menu needed.
 func _apply_quality() -> void:
 	var vp := get_viewport()
-	var scales := [1.0, 0.85, 0.72, 0.62, 0.55]
+	# phones have very dense screens: TAA + FSR upscaling from ~90 % is hard to tell apart
+	var scales := [1.0, 0.9, 0.8, 0.72, 0.65, 0.58]
 	vp.scaling_3d_scale = scales[mini(perf_level, scales.size() - 1)]
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if vp.scaling_3d_scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
-	env.volumetric_fog_enabled = perf_level < 3
-	env.ssao_enabled = perf_level < 4
-	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 2 else 2048, true)
+	env.ssao_enabled = perf_level < 5
+	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 3 else 2048, true)
 
 
 func _looped(s: AudioStreamWAV) -> AudioStreamWAV:
@@ -536,7 +599,8 @@ func _process(delta: float) -> void:
 	ship.step(dt)
 	ship.animate(dt)
 	wake.update(dt, ship)
-	var ratio := clampf((ship.speed() - 1.8) / 4.0 + ship.bow_dip * 0.6, 0.0, 1.0)
+	var ratio := clampf((ship.speed() - 2.0) / 4.0 + ship.bow_dip * 0.8, 0.0, 1.0)
+	bow_wave.update(maxf(0.0, ship.speed()), clampf(ship.bow_dip * 0.5, 0.0, 1.2), fft.map_scales)
 	for p in sprays:
 		p.amount_ratio = ratio
 		p.emitting = ratio > 0.01
@@ -553,15 +617,15 @@ func _process(delta: float) -> void:
 	fps_frames += 1
 	if fps_time > 3.0 and running and not tuned and not args.has("shot"):
 		var fps := fps_frames / fps_time
-		if fps < 28.0 and perf_level < 4:
+		if fps < 40.0 and perf_level < 5:
 			perf_level += 1
 			_apply_quality()
-		elif fps >= 28.0:
+		elif fps >= 40.0:
 			tuned = true
 		fps_time = 0.0
 		fps_frames = 0
 
-	if shot_timer >= 0.0:
+	if shot_timer >= 0.0 and sky_ready:
 		shot_timer -= delta
 		if shot_timer < 0.0:
 			var img := get_viewport().get_texture().get_image()
@@ -586,6 +650,9 @@ func _update_camera(dt: float) -> void:
 	var base := 0.0 if CAMS[cam_mode] == "Orbit" else cam_heading
 	var yaw := base + cam_yaw + cam_auto
 	var pivot := Vector3(pos.x, pos.y * 0.5 + 9.0, pos.z)
+	if args.has("focus"): # screenshots: aim at a point given in ship space, e.g. --focus=0,1,17
+		var f: PackedFloat64Array = args.focus.split_floats(",")
+		pivot = ship.transform * Vector3(f[0], f[1], f[2])
 	var cp := pivot + Vector3(sin(yaw) * cos(cam_pitch), sin(cam_pitch), cos(yaw) * cos(cam_pitch)) * cam_dist
 	cp.y = maxf(cp.y, Waves.height_at(cp.x, cp.z) + 2.0)
 	camera.look_at_from_position(cp, pivot, Vector3.UP)

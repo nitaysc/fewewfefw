@@ -26,8 +26,8 @@ Every push that touches `galleon/` builds an APK and publishes it as a
 | Ocean: camera-following grid; Gerstner swell + 3 GPU FFT cascades (JONSWAP), foam that builds where crests break and fades, spray off the crests, refraction, hull contact foam, wake | `shaders/ocean.gdshader`, `scripts/ocean.gd`, `scripts/fft_ocean.gd`, `ocean_fft/` |
 | Wake: foam/turbulence blobs (stern trail, Kelvin bow arms, hull wash) rendered top-down into a texture | `scripts/wake.gd` |
 | Sails: shape computed on the GPU (billow, furl, luffing), yards brace to the wind | `shaders/sail.gdshader` |
-| Sky with cumulus clouds, lights and reflects the scene | `shaders/sky.gdshader` |
-| Bow spray and hull wash particles | `shaders/bow_spray.gdshader`, `scripts/main.gd` |
+| Sky: volumetric cumulus raymarched once at start-up into an HDR panorama (in strips, behind the title screen); the sky then costs one texture read per pixel | `shaders/cloud_bake.gdshader`, `shaders/sky.gdshader`, `main.gd → _bake_sky` |
+| Bow wave: a translucent sheet of water riding the live sea surface, foam on its breaking crest; droplet streaks and sunlit mist | `scripts/bow_wave.gd`, `shaders/bow_wave.gdshader`, `shaders/spray_droplet.gdshader`, `shaders/bow_spray.gdshader` |
 | Ambience: synthesised surf and wind loops | `tools/make_audio.py` |
 | HUD, camera, title screen | `scripts/main.gd`, `scripts/helm.gd`, `scripts/rose.gd` |
 
@@ -68,4 +68,5 @@ The build container has no GPU: Godot runs on Mesa's lavapipe (software Vulkan) 
 ```sh
 xvfb-run -a godot --resolution 1600x740 -- --play --warm=30 --shot=/tmp/s.png --wait=5 --notaa
 ```
-(`--notaa`: at ~2 fps TAA would smear the image; `--debug=1|2|3` shows FFT foam / slopes / uniforms.)
+(`--notaa`: at ~2 fps TAA would smear the image; `--skyres=1024` bakes a smaller sky (the CPU renderer is slow);
+`--focus=x,y,z` aims the camera at a point on the ship; `--debug=1|2|3` shows FFT foam / slopes / uniforms.)
