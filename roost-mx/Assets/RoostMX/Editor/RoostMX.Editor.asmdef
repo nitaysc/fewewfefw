@@ -1,0 +1,21 @@
+{
+    "name": "RoostMX.Editor",
+    "rootNamespace": "RoostMX.EditorTools",
+    "references": [
+        "RoostMX.Sim",
+        "RoostMX.Game",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.unity.render-pipelines.universal", "expression": "12.0.0", "define": "ROOST_URP" }
+    ],
+    "noEngineReferences": false
+}

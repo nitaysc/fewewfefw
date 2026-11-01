@@ -1,0 +1,94 @@
+name: Build Roost MX APK
+
+# Roost MX is a Unity 6 project. Every push that touches roost-mx/ runs the headless
+# physics tests and a compile check. The Android build needs a Unity license stored as
+# repository secrets (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD; see roost-mx/README.md).
+# Without them the build job is skipped instead of failing.
+
+on:
+  push:
+    paths:
+      - 'roost-mx/**'
+      - '.github/workflows/build-roost-mx.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Ride the bike headless (handling, jumps, full laps)
+        run: dotnet run -c Release --project roost-mx/Tests
+
+      - name: Compile-check the Unity scripts
+        run: dotnet build -c Release -p:Editor=true roost-mx/tools/unity-compile-check
+
+  android:
+    needs: physics
+    runs-on: ubuntu-latest
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - name: Unity license available?
+        if: env.UNITY_LICENSE == ''
+        run: echo "::warning::No UNITY_LICENSE secret, so the Android build was skipped. See roost-mx/README.md (Building the APK)."
+
+      - uses: actions/checkout@v4
+        if: env.UNITY_LICENSE != ''
+
+      - name: Free disk space for the Unity Android image
+        if: env.UNITY_LICENSE != ''
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: false
+          haskell: true
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
+      - uses: actions/cache@v4
+        if: env.UNITY_LICENSE != ''
+        with:
+          path: roost-mx/Library
+          key: roostmx-Library-Android-${{ hashFiles('roost-mx/Packages/manifest.json', 'roost-mx/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: roostmx-Library-Android-
+
+      - name: Build APK with Unity
+        if: env.UNITY_LICENSE != ''
+        uses: game-ci/unity-builder@v4
+        with:
+          projectPath: roost-mx
+          targetPlatform: Android
+          buildName: roost-mx
+          buildMethod: RoostMX.EditorTools.BuildScript.BuildAndroid
+          androidVersionCode: ${{ github.run_number }}
+          versioning: None
+
+      - uses: actions/upload-artifact@v4
+        if: env.UNITY_LICENSE != ''
+        with:
+          name: roost-mx-apk
+          path: build/Android/roost-mx.apk
+
+      - name: Publish release
+        if: env.UNITY_LICENSE != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "roost-mx-v0.1.${{ github.run_number }}" build/Android/roost-mx.apk \
+            --target "${{ github.sha }}" \
+            --title "Roost MX v0.1.${{ github.run_number }}" \
+            --notes "Download: tap roost-mx.apk below. Stage 1 physics prototype. Built from ${{ github.ref_name }}." \
+            --latest=false
