@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Roost MX placeholder preview</title>
+<style>body{margin:0;background:#222;color:#eee;font:14px sans-serif}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./three.module.js"}}</script></head>
+<body><canvas id="c" width="1200" height="800"></canvas>
+<script type="module">
+import { render } from './preview.js';
+const q = new URLSearchParams(location.search);
+const data = await (await fetch(q.get('poses') || 'poses.json')).json();
+const view = JSON.parse(q.get('view') || '{"offset":[-4.2,1.4,-2.2]}');
+await render(document.getElementById('c'), data, +(q.get('pose') || 0), view);
+document.title = 'done';
+</script></body></html>

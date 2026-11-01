@@ -58,6 +58,7 @@ namespace RoostMX.Tests
             if (Run("lap")) Laps();
             if (only.Contains("tune")) Tune.Run();
             if (only.Contains("map")) MapDump.Run();
+            if (only.Contains("pose")) PoseDump.Run();
             Console.WriteLine($"\n{(failures == 0 ? "ALL PASSED" : failures + " FAILED")} in {sw.Elapsed.TotalSeconds:F1}s");
             return failures == 0 ? 0 : 1;
         }
