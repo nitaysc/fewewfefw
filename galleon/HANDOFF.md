@@ -17,7 +17,7 @@ Read this file first, then `README.md` (controls, file map, tools).
 | APK build in CI | `.github/workflows/build-galleon.yml` → release `galleon-v0.1.<run>` |
 | Root workflow (other game) | `.github/workflows/build-apk.yml` ignores `galleon/**` |
 | Repo-wide AI notes | `AI_HANDOFF.md` (root) lists all of the owner's projects |
-| Branch used so far | `ccr-525d57c7-i1qm1u` |
+| Branches used so far | `ccr-525d57c7-i1qm1u` (v0.1.1–0.1.5), `claude/galleon-game-improvements-ramjl0` (combat, island) |
 
 Other folders in the repo (`putt-party/`, `whiskers-coffee/`, `redeclipse-android/`, `www/`) are
 the owner's **other** games. Don't touch them for galleon work.
@@ -38,6 +38,14 @@ the owner's **other** games. Don't touch them for galleon work.
    10+ sail designs). Converted with `tools/import_brig.py`; wind-animated sails; SAILS button.
    Fixed a bug where furled sails shot about 50 m into the sky (see §6). v0.1.5-brig was built
    **locally** and sent to the owner directly as a file, not via Releases (see §4).
+6. **Toward a pirate game** (owner: "make it more realistic… I want to make a pirate game later,
+   like Assassin's Creed"). Added real gunnery (ripple broadsides, drag ballistics, skipping shot,
+   splashes, splinters, shot holes, drifting powder smoke, sound delayed at 343 m/s), hull damage,
+   leaks, pumps, flooding and sinking, an AI man-of-war on the same physics, and a procedural
+   tropical island (reef shelf you can run aground on, jungle, palms, surf, turquoise shallows).
+   The same session tried to fetch the brig (§4) but couldn't: the repo was still **public** and
+   the cloud container's network blocked cgtrader.com (proxy 403). Also the download needs the
+   owner's CGTrader login, which an AI session doesn't have.
 
 ## 3. Architecture
 
@@ -50,6 +58,10 @@ scripts/ocean.gd      camera-following radial ocean grid
 scripts/wake.gd       top-down foam map (SubViewport) the ocean shader reads
 scripts/bow_wave.gd   bow wave sheet mesh
 scripts/helm.gd, rose.gd   ship's wheel and wind indicator controls
+scripts/gunnery.gd    cannons: broadsides, shot flight, hits, splashes, smoke/flash/splinter pools, gun sounds
+scripts/captain.gd    enemy AI (steer to put the target on the beam, respect the no-go zone, fire on the roll)
+scripts/island.gd     procedural island: heightmap, mesh, palms, jungle canopy, height(x, z) lookup
+shaders/smoke.gdshader, muzzle_flash.gdshader, terrain.gdshader, canopy.gdshader
 shaders/ocean.gdshader       swell + FFT chop + foam + wake + refraction + spec AA
 shaders/waves.gdshaderinc    GENERATED from waves.gd (test/gen_waves_inc.gd), never edit by hand
 shaders/cloud_bake.gdshader  volumetric cumulus raymarch (runs once at start, in 16 strips)
@@ -69,6 +81,17 @@ Key ideas:
 - The built-in hull shape lives in `ship.gd` (half_width/keel...) and `tools/build_constants.py`.
   The physics (22 buoyancy columns), wake and bow wave use it. The brig is **scaled 1.6x** so its
   hull matches it (`bow_scale = 0.8` because the brig's waterline is shorter).
+- **Combat:** guns fire from `Ship.muzzles(side)` (the 6 lower-deck ports; side +1 = port = +X).
+  `gunnery.lay()` gives elevation + train (±12°) for a target; `Ship.inside_hull()` is the hit test
+  (uses the same parametric hull). `take_hit()` lowers `hull`, adds `leak` below y 0.9 m; at hull 0
+  the ship is `sinking` (leak 38 t/s). `flood` (tonnes) is dead weight low on the listing side; pumps
+  clear 0.9 t/s. Reserve buoyancy ≈ 1300 t, so a wrecked ship goes under in ~25 s.
+- **Enemies** are ordinary `ship.gd` instances with the galleon model recoloured (`set_colours`) and a
+  `captain.gd`; main respawns a new one 30 s after each sinking (a bit more skilled each time).
+  The wake map (`wake.gd`) draws every ship's wake inside its 300 m window plus shot-splash foam.
+- **Island:** `ship.terrain` / `gunnery.terrain` call `island.height(x, z)`; the ocean shader gets
+  the same heightmap (`island_tex`, `island_rect`) for surf and shallows. Ocean is on render layer 2
+  so the shot-hole decals (layer 1) don't print on the water.
 - **Model choice:** `main.gd` loads `assets/brig/brig.glb` if present, else `assets/ship/galleon.glb`.
 
 ## 4. The purchased brig: LICENSING (important)
@@ -143,6 +166,23 @@ xvfb-run -a godot --path galleon --rendering-method forward_plus --resolution 16
 - The source model had 2 UV maps. Extra maps must be removed so the tag UV becomes Godot's `UV2`.
 
 ## 6. Open issues / ideas (ordered by what the owner asked for)
+
+### Pirate-game roadmap (the owner's long-term goal)
+Next steps that build on what is there, roughly in order:
+- **Boarding**: grapple when alongside and slow, then a crew fight; needs a walkable deck and a
+  third-person character (start with a capsule controller on the deck, moving with the ship).
+- **Chain shot / grape**: chain shot tears sails (`sail.gdshader` would need holes: an alpha mask
+  texture per sail), grape kills crew. Add a crew count to `ship.gd`; reload time grows as crew falls.
+- **Masts falling**: split masts in `build_galleon.py` into separate nodes so they can topple.
+- **Fire**: hits near the powder room start fires (smoke column, spreading).
+- **Ports and towns** on islands, trading, loot from sunk ships (floating cargo to pick up).
+- **Weather and time of day**: the sky is baked once; re-bake at a new sun angle when the hour
+  changes, and add a storm preset (bigger swell in `waves.gd` → regenerate `waves.gdshaderinc`).
+- **Swimming / going ashore**: a character that can leave the ship, walk the island (the island
+  heightmap already exists; add collision from it).
+- **More ship types**: sloop/brig/frigate sizes; the physics constants in `ship.gd` are per-class.
+
+### Older open issues
 
 1. **Repo privacy, then the brig in CI** (see §4). Until then, brig APKs must be built locally and sent as a file.
 2. **Performance**: the owner said it was "a little too low" before the last optimisations; no new

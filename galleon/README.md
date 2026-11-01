@@ -1,7 +1,8 @@
 # Galleon ⛵
 
 An open-sea galleon sailing simulator for Android, built with **Godot 4.3** (Forward+ renderer: TAA, SSAO, volumetric haze, compute-shader FFT ocean).
-Prototype / first slice: one ship, open ocean, real wave and buoyancy physics.
+Prototype: your ship, an enemy man-of-war, a tropical island, real wave and buoyancy physics and
+real gunnery (round shot with drag, skipping, splinters, leaks, flooding, sinking).
 
 ## Download
 
@@ -12,10 +13,17 @@ Every push that touches `galleon/` builds an APK and publishes it as a
 
 - **Helm** (bottom left): drag the wheel round to steer; it stays put. Double-tap to centre.
 - **Sails** (bottom right): ▲ / ▼ — furled, half sail, full sail.
+- **PORT / STBD** (left / right): fire that broadside. The guns ripple from bow to stern and take
+  14 s to reload (the button shows the countdown). It glows gold when an enemy bears: the crews
+  then elevate for her range and lever the guns up to 12° toward her. Fire as your ship rolls level,
+  or the shot goes high or into the sea.
+- **Hull** (top left): structural strength, and water in the hold once you're holed below the
+  waterline. The pumps clear a slow leak; a shattered hull founders.
+- Watch the island: its reef shelf will put you **aground**.
 - **Camera**: drag anywhere to orbit, pinch to zoom. **CAM** cycles Chase / Orbit / Cinematic / Quarterdeck.
 - Graphics always start at full quality; if the phone can't hold ~30 fps the game lowers the render
   scale (with FSR upscaling) and then the most expensive effects by itself.
-- Desktop: A/D steer, W/S sails, C camera, mouse wheel zoom.
+- Desktop: A/D steer, W/S sails, Q/E fire port/starboard, C camera, mouse wheel zoom.
 
 ## How it works
 
@@ -28,7 +36,11 @@ Every push that touches `galleon/` builds an APK and publishes it as a
 | Sails: shape computed on the GPU (billow, furl, luffing), yards brace to the wind | `shaders/sail.gdshader` |
 | Sky: volumetric cumulus raymarched once at start-up into an HDR panorama (in strips, behind the title screen); the sky then costs one texture read per pixel | `shaders/cloud_bake.gdshader`, `shaders/sky.gdshader`, `main.gd → _bake_sky` |
 | Bow wave: a translucent sheet of water riding the live sea surface, foam on its breaking crest; droplet streaks and sunlit mist | `scripts/bow_wave.gd`, `shaders/bow_wave.gdshader`, `shaders/spray_droplet.gdshader`, `shaders/bow_spray.gdshader` |
-| Ambience: synthesised surf and wind loops | `tools/make_audio.py` |
+| Gunnery: ripple broadsides, ballistics (gravity + air drag), shot skipping off the sea, splashes, splinters, shot-hole decals, powder smoke drifting downwind, muzzle flashes, sound delayed by distance | `scripts/gunnery.gd`, `shaders/smoke.gdshader`, `shaders/muzzle_flash.gdshader` |
+| Damage: hull strength, leaks below the waterline, pumps, flooding that lists and sinks her, running aground | `scripts/ship.gd` (`take_hit`, `flood`, `terrain`) |
+| Enemy: an AI captain on the same physics (can't sail into the wind either); closes, turns to bring a broadside to bear, fires on the roll | `scripts/captain.gd` |
+| Island: procedural heightmap (reef shelf, beaches, jungle canopy, palms, volcanic peak); turquoise shallows and surf in the ocean shader | `scripts/island.gd`, `shaders/terrain.gdshader`, `shaders/canopy.gdshader` |
+| Ambience and guns: synthesised surf/wind loops, cannon (near and far), splash, impact | `tools/make_audio.py` |
 | HUD, camera, title screen | `scripts/main.gd`, `scripts/helm.gd`, `scripts/rose.gd` |
 
 ### The ship model
@@ -52,7 +64,10 @@ Node names Godot relies on: `Hull`, `Rigging`, `Yard_*` (pivot on the mast, with
 ```sh
 godot --headless res://test/sea_trials.tscn     # floats, sails, can't point into the wind, answers the helm
 godot --headless --script res://test/gen_waves_inc.gd   # after changing the wave table
+godot --headless --fixed-fps 60 -s res://test/battle_sim.gd -- --play --enemy=300,80   # scripted sea fight
 ```
+The sea trials also check gunnery (range tables, hull hits), pumps vs one leak, a shattered hull
+foundering, grounding on a shoal, and that an AI captain fires.
 
 ## FFT ocean credit
 
@@ -69,7 +84,8 @@ The build container has no GPU: Godot runs on Mesa's lavapipe (software Vulkan) 
 xvfb-run -a godot --resolution 1600x740 -- --play --warm=30 --shot=/tmp/s.png --wait=5 --notaa
 ```
 (`--notaa`: at ~2 fps TAA would smear the image; `--skyres=1024` bakes a smaller sky (the CPU renderer is slow);
-`--focus=x,y,z` aims the camera at a point on the ship; `--debug=1|2|3` shows FFT foam / slopes / uniforms.)
+`--focus=x,y,z` aims the camera at a point on the ship; `--debug=1|2|3` shows FFT foam / slopes / uniforms;
+`--enemy=DIST,BEARING` places the enemy, `--noenemy`, `--fire=port|stbd|both`, `--islanddist=METRES`.)
 
 ## The purchased ship (Ocean Brig)
 

@@ -13,7 +13,9 @@ an AI. Each project has its own notes:
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - **`galleon/HANDOFF.md`: start here for the ship game** (history, architecture, the licensed brig
   model and how to rebuild it, build/test/screenshot commands, open issues).
-- `galleon/README.md`: realistic galleon sailing simulator in **Godot 4.3** (ocean, buoyancy, sails).
+- `galleon/README.md`: realistic galleon sailing simulator in **Godot 4.3** (ocean, buoyancy, sails,
+  cannon broadsides, an AI enemy ship, a tropical island). The owner wants it to grow into a pirate
+  game in the spirit of an open-world pirate adventure; the roadmap is in `galleon/HANDOFF.md` §6.
   The ship is built by `galleon/tools/build_galleon.py` (Blender via `pip install bpy`).
   Release link: `https://github.com/nitaysc/fewewfefw/releases/tag/galleon-v0.1.<run number>`.
 - `putt-party/README.md`: 3D minigolf against bots.

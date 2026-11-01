@@ -10,6 +10,7 @@ const PEAK := 170.0
 var heights := PackedFloat32Array()
 var height_tex: ImageTexture
 var _noise: NoiseTexture2D
+var palms: MultiMeshInstance3D
 var origin := Vector2.ZERO ## world x/z of the heightmap's corner
 
 
@@ -146,7 +147,7 @@ func _build_palms() -> void:
 		var p := _local(i, j) + Vector3(rng.randf_range(-0.5, 0.5) * cell, 0.0, rng.randf_range(-0.5, 0.5) * cell)
 		p.y = height(p.x + position.x, p.z + position.z) - 0.3
 		spots.append(p)
-		if spots.size() >= 1800:
+		if spots.size() >= 900:
 			break
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -160,14 +161,15 @@ func _build_palms() -> void:
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+	palms = mmi
 
 
 ## Jungle canopy: thousands of rounded tree crowns packed over the hills, so the
 ## island reads as rain forest rather than lawn. Each crown is a squashed, lumpy sphere.
 func _build_canopy() -> void:
 	var sphere := SphereMesh.new()
-	sphere.radial_segments = 9
-	sphere.rings = 5
+	sphere.radial_segments = 7
+	sphere.rings = 4
 	sphere.radius = 1.0
 	sphere.height = 1.4
 	var m := ShaderMaterial.new()
@@ -188,12 +190,12 @@ func _build_canopy() -> void:
 		var sl := absf(height(x + position.x + cell, z + position.z) - height(x + position.x - cell, z + position.z)) / (2.0 * cell)
 		if sl > 1.1 or rng.randf() < smoothstep(90.0, 150.0, h):
 			continue
-		var r := rng.randf_range(3.5, 7.0)
+		var r := rng.randf_range(4.0, 7.5)
 		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(r, r * rng.randf_range(0.55, 0.8), r * rng.randf_range(0.8, 1.2)))
 		xf.append(Transform3D(b, Vector3(x, h + r * 0.35, z)))
 		var g := rng.randf()
 		cols.append(Color(0.035 + 0.04 * g, 0.075 + 0.06 * g, 0.02 + 0.015 * g).lerp(Color(0.12, 0.11, 0.04), rng.randf() * 0.3))
-		if xf.size() >= 4200:
+		if xf.size() >= 3000:
 			break
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -216,8 +218,8 @@ func _palm_mesh() -> ArrayMesh:
 	var frond := Color(0.1, 0.2, 0.05)
 	var hgt := 13.0
 	var lean := 2.2
-	var seg := 8
-	var sides := 6
+	var seg := 6
+	var sides := 5
 	var spine := []
 	for k in seg + 1:
 		var t := float(k) / seg
@@ -238,7 +240,7 @@ func _palm_mesh() -> ArrayMesh:
 				st.set_normal(Vector3(cos(v[1]), 0.1, sin(v[1])))
 				st.add_vertex(v[0])
 	var top: Vector3 = spine[seg]
-	var fronds := 11
+	var fronds := 8
 	for f in fronds:
 		var ang := TAU * f / fronds + 0.3 * sin(f * 3.7)
 		var dir := Vector3(cos(ang), 0.0, sin(ang))
@@ -246,12 +248,12 @@ func _palm_mesh() -> ArrayMesh:
 		var length := 5.5 + 1.2 * sin(f * 1.9)
 		var rise := 0.35 + 0.25 * sin(f * 2.3)
 		var pts := []
-		for k in 7:
-			var t := float(k) / 6.0
+		for k in 5:
+			var t := float(k) / 4.0
 			pts.append(top + dir * length * t + Vector3.UP * (rise * 3.0 * t - 4.2 * t * t))
-		for k in 6:
-			var w0 := 0.9 * sin(PI * minf(1.0, (float(k) / 6.0) * 1.15 + 0.05))
-			var w1 := 0.9 * sin(PI * minf(1.0, (float(k + 1) / 6.0) * 1.15 + 0.05))
+		for k in 4:
+			var w0 := 0.9 * sin(PI * minf(1.0, (float(k) / 4.0) * 1.15 + 0.05))
+			var w1 := 0.9 * sin(PI * minf(1.0, (float(k + 1) / 4.0) * 1.15 + 0.05))
 			var a: Vector3 = pts[k]
 			var b: Vector3 = pts[k + 1]
 			var n := (b - a).cross(side).normalized()
@@ -259,7 +261,7 @@ func _palm_mesh() -> ArrayMesh:
 				n = -n
 			var droop0 := Vector3.DOWN * w0 * 0.35
 			var droop1 := Vector3.DOWN * w1 * 0.35
-			var c := frond * (0.85 + 0.3 * float(k) / 6.0)
+			var c := frond * (0.85 + 0.3 * float(k) / 4.0)
 			for v in [a, a + side * w0 + droop0, b + side * w1 + droop1, a, b + side * w1 + droop1, b,
 					a, b, b - side * w1 + droop1, a, b - side * w1 + droop1, a - side * w0 + droop0]:
 				st.set_color(c)

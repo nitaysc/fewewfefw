@@ -398,6 +398,8 @@ func _apply_quality() -> void:
 	vp.scaling_3d_scale = scales[mini(perf_level, scales.size() - 1)]
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if vp.scaling_3d_scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
 	env.ssao_enabled = perf_level < 5
+	if island and island.palms:
+		island.palms.visible = perf_level < 4 # the jungle canopy stays; single palms go
 	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 3 else 2048, true)
 
 
