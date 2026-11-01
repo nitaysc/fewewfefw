@@ -1,0 +1,61 @@
+name: Build Gambit Arena APK
+
+on:
+  push:
+    paths:
+      - 'gambit-arena/**'
+      - '.github/workflows/build-gambit-arena.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gambit-arena
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gambit-arena/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and sync web code into Android
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Chess rules and duel balance tests
+        run: npm test
+
+      - name: Build APK
+        working-directory: gambit-arena/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../gambit-arena.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gambit-arena-apk
+          path: gambit-arena/gambit-arena.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "gambit-arena-v1.0.${{ github.run_number }}" gambit-arena.apk \
+            --target "${{ github.sha }}" \
+            --title "Gambit Arena v1.0.${{ github.run_number }}" \
+            --notes "Download: tap gambit-arena.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false

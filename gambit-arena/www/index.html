@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0d1220">
+  <title>Gambit Arena</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <!-- main menu -->
+  <section class="layer dim show" id="menu">
+    <div class="menu-wrap">
+      <div class="brand"><span class="b1">GAMBIT</span><span class="b2">ARENA</span><small>Chess where every capture is a gunfight</small></div>
+      <div class="panel">
+        <label class="field">Your name <input id="nameInput" maxlength="12" placeholder="Player"></label>
+        <h3>Play a friend online</h3>
+        <div class="row">
+          <button class="cta" id="hostBtn">Host game</button>
+          <button class="cta ghost" id="joinBtn">Join game</button>
+        </div>
+        <h3>Practice against the bot</h3>
+        <div class="row">
+          <div class="seg" id="levelSeg"><button data-v="0">Easy</button><button data-v="1">Normal</button><button data-v="2">Hard</button></div>
+          <button class="cta" id="botBtn">Play</button>
+        </div>
+        <div class="row small">
+          <label class="field slim">Look speed <input type="range" id="sensInput" min="0.3" max="2.5" step="0.1" value="1"></label>
+          <button class="round soundBtn" aria-label="Sound">🔊</button>
+          <button class="round" id="helpBtn" aria-label="How to play">?</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- online lobby -->
+  <section class="layer dim" id="lobby">
+    <div class="panel narrow">
+      <h2 id="lobbyTitle">Online</h2>
+      <div id="hostBox">
+        <p>Send this code to your friend:</p>
+        <div class="code" id="codeOut">·····</div>
+        <p class="muted" id="hostStatus">Connecting…</p>
+      </div>
+      <div id="joinBox">
+        <p>Enter your friend's code:</p>
+        <input class="code-in" id="codeIn" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="cta" id="joinGo">Join</button>
+        <p class="muted" id="joinStatus"></p>
+      </div>
+      <button class="cta ghost" id="lobbyBack">Back</button>
+    </div>
+  </section>
+
+  <!-- how to play -->
+  <section class="layer dim" id="help">
+    <div class="panel wide">
+      <h2>How to play</h2>
+      <p>It's normal chess, with one change: <b>you can't just take a piece. You have to beat it in a first-person duel.</b></p>
+      <ul>
+        <li>Win the duel as the attacker and you take the square, like a normal capture.</li>
+        <li>Lose and your attacking piece is gone, and the defender stays where it is.</li>
+        <li>If the clock runs out (75 s), the defender holds its square.</li>
+        <li>Checkmate wins as usual. If your king attacks and loses, or a failed attack leaves your king in check, you lose.</li>
+      </ul>
+      <div class="stats" id="statTable"></div>
+      <p class="muted">Controls: drag on the left to move, drag on the right to look, hold 🔥 to shoot. A hit on the top of a piece (its crown) does 1.5× damage.</p>
+      <button class="cta" id="helpClose">Got it</button>
+    </div>
+  </section>
+
+  <!-- board HUD -->
+  <section class="layer" id="boardHud">
+    <div class="tag opp"><b id="oppName">Bot</b><span id="oppLost"></span></div>
+    <div class="tag me"><b id="myName">You</b><span id="myLost"></span></div>
+    <div id="turnBanner"></div>
+    <div id="pieceInfo"></div>
+    <div class="top-btns">
+      <button class="round" id="pauseBtn" aria-label="Menu">☰</button>
+      <button class="round" id="rotBtn" aria-label="Rotate view">⟳</button>
+    </div>
+  </section>
+
+  <!-- promotion -->
+  <section class="layer dim" id="promo">
+    <div class="panel narrow">
+      <h2>Promote to</h2>
+      <div class="promo-row">
+        <button data-p="q">♛<small>Queen</small></button>
+        <button data-p="r">♜<small>Rook</small></button>
+        <button data-p="b">♝<small>Bishop</small></button>
+        <button data-p="n">♞<small>Knight</small></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- duel intro -->
+  <section class="layer dim" id="duelIntro">
+    <div class="vs">
+      <div class="side" id="vsA"></div>
+      <div class="mid"><b>DUEL</b><small id="vsRole"></small></div>
+      <div class="side" id="vsB"></div>
+    </div>
+  </section>
+
+  <!-- duel HUD -->
+  <section class="layer" id="duelHud">
+    <div id="hurt"></div>
+    <div id="scope"></div>
+    <div class="enemy-bar"><span id="enemyName"></span><div class="bar"><i id="enemyHp"></i></div></div>
+    <div id="timer">75</div>
+    <div id="cross"><i></i><i></i><i></i><i></i></div>
+    <div id="hitmark">✕</div>
+    <div id="enemyTag">▼</div>
+    <div class="me-box">
+      <div class="bar big"><i id="myHp"></i><b id="myHpText"></b></div>
+      <div class="ammo"><span id="weaponName"></span> <b id="ammoText"></b></div>
+    </div>
+    <div id="stick"><i></i></div>
+    <button class="act" id="fireBtn" aria-label="Fire">🔥</button>
+    <button class="act small" id="reloadBtn" aria-label="Reload">⟲</button>
+    <button class="act small" id="zoomBtn" aria-label="Zoom">🔭</button>
+    <div id="countdown"></div>
+  </section>
+
+  <!-- duel result -->
+  <section class="layer dim" id="duelResult">
+    <div class="result"><b id="resTitle"></b><small id="resSub"></small></div>
+  </section>
+
+  <!-- pause -->
+  <section class="layer dim" id="pause">
+    <div class="panel narrow">
+      <h2>Paused</h2>
+      <button class="cta" id="resume">Resume</button>
+      <button class="cta ghost" id="resign">Resign</button>
+      <button class="cta ghost" id="quit">Quit to menu</button>
+    </div>
+  </section>
+
+  <!-- game over -->
+  <section class="layer dim" id="over">
+    <div class="panel narrow">
+      <h2 id="overTitle"></h2>
+      <p id="overSub"></p>
+      <button class="cta" id="again">Rematch</button>
+      <button class="cta ghost" id="toMenu">Menu</button>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+
+  <script src="vendor/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

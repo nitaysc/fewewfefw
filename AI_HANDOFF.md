@@ -12,6 +12,8 @@ an AI. Each project has its own notes:
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `putt-party/README.md`: 3D minigolf against bots.
+- `gambit-arena/README.md`: chess where every capture is a first-person duel; online
+  1v1 over PeerJS or vs bot. Test with `npm test` in `gambit-arena/`.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.
