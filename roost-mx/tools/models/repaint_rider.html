@@ -1,0 +1,173 @@
+<!doctype html>
+<!--
+  Repaints the Rocketbox "Military_Male_01" uniform (MIT, Microsoft) as motocross gear.
+  Every triangle is classified by the bone that drives it (skin weights): torso and arms ->
+  jersey, hands -> gloves, legs -> pants, feet -> boots, head/neck -> skin (untouched). Each
+  triangle is filled in UV space with the kit colour, then multiplied by the original
+  texture's luminance so the cloth folds, seams and shading survive. Run through
+  tools/models/repaint_rider.js (headless Chromium); outputs PNGs.
+-->
+<html><head><script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { TGALoader } from 'three/addons/loaders/TGALoader.js';
+
+const KIT = {   // sRGB 0..255
+  jersey: [236, 238, 242], jerseyAccent: [235, 90, 20], jerseyDark: [30, 34, 44],
+  pants: [32, 40, 58], pantsAccent: [235, 90, 20], knee: [225, 228, 232],
+  gloves: [236, 238, 242], gloveAccent: [235, 90, 20], boots: [240, 240, 242], bootAccent: [35, 35, 38],
+};
+const SIZE = 2048;
+
+function region(boneName, p) {
+  const n = boneName;
+  if (/Finger|Hand/.test(n)) return 'gloves';
+  if (/Foot|Toe/.test(n)) return 'boots';
+  if (/Calf/.test(n)) return p.y < 18 ? 'boots' : (p.y < 52 ? 'knee' : 'pants');
+  if (/Thigh/.test(n)) return p.y > 62 && p.y < 72 ? 'pantsAccent' : 'pants';
+  if (/Pelvis/.test(n)) return p.y > 98 ? 'jerseyDark' : 'pants';
+  if (/Head|Neck|Eye|Jaw|Lip|Tongue|Mouth|Cheek|Eyebrow|Nose|Caninus|Masseter|Upperlip/.test(n)) return null;
+  if (/Forearm/.test(n)) return 'jersey';
+  if (/UpperArm/.test(n)) return 'jerseyAccent';
+  if (/Clavicle/.test(n)) return 'jerseyAccent';
+  if (/Spine/.test(n)) return Math.abs(p.x) > 14 ? 'jerseyAccent' : 'jersey';
+  return 'jersey';
+}
+
+const mgr = new THREE.LoadingManager(); mgr.addHandler(/\.tga$/i, new TGALoader(mgr));
+mgr.setURLModifier(u => /\.tga$/i.test(u) ? 'mil/Textures/' + u.split(/[\\/]/).pop() : u);
+const fbx = await new FBXLoader(mgr).loadAsync('mil/Export/Military_Male_01.fbx');
+let mesh; fbx.traverse(o => { if (o.isSkinnedMesh) mesh = o; });
+const g = mesh.geometry, pos = g.attributes.position, uv = g.attributes.uv, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+const bones = mesh.skeleton.bones.map(b => b.name);
+const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+const index = g.index ? g.index.array : null;
+const report = { materials: mats.map(m => m.name), groups: g.groups };
+
+function vertexRegion(i) {
+  let best = 0, bw = -1;
+  for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+  return region(bones[best], { x: pos.getX(i), y: pos.getY(i), z: pos.getZ(i) });
+}
+
+// original texture as luminance detail
+async function loadTga(name) { return await new TGALoader().loadAsync('mil/Textures/' + name); }
+function texToCanvas(tex) {
+  const img = tex.image; const c = document.createElement('canvas'); c.width = SIZE; c.height = SIZE;
+  const ctx = c.getContext('2d'); const id = ctx.createImageData(img.width, img.height); id.data.set(img.data);
+  const t = document.createElement('canvas'); t.width = img.width; t.height = img.height; t.getContext('2d').putImageData(id, 0, 0);
+  // TGALoader returns rows bottom-up for this file; flip so the canvas matches UV (v up)
+  ctx.save(); if (tex.flipY === false) { ctx.translate(0, SIZE); ctx.scale(1, -1); }
+  ctx.drawImage(t, 0, 0, SIZE, SIZE); ctx.restore(); return c;
+}
+
+// Per-pixel kit: render the mesh flattened into UV space on the GPU. Each vertex carries a
+// one-hot body-part code (from its dominant bone) and its bind-pose position, so panel lines
+// (boot tops, knee panels, side panels, sleeve accents) are drawn per pixel and come out clean.
+function category(boneName) {
+  if (/Head|Neck|Eye|Jaw|Lip|Tongue|Mouth|Cheek|Eyebrow|Nose|Caninus|Masseter|Upperlip/.test(boneName)) return 0;
+  if (/Finger|Hand/.test(boneName)) return 3;
+  if (/Foot|Toe|Calf|Thigh/.test(boneName)) return 4;
+  if (/UpperArm|Forearm|Clavicle/.test(boneName)) return 2;
+  return 1; // spine, pelvis
+}
+async function paint(groupMaterial, texName, out) {
+  const src = texToCanvas(await loadTga(texName));
+  const mi = report.materials.indexOf(groupMaterial);
+  const n = pos.count, cat = new Float32Array(n * 4), skin = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let best = 0, bw = -1;
+    for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+    const c = category(bones[best]);
+    if (c === 0) skin[i] = 1; else cat[i * 4 + (c - 1)] = 1;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', g.attributes.position); geo.setAttribute('uv', g.attributes.uv);
+  geo.setAttribute('cat', new THREE.BufferAttribute(cat, 4)); geo.setAttribute('skin', new THREE.BufferAttribute(skin, 1));
+  if (g.index) geo.setIndex(g.index);
+  for (const gr of g.groups) if (gr.materialIndex === mi) geo.addGroup(gr.start, gr.count, 0);
+  const col = c => `vec3(${(c[0] / 255).toFixed(3)},${(c[1] / 255).toFixed(3)},${(c[2] / 255).toFixed(3)})`;
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, transparent: true,
+    vertexShader: `attribute vec4 cat; attribute float skin; varying vec4 vCat; varying float vSkin; varying vec3 vP; varying vec2 vUv;
+      void main(){ vCat=cat; vSkin=skin; vP=position; vUv=uv; gl_Position=vec4(uv*2.0-1.0,0.0,1.0); }`,
+    fragmentShader: `varying vec4 vCat; varying float vSkin; varying vec3 vP; varying vec2 vUv;
+      void main(){
+        if (vSkin > 0.5) { gl_FragColor = vec4(0.0); return; }
+        float m = max(max(vCat.x, vCat.y), max(vCat.z, vCat.w));
+        vec3 c;
+        float ax = abs(vP.x), y = vP.z, fwd = -vP.y;   // Rocketbox is 3ds Max Z-up, cm, facing -Y
+        if (vCat.z >= m) {                                    // hands: gloves with a coloured cuff/back
+          c = ${col(KIT.gloves)}; if (y > 0.0 && ax > 60.0 && ax < 66.0) c = ${col(KIT.gloveAccent)};
+        } else if (vCat.w >= m) {                             // legs: pants, knee panel, tall boots
+          c = ${col(KIT.pants)};
+          if (y < 47.0) c = ${col(KIT.boots)};
+          if (y < 47.0 && y > 43.5) c = ${col(KIT.bootAccent)};
+          if (y < 4.0) c = ${col(KIT.bootAccent)};
+          if (y > 50.0 && y < 64.0 && fwd > 0.0) c = ${col(KIT.knee)};
+          if (y > 74.0 && y < 80.0) c = ${col(KIT.pantsAccent)};
+        } else if (vCat.y >= m) {                             // arms: sleeves with accent panels
+          c = ${col(KIT.jersey)};
+          if (ax < 34.0) c = ${col(KIT.jerseyAccent)};
+          if (ax > 50.0 && ax < 54.0) c = ${col(KIT.jerseyDark)};
+        } else {                                              // torso
+          c = ${col(KIT.jersey)};
+          if (ax > 11.5) c = ${col(KIT.jerseyAccent)};
+          if (y < 104.0) c = ${col(KIT.pants)};               // waist: the pants come up to the belt
+          if (y > 145.0 && ax < 9.0) c = ${col(KIT.jerseyDark)};
+          if (fwd > 6.0 && y > 118.0 && y < 135.0 && ax < 9.0) c = ${col(KIT.jerseyDark)};
+        }
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  const scene = new THREE.Scene(); scene.add(new THREE.Mesh(geo, mat));
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
+  const r = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true, alpha: true });
+  r.setClearColor(0x000000, 0); r.render(scene, cam);
+  const kit = document.createElement('canvas'); kit.width = kit.height = SIZE;
+  const k = kit.getContext('2d'); k.drawImage(canvas, 0, 0);
+  let kd = k.getImageData(0, 0, SIZE, SIZE);
+  // grow the painted islands a few pixels so mip-maps never pull in the old camo
+  for (let it = 0; it < 6; it++) {
+    const d = kd.data, o = new Uint8ClampedArray(d);
+    for (let y = 1; y < SIZE - 1; y++) for (let x = 1; x < SIZE - 1; x++) {
+      const p = (y * SIZE + x) * 4; if (d[p + 3] > 0) continue;
+      for (const q of [p - 4, p + 4, p - SIZE * 4, p + SIZE * 4]) if (d[q + 3] > 0) { o[p] = d[q]; o[p + 1] = d[q + 1]; o[p + 2] = d[q + 2]; o[p + 3] = 254; break; }
+    }
+    kd = new ImageData(o, SIZE, SIZE);
+  }
+  // large-scale shading from the original (blurred so the camo pattern disappears)
+  const blur = document.createElement('canvas'); blur.width = blur.height = SIZE;
+  const b = blur.getContext('2d'); b.filter = 'blur(10px) grayscale(1)'; b.drawImage(src, 0, 0);
+  const bd = b.getImageData(0, 0, SIZE, SIZE).data, sd = src.getContext('2d').getImageData(0, 0, SIZE, SIZE).data, d = kd.data;
+  const outImg = new ImageData(SIZE, SIZE), od = outImg.data;
+  for (let p = 0; p < d.length; p += 4) {
+    if (d[p + 3] === 0) { od[p] = sd[p]; od[p + 1] = sd[p + 1]; od[p + 2] = sd[p + 2]; od[p + 3] = 255; continue; }
+    const L = bd[p] / 255, shade = Math.min(1.08, 0.62 + L * 0.9);
+    od[p] = d[p] * shade; od[p + 1] = d[p + 1] * shade; od[p + 2] = d[p + 2] * shade; od[p + 3] = 255;
+  }
+  k.putImageData(outImg, 0, 0);
+  window.outputs[out] = kit.toDataURL('image/png');
+}
+
+// helmet: glossy single colour with the original shading (its geometry is a shell + straps)
+async function recolorHelmet(texName, out, rgb) {
+  const src = texToCanvas(await loadTga(texName)); const ctx = src.getContext('2d');
+  const id = ctx.getImageData(0, 0, SIZE, SIZE); const d = id.data;
+  for (let p = 0; p < d.length; p += 4) {
+    const L = (0.3 * d[p] + 0.59 * d[p + 1] + 0.11 * d[p + 2]) / 255, s = Math.min(1.2, 0.45 + L * 1.4);
+    d[p] = Math.min(255, rgb[0] * s); d[p + 1] = Math.min(255, rgb[1] * s); d[p + 2] = Math.min(255, rgb[2] * s);
+  }
+  ctx.putImageData(id, 0, 0); window.outputs[out] = src.toDataURL('image/png');
+}
+
+window.outputs = {};
+const tex0 = await loadTga('sm002_body_color_acu.tga'); report.flipY = tex0.flipY; report.texSize = [tex0.image.width, tex0.image.height];
+await paint('sm002_body', 'sm002_body_color_acu.tga', 'rider_body_mx.png');
+await recolorHelmet('sm002_helmet_color_acu.tga', 'rider_helmet_mx.png', [250, 205, 30]);
+report.bones = bones.length;
+window.report = report;
+document.title = 'done';
+</script></body></html>

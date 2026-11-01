@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  Preview of the real models (split CC-BY dirt bike + MIT Rocketbox rider) posed from Roost MX
+  simulation states (Tests -- pose). Same mapping the Unity BikeModelVisual / RiderModelVisual
+  use: sim coordinates are Unity (left-handed), the models are glTF/FBX (right-handed), so x
+  is mirrored; the bike parts are driven from hub positions, steer, spin and compression, and
+  the rider skeleton is posed with two-bone IK to the grips and pegs.
+-->
+<html><head><script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head>
+<body style="margin:0"><canvas id="c" width="1400" height="900"></canvas><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { TGALoader } from 'three/addons/loaders/TGALoader.js';
+
+const q = new URLSearchParams(location.search);
+const data = await (await fetch('poses.json')).json();
+const rig = await (await fetch('bike/RoostBike450_rig.json')).json();
+const pose = data.poses[+(q.get('pose') || 0)], spec = data.spec;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const M = a => V(-a[0], a[1], a[2]);              // Unity sim vector -> right-handed model space
+
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true });
+r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
+r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+const sc = new THREE.Scene();
+const sky = new THREE.Color(0x8a6f86); sc.background = sky; sc.fog = new THREE.Fog(0x9a7a84, 14, 60);
+sc.add(new THREE.HemisphereLight(0xcfc0e8, 0x4a3628, 1.1));
+const sun = new THREE.DirectionalLight(0xffc896, 3.0); sun.position.set(-4, 3.5, 4); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 20 }); sun.shadow.bias = -0.0005; sc.add(sun);
+const rim = new THREE.DirectionalLight(0xa0b4ff, 0.9); rim.position.set(4, 2.5, -4); sc.add(rim);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ color: 0x5e4433, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; sc.add(ground);
+
+// ---------------------------------------------------------------- bike
+const gl = await new GLTFLoader().loadAsync('bike/RoostBike450.glb');
+const bikeModel = gl.scene; bikeModel.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+const node = n => bikeModel.getObjectByName(n);
+const steer = node('SteerAssembly'), lowers = node('ForkLowers'), fwheel = node('FrontWheel'), arm = node('Swingarm'), rwheel = node('RearWheel');
+const rest = { lowers: lowers.position.clone(), rear: rwheel.position.clone() };
+const d = V(...rig.forkAxis).normalize();
+const sagF = 0.070;
+
+// sim frame (origin = bike CoM, mirrored axes) -> model: m = s + offset, offset puts the sim rear axle at sag on the model's
+const offset = V(...rig.rearAxle).sub(M(spec.rearAxle));
+const simFrame = new THREE.Group(); sc.add(simFrame);
+bikeModel.position.copy(offset).negate(); simFrame.add(bikeModel);
+simFrame.position.set(0, pose.pos[1], 0);
+simFrame.rotation.order = 'ZXY';
+simFrame.rotation.z = pose.lean; simFrame.rotation.x = -pose.pitch;   // lean right / nose up, mirrored
+
+steer.quaternion.setFromAxisAngle(d, -pose.steer);
+const compF = sagF + (M(pose.frontHub).sub(M(spec.frontAxle)).dot(V(0, 1, 0)) / Math.max(0.3, d.y));
+lowers.position.copy(rest.lowers).addScaledVector(d, compF - sagF);
+fwheel.rotation.x = pose.spinF;
+const rearNew = M(pose.rearHub).add(offset);
+rwheel.position.copy(rearNew); rwheel.rotation.x = pose.spinR;
+const piv = V(...rig.swingarmPivot), a0 = rest.rear.clone().sub(piv), a1 = rearNew.clone().sub(piv);
+{ let da = Math.atan2(a1.y, a1.z) - Math.atan2(a0.y, a0.z); da = Math.atan2(Math.sin(da), Math.cos(da)); arm.rotation.x = -da; }
+simFrame.updateMatrixWorld(true);
+
+// grips and pegs measured from the bike's own geometry
+function verts(obj) {
+  const out = []; obj.updateMatrixWorld(true);
+  obj.traverse(o => { if (o.isMesh && o.parent === obj || o === obj && o.isMesh) {
+    const p = o.geometry.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i += 3) out.push(v.fromBufferAttribute(p, i).clone().applyMatrix4(o.matrixWorld)); } });
+  return out;
+}
+const toSim = p => simFrame.worldToLocal(p.clone());
+const steerPts = []; steer.traverse(o => { if (o.isMesh && (o.parent === steer || o === steer)) { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 2) steerPts.push(new THREE.Vector3().fromBufferAttribute(p, i)); } });
+// grips in the steer assembly's local frame: outermost bar points near the top
+const topY = Math.max(...steerPts.map(p => p.y));
+const barPts = steerPts.filter(p => p.y > topY - 0.17 && p.z < 0.05);
+const gripL = barPts.reduce((a, b) => (b.x > a.x ? b : a)), gripR = barPts.reduce((a, b) => (b.x < a.x ? b : a));
+const gripsLocal = [gripL.clone().add(V(-0.07, 0, 0)), gripR.clone().add(V(0.07, 0, 0))];
+const grips = gripsLocal.map(p => steer.localToWorld(p.clone()));
+const chassis = node('Chassis');
+const pegPts = []; chassis.traverse(o => { if (o.isMesh && (o.parent === chassis || o === chassis)) { const p = o.geometry.attributes.position; o.updateMatrixWorld(true);
+  for (let i = 0; i < p.count; i += 2) { const v = new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); const s = toSim(v); if (s.y > -0.30 && s.y < -0.16 && s.z > -0.25 && s.z < 0.10) pegPts.push(s); } } });
+const pegL = pegPts.reduce((a, b) => (b.x > a.x ? b : a)), pegR = pegPts.reduce((a, b) => (b.x < a.x ? b : a));
+const pegs = [simFrame.localToWorld(pegL.clone().add(V(-0.06, 0.035, 0.02))), simFrame.localToWorld(pegR.clone().add(V(0.06, 0.035, 0.02)))];
+
+// ---------------------------------------------------------------- rider
+const mgr = new THREE.LoadingManager(); mgr.addHandler(/\.tga$/i, new TGALoader(mgr));
+mgr.setURLModifier(u => /\.tga$/i.test(u) ? 'fire/Textures/' + u.split(/[\\/]/).pop() : u);
+const man = await new FBXLoader(mgr).loadAsync('fire/Export/Fire_Male_01.fbx');
+const tl = new THREE.TextureLoader(), tex = async n => { const t = await tl.loadAsync('riderfire/' + n); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const nrm = async n => { const t = await tl.loadAsync('riderfire/' + n); t.colorSpace = THREE.NoColorSpace; return t; };
+const T = { body: await tex('rider_body_color.png'), helmet: await tex('rider_helmet_color.png'), head: await tex('rider_head_color.png'),
+            bodyN: await nrm('rider_body_normal.png'), helmetN: await nrm('rider_helmet_normal.png'), headN: await nrm('rider_head_normal.png') };
+man.traverse(o => { if (o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+  o.material = (Array.isArray(o.material) ? o.material : [o.material]).map(m => {
+    const k = /helmet/.test(m.name) ? 'helmet' : /head/.test(m.name) ? 'head' : 'body';
+    const n = new THREE.MeshStandardMaterial({ map: T[k], normalMap: T[k + 'N'], roughness: k === 'helmet' ? 0.3 : 0.82, metalness: 0, side: THREE.DoubleSide });
+    if (/opacity|eyelash|hair/i.test(m.name)) { n.transparent = true; n.alphaTest = 0.4; n.map = m.map; }
+    return n; }); } });
+man.scale.setScalar(0.01);
+sc.add(man); man.updateMatrixWorld(true);
+const B = n => man.getObjectByName(n);
+const wp = o => o.getWorldPosition(new THREE.Vector3());
+
+// face the bike's forward: character forward from the bind pose (toes ahead of heels)
+const bikeFwd = V(0, 0, 1).applyQuaternion(simFrame.quaternion), bikeUp = V(0, 1, 0).applyQuaternion(simFrame.quaternion);
+const charFwd = wp(B('Bip01_L_Toe0')).sub(wp(B('Bip01_L_Foot'))).setY(0).normalize();
+man.quaternion.multiply(new THREE.Quaternion().setFromUnitVectors(charFwd, V(0, 0, 1)));
+man.updateMatrixWorld(true);
+// lean and pitch with the bike
+const tilt = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), bikeUp);
+man.quaternion.premultiply(tilt); man.updateMatrixWorld(true);
+
+// pelvis at the simulated rider mass (minus the CoM-to-pelvis offset), in the bike frame
+const stand = pose.standing, body = pose.body;
+const comSim = M(pose.rider);
+const hipSim = comSim.clone().add(V(0, -(0.12 + 0.10 * stand), -(0.02 + 0.06 * stand)));
+const hipW = simFrame.localToWorld(hipSim);
+man.position.add(hipW.clone().sub(wp(B('Bip01_Pelvis')))); man.updateMatrixWorld(true);
+
+function setWorldQuat(bone, qw) {
+  const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(pq.invert().multiply(qw)); bone.updateMatrixWorld(true);
+}
+function rotateWorld(bone, q) { setWorldQuat(bone, q.clone().multiply(bone.getWorldQuaternion(new THREE.Quaternion()))); }
+function aim(bone, child, target) {
+  const p = wp(bone), cur = wp(child).sub(p).normalize(), des = target.clone().sub(p).normalize();
+  rotateWorld(bone, new THREE.Quaternion().setFromUnitVectors(cur, des));
+}
+function ik(upper, lower, end, target, pole) {
+  const a = wp(upper), l1 = wp(lower).distanceTo(a), l2 = wp(end).distanceTo(wp(lower));
+  const dvec = target.clone().sub(a), dist = Math.min(Math.max(dvec.length(), 0.05), (l1 + l2) * 0.999), dir = dvec.clone().normalize();
+  const along = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist), h = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+  const bend = pole.clone().sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
+  const joint = a.clone().addScaledVector(dir, along).addScaledVector(bend, h);
+  aim(upper, lower, joint); aim(lower, end, a.clone().addScaledVector(dir, dist));
+}
+const right = V(-1, 0, 0).applyQuaternion(simFrame.quaternion);   // rider's right in the mirrored frame
+// torso forward lean (attack position when standing) + simulated torso angles
+const pitch = (22 + 20 * stand) * Math.PI / 180 + body[0];
+for (const n of ['Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2']) {
+  rotateWorld(B(n), new THREE.Quaternion().setFromAxisAngle(right, -pitch / 3));
+  rotateWorld(B(n), new THREE.Quaternion().setFromAxisAngle(bikeUp, -body[1] / 3));
+  rotateWorld(B(n), new THREE.Quaternion().setFromAxisAngle(bikeFwd, -body[2] / 3));
+}
+rotateWorld(B('Bip01_Neck'), new THREE.Quaternion().setFromAxisAngle(right, pitch * 0.45));
+rotateWorld(B('Bip01_Head'), new THREE.Quaternion().setFromAxisAngle(right, pitch * 0.35));
+// arms to the grips, elbows out; legs to the pegs, knees forward and gripping the bike
+ik(B('Bip01_L_UpperArm'), B('Bip01_L_Forearm'), B('Bip01_L_Hand'), grips[0], V(0.9, -0.5, -0.4).applyQuaternion(simFrame.quaternion));
+ik(B('Bip01_R_UpperArm'), B('Bip01_R_Forearm'), B('Bip01_R_Hand'), grips[1], V(-0.9, -0.5, -0.4).applyQuaternion(simFrame.quaternion));
+ik(B('Bip01_L_Thigh'), B('Bip01_L_Calf'), B('Bip01_L_Foot'), pegs[0], V(0.15, 0.1, 1).applyQuaternion(simFrame.quaternion));
+ik(B('Bip01_R_Thigh'), B('Bip01_R_Calf'), B('Bip01_R_Foot'), pegs[1], V(-0.15, 0.1, 1).applyQuaternion(simFrame.quaternion));
+// feet point forward along the pegs
+for (const s of ['L', 'R']) aim(B(`Bip01_${s}_Foot`), B(`Bip01_${s}_Toe0`), wp(B(`Bip01_${s}_Foot`)).addScaledVector(bikeFwd, 0.2).addScaledVector(bikeUp, -0.06));
+
+// ---------------------------------------------------------------- camera
+const view = JSON.parse(q.get('v') || '[3.6,1.3,1.6]');
+const target = simFrame.localToWorld(V(0, 0.35, 0.0));
+const cam = new THREE.PerspectiveCamera(+(q.get('fov') || 30), 1400 / 900, 0.05, 300);
+cam.position.copy(target).add(V(...view)); cam.lookAt(target);
+r.render(sc, cam);
+window.info = { grips: grips.map(g => g.toArray()), pegs: pegs.map(g => g.toArray()), hip: hipW.toArray() };
+document.title = 'done';
+</script></body></html>

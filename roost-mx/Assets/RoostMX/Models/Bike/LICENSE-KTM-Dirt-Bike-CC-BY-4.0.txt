@@ -1,0 +1,11 @@
+Model Information:
+* title:	KTM Dirt Bike
+* source:	https://sketchfab.com/3d-models/ktm-dirt-bike-e31415580d7a4a0d95ebd53895566b8f
+* author:	OCTbuilds (https://sketchfab.com/OCTbuilds)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "KTM Dirt Bike" (https://sketchfab.com/3d-models/ktm-dirt-bike-e31415580d7a4a0d95ebd53895566b8f) by OCTbuilds (https://sketchfab.com/OCTbuilds) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
