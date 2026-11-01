@@ -58,6 +58,7 @@ var running := false
 var model_path := "res://assets/ship/galleon.glb" ## the brig when its licensed files are present
 static var quick_start := false ## "sail again" after a sinking skips the title
 var gunnery: Node3D
+var combat := false ## cannons and enemy ships: parked for now (owner's call); --combat turns them on
 var island: Node3D
 var enemies: Array = [] ## {ship, captain}
 var sunk_count := 0
@@ -99,6 +100,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv: PackedStringArray = a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	combat = args.has("combat")
 	_build_world()
 	_build_ship()
 	_build_hud()
@@ -122,21 +124,12 @@ func _ready() -> void:
 	ship.terrain = island
 	ocean.mat.set_shader_parameter("island_tex", island.height_tex)
 	ocean.mat.set_shader_parameter("island_rect", island.rect())
-	gunnery = GunneryScript.new()
-	add_child(gunnery)
-	gunnery.ships = [ship]
-	gunnery.terrain = island
-	gunnery.splashed.connect(func(p: Vector3, sz: float): wake.add_splash(p, sz, ship.sim_time))
-	gunnery.hit.connect(_on_hit)
-	if not args.has("noenemy"):
-		if args.has("enemy"):
-			var e: PackedFloat64Array = args.enemy.split_floats(",")
-			_spawn_enemy(e[0], deg_to_rad(e[1]) if e.size() > 1 else 0.6)
-		else:
-			_spawn_enemy(950.0, randf_range(-0.9, 0.9))
+	if combat:
+		_start_combat()
 
 	if args.has("play") or quick_start:
 		_start()
+
 	if args.has("warm"):
 		_set_sail(2)
 		ship.sail = 1.0
@@ -172,7 +165,7 @@ func _ready() -> void:
 		get_viewport().use_taa = false
 	if args.has("shot"):
 		shot_timer = float(args.get("wait", "3"))
-	if args.has("fire"):
+	if args.has("fire") and combat:
 		if args.fire in ["port", "both"]:
 			_fire(1.0)
 		if args.fire in ["stbd", "both"]:
@@ -399,8 +392,9 @@ func _apply_quality() -> void:
 	vp.scaling_3d_scale = scales[mini(perf_level, scales.size() - 1)]
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if vp.scaling_3d_scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
 	env.ssao_enabled = perf_level < 5
-	if island and island.palms:
-		island.palms.visible = perf_level < 4 # the jungle canopy stays; single palms go
+	if island:
+		for t in island.trees:
+			t.visible = perf_level < 4 # the jungle canopy stays; the scanned trees go
 	RenderingServer.directional_shadow_atlas_set_size(4096 if perf_level < 3 else 2048, true)
 
 
@@ -500,40 +494,41 @@ func _build_hud() -> void:
 	pos_lbl.custom_minimum_size.x = 160
 	pos_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(pos_lbl)
-	hull_lbl = _label("Hull 100%", 20)
-	hull_lbl.custom_minimum_size.x = 150
-	hull_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(hull_lbl)
 	hud_root.add_child(panel)
+	if combat:
+		hull_lbl = _label("Hull 100%", 20)
+		hull_lbl.custom_minimum_size.x = 150
+		hull_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(hull_lbl)
 
-	# broadsides: port on the left, starboard on the right (as seen from astern)
-	for side in [1.0, -1.0]:
-		var fb := _round_button("PORT" if side > 0.0 else "STBD", 104)
-		fb.add_theme_font_size_override("font_size", 20)
-		var sd: float = side
-		fb.pressed.connect(func(): _fire(sd))
-		if side > 0.0:
-			fb.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-			fb.position = Vector2(60, -360)
-		else:
-			fb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-			fb.position = Vector2(-310, -150)
-		hud_root.add_child(fb)
-		fire_btns.append(fb)
+		# broadsides: port on the left, starboard on the right (as seen from astern)
+		for side in [1.0, -1.0]:
+			var fb := _round_button("PORT" if side > 0.0 else "STBD", 104)
+			fb.add_theme_font_size_override("font_size", 20)
+			var sd: float = side
+			fb.pressed.connect(func(): _fire(sd))
+			if side > 0.0:
+				fb.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+				fb.position = Vector2(60, -360)
+			else:
+				fb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+				fb.position = Vector2(-310, -150)
+			hud_root.add_child(fb)
+			fire_btns.append(fb)
 
-	banner = _label("", 34)
-	banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	banner.position = Vector2(-450, 130)
-	banner.custom_minimum_size = Vector2(900, 50)
-	banner.modulate.a = 0.0
-	hud_root.add_child(banner)
+		banner = _label("", 34)
+		banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		banner.position = Vector2(-450, 130)
+		banner.custom_minimum_size = Vector2(900, 50)
+		banner.modulate.a = 0.0
+		hud_root.add_child(banner)
 
-	marker = _label("", 17)
-	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	marker.custom_minimum_size = Vector2(180, 40)
-	marker.visible = false
-	hud_root.add_child(marker)
+		marker = _label("", 17)
+		marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		marker.custom_minimum_size = Vector2(180, 40)
+		marker.visible = false
+		hud_root.add_child(marker)
 
 	# wind rose and buttons, top right
 	var tr := HBoxContainer.new()
@@ -746,9 +741,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_C:
 				_set_cam(cam_mode + 1)
 			KEY_Q:
-				_fire(1.0)
+				if combat: _fire(1.0)
 			KEY_E:
-				_fire(-1.0)
+				if combat: _fire(-1.0)
 
 
 # ------------------------------------------------------------------ frame
@@ -764,7 +759,8 @@ func _process(delta: float) -> void:
 	ship.animate(dt)
 	_update_enemies(dt)
 	wake.update(dt, _all_ships())
-	gunnery.listener = camera.global_position
+	if gunnery:
+		gunnery.listener = camera.global_position
 	var ratio := clampf((ship.speed() - 2.0) / 4.0 + ship.bow_dip * 0.8, 0.0, 1.0)
 	bow_wave.update(maxf(0.0, ship.speed()), clampf(ship.bow_dip * 0.5, 0.0, 1.2), fft.map_scales)
 	for p in sprays:
@@ -819,6 +815,11 @@ func _update_camera(dt: float) -> void:
 	var base := 0.0 if CAMS[cam_mode] == "Orbit" else cam_heading
 	var yaw := base + cam_yaw + cam_auto
 	var pivot := Vector3(pos.x, pos.y * 0.5 + 9.0, pos.z)
+	if args.has("campos"): # screenshots: --campos=x,y,z --camlook=x,y,z relative to the island's centre
+		var cp: PackedFloat64Array = args.campos.split_floats(",")
+		var cl: PackedFloat64Array = args.get("camlook", "0,20,0").split_floats(",")
+		camera.look_at_from_position(island.position + Vector3(cp[0], cp[1], cp[2]), island.position + Vector3(cl[0], cl[1], cl[2]), Vector3.UP)
+		return
 	if args.has("focus"): # screenshots: aim at a point given in ship space, e.g. --focus=0,1,17
 		var f: PackedFloat64Array = args.focus.split_floats(",")
 		pivot = ship.transform * Vector3(f[0], f[1], f[2])
@@ -853,10 +854,27 @@ func _update_hud() -> void:
 	elif d < 160.0:
 		name = "Broad reach"
 	pos_lbl.text = name
-	_update_combat_hud()
+	if combat:
+		_update_combat_hud()
 
 
 # ------------------------------------------------------------------ battle
+## Cannons and an enemy man-of-war (off by default for now; run with --combat).
+func _start_combat() -> void:
+	gunnery = GunneryScript.new()
+	add_child(gunnery)
+	gunnery.ships = [ship]
+	gunnery.terrain = island
+	gunnery.splashed.connect(func(p: Vector3, sz: float): wake.add_splash(p, sz, ship.sim_time))
+	gunnery.hit.connect(_on_hit)
+	if not args.has("noenemy"):
+		if args.has("enemy"):
+			var e: PackedFloat64Array = args.enemy.split_floats(",")
+			_spawn_enemy(e[0], deg_to_rad(e[1]) if e.size() > 1 else 0.6)
+		else:
+			_spawn_enemy(950.0, randf_range(-0.9, 0.9))
+
+
 func _all_ships() -> Array:
 	var out := [ship]
 	for e in enemies:

@@ -1,6 +1,6 @@
 extends Node3D
-## A tropical island: a procedural heightmap (volcanic peak, jungle, beaches, a reef
-## shelf), coconut palms along the shore, and a height lookup that the ship (running
+## A tropical island: a procedural heightmap (volcanic peak, beaches, a reef shelf)
+## dressed with photo-scanned trees, cliffs and rocks (Poly Haven, CC0), and a height lookup that the ship (running
 ## aground), the shot (hitting land) and the ocean shader (shallows, surf) all share.
 
 const RES := 192 ## heightmap samples per side
@@ -10,7 +10,9 @@ const PEAK := 170.0
 var heights := PackedFloat32Array()
 var height_tex: ImageTexture
 var _noise: NoiseTexture2D
-var palms: MultiMeshInstance3D
+var trees: Array = [] ## MultiMeshInstance3D per tree part, hidden on slow phones
+const TREES_PER_KIND := 600
+const CHUNK := 150.0 ## metres: trees are batched per tile so far tiles drop to low LODs and off-screen ones are culled
 var origin := Vector2.ZERO ## world x/z of the heightmap's corner
 
 
@@ -48,8 +50,8 @@ func build(center: Vector3, seed_value := 11) -> void:
 			img.set_pixel(i, j, Color(h, 0, 0))
 	height_tex = ImageTexture.create_from_image(img)
 	_build_mesh()
-	_build_palms()
-	_build_canopy()
+	_build_trees()
+	_build_rocks()
 
 
 ## Ground height at world (x, z); deep water away from the island.
@@ -117,162 +119,132 @@ func _build_mesh() -> void:
 	fnl.fractal_octaves = 5
 	noise.noise = fnl
 	m.set_shader_parameter("noise_tex", noise)
+	for layer in ["coast_sand_01", "damp_beach_sand", "forest_leaves_02", "aerial_rocks_02", "coral_ground_02"]:
+		m.set_shader_parameter(layer + "_diff", load("res://assets/island/ground/%s_diff.jpg" % layer))
+		m.set_shader_parameter(layer + "_nor", load("res://assets/island/ground/%s_nor_gl.jpg" % layer))
 	_noise = noise
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
 
-## Coconut palms: a curved trunk and a crown of drooping fronds, scattered thickly
-## just above the beach and more sparsely inland.
-func _build_palms() -> void:
-	var mesh := _palm_mesh()
-	var spots := []
+## Photo-scanned coastal trees (Poly Haven, CC0), slimmed by tools/build_island_assets.py.
+## One MultiMesh per tree part keeps the importer's automatic LODs, so distant trees are cheap.
+func _build_trees() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 5
+	rng.seed = 9
+	var kinds := ["island_tree_01", "island_tree_02", "island_tree_03"]
+	var spots := [[], [], []]
 	var cell := SIZE / (RES - 1)
-	for tries in 30000:
-		var i := rng.randi_range(1, RES - 2)
-		var j := rng.randi_range(1, RES - 2)
-		var h := heights[j * RES + i]
-		if h < 2.2 or h > 120.0:
-			continue
-		var slope := absf(heights[j * RES + i + 1] - heights[j * RES + i - 1]) / (2.0 * cell) \
-				+ absf(heights[(j + 1) * RES + i] - heights[(j - 1) * RES + i]) / (2.0 * cell)
-		if slope > 0.7:
-			continue
-		var keep := 1.0 if h < 9.0 else 0.45
-		if rng.randf() > keep:
-			continue
-		var p := _local(i, j) + Vector3(rng.randf_range(-0.5, 0.5) * cell, 0.0, rng.randf_range(-0.5, 0.5) * cell)
-		p.y = height(p.x + position.x, p.z + position.z) - 0.3
-		spots.append(p)
-		if spots.size() >= 900:
-			break
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
-	mm.instance_count = spots.size()
-	for k in spots.size():
-		var s := rng.randf_range(0.75, 1.25)
-		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.85, 1.15), s))
-		mm.set_instance_transform(k, Transform3D(b, spots[k]))
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mmi)
-	palms = mmi
-
-
-## Jungle canopy: thousands of rounded tree crowns packed over the hills, so the
-## island reads as rain forest rather than lawn. Each crown is a squashed, lumpy sphere.
-func _build_canopy() -> void:
-	var sphere := SphereMesh.new()
-	sphere.radial_segments = 7
-	sphere.rings = 4
-	sphere.radius = 1.0
-	sphere.height = 1.4
-	var m := ShaderMaterial.new()
-	m.shader = load("res://shaders/canopy.gdshader")
-	m.set_shader_parameter("noise_tex", _noise)
-	sphere.material = m
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 21
-	var cell := SIZE / (RES - 1)
-	var xf := []
-	var cols := []
-	for tries in 40000:
+	for tries in 150000:
 		var x := rng.randf_range(-0.5, 0.5) * SIZE
 		var z := rng.randf_range(-0.5, 0.5) * SIZE
 		var h := height(x + position.x, z + position.z)
-		if h < 5.0 or h > 150.0:
+		if h < 1.8 or h > 130.0:
 			continue
 		var sl := absf(height(x + position.x + cell, z + position.z) - height(x + position.x - cell, z + position.z)) / (2.0 * cell)
-		if sl > 1.1 or rng.randf() < smoothstep(90.0, 150.0, h):
+		if sl > 0.8:
 			continue
-		var r := rng.randf_range(4.0, 7.5)
-		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(r, r * rng.randf_range(0.55, 0.8), r * rng.randf_range(0.8, 1.2)))
-		xf.append(Transform3D(b, Vector3(x, h + r * 0.35, z)))
-		var g := rng.randf()
-		cols.append(Color(0.035 + 0.04 * g, 0.075 + 0.06 * g, 0.02 + 0.015 * g).lerp(Color(0.12, 0.11, 0.04), rng.randf() * 0.3))
-		if xf.size() >= 3000:
+		# thickest just behind the beach, thinning out up the hills
+		if rng.randf() > (1.0 if h < 14.0 else 0.6) or rng.randf() < smoothstep(90.0, 130.0, h):
+			continue
+		var k := rng.randi_range(0, 2)
+		if spots[k].size() >= TREES_PER_KIND:
+			continue
+		var sc := rng.randf_range(2.0, 3.4)
+		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(sc, sc * rng.randf_range(0.9, 1.15), sc))
+		spots[k].append(Transform3D(b, Vector3(x, h - 0.25, z)))
+		if spots[0].size() + spots[1].size() + spots[2].size() >= TREES_PER_KIND * 3:
 			break
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = sphere
-	mm.instance_count = xf.size()
-	for k in xf.size():
-		mm.set_instance_transform(k, xf[k])
-		mm.set_instance_color(k, cols[k])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mmi)
+	for k in kinds.size():
+		_scatter("res://assets/island/%s.glb" % kinds[k], spots[k], true)
 
 
-func _palm_mesh() -> ArrayMesh:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var trunk := Color(0.36, 0.29, 0.2)
-	var frond := Color(0.1, 0.2, 0.05)
-	var hgt := 13.0
-	var lean := 2.2
-	var seg := 6
-	var sides := 5
-	var spine := []
-	for k in seg + 1:
-		var t := float(k) / seg
-		spine.append(Vector3(lean * t * t, hgt * t, 0.0))
-	for k in seg:
-		var r0 := lerpf(0.32, 0.17, float(k) / seg)
-		var r1 := lerpf(0.32, 0.17, float(k + 1) / seg)
-		for s in sides:
-			var a0 := TAU * s / sides
-			var a1 := TAU * (s + 1) / sides
-			var p00: Vector3 = spine[k] + Vector3(cos(a0), 0, sin(a0)) * r0
-			var p01: Vector3 = spine[k] + Vector3(cos(a1), 0, sin(a1)) * r0
-			var p10: Vector3 = spine[k + 1] + Vector3(cos(a0), 0, sin(a0)) * r1
-			var p11: Vector3 = spine[k + 1] + Vector3(cos(a1), 0, sin(a1)) * r1
-			var shade := 0.8 + 0.2 * float(k % 2) # the ringed bark
-			for v in [[p00, a0], [p10, a0], [p11, a1], [p00, a0], [p11, a1], [p01, a1]]:
-				st.set_color(trunk * shade)
-				st.set_normal(Vector3(cos(v[1]), 0.1, sin(v[1])))
-				st.add_vertex(v[0])
-	var top: Vector3 = spine[seg]
-	var fronds := 8
-	for f in fronds:
-		var ang := TAU * f / fronds + 0.3 * sin(f * 3.7)
-		var dir := Vector3(cos(ang), 0.0, sin(ang))
-		var side := Vector3(-dir.z, 0.0, dir.x)
-		var length := 5.5 + 1.2 * sin(f * 1.9)
-		var rise := 0.35 + 0.25 * sin(f * 2.3)
-		var pts := []
-		for k in 5:
-			var t := float(k) / 4.0
-			pts.append(top + dir * length * t + Vector3.UP * (rise * 3.0 * t - 4.2 * t * t))
-		for k in 4:
-			var w0 := 0.9 * sin(PI * minf(1.0, (float(k) / 4.0) * 1.15 + 0.05))
-			var w1 := 0.9 * sin(PI * minf(1.0, (float(k + 1) / 4.0) * 1.15 + 0.05))
-			var a: Vector3 = pts[k]
-			var b: Vector3 = pts[k + 1]
-			var n := (b - a).cross(side).normalized()
-			if n.y < 0.0:
-				n = -n
-			var droop0 := Vector3.DOWN * w0 * 0.35
-			var droop1 := Vector3.DOWN * w1 * 0.35
-			var c := frond * (0.85 + 0.3 * float(k) / 4.0)
-			for v in [a, a + side * w0 + droop0, b + side * w1 + droop1, a, b + side * w1 + droop1, b,
-					a, b, b - side * w1 + droop1, a, b - side * w1 + droop1, a - side * w0 + droop0]:
-				st.set_color(c)
-				st.set_normal(n)
-				st.add_vertex(v)
-	var mesh := st.commit()
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.roughness = 0.8
-	m.backlight_enabled = true
-	m.backlight = Color(0.25, 0.35, 0.1)
-	mesh.surface_set_material(0, m)
-	return mesh
+## Scanned coastal cliffs and rock shelves along the shore, boulders on the beaches.
+func _build_rocks() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 13
+	var cliffs := []
+	var shelves := []
+	var boulders := []
+	var cell := SIZE / (RES - 1)
+	for tries in 30000:
+		var x := rng.randf_range(-0.5, 0.5) * SIZE
+		var z := rng.randf_range(-0.5, 0.5) * SIZE
+		var wx := x + position.x
+		var wz := z + position.z
+		var h := height(wx, wz)
+		var gx := (height(wx + cell, wz) - height(wx - cell, wz)) / (2.0 * cell)
+		var gz := (height(wx, wz + cell) - height(wx, wz - cell)) / (2.0 * cell)
+		var sl := Vector2(gx, gz).length()
+		# the direction down the slope, i.e. out to sea: the rock's face turns that way
+		var out := atan2(-gx, -gz)
+		if h > -1.0 and h < 8.0 and sl > 0.5 and cliffs.size() < 14:
+			var sc := rng.randf_range(0.6, 1.0)
+			cliffs.append(Transform3D(Basis(Vector3.UP, out).scaled(Vector3(sc, sc * rng.randf_range(1.0, 1.3), sc)), Vector3(x, h - 4.0, z)))
+		elif h > -2.5 and h < 0.6 and shelves.size() < 18 and rng.randf() < 0.3:
+			var sc := rng.randf_range(0.35, 0.6)
+			shelves.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(sc, sc, sc)), Vector3(x, h - 0.8, z)))
+		elif h > 0.3 and h < 4.0 and boulders.size() < 70 and rng.randf() < 0.2:
+			var sc := rng.randf_range(0.7, 2.2)
+			boulders.append(Transform3D(Basis(Vector3(rng.randf(), 1.0, rng.randf()).normalized(), rng.randf() * TAU).scaled(Vector3(sc, sc, sc)), Vector3(x, h - 0.3 * sc, z)))
+	_scatter("res://assets/island/coastal_cliff_01.glb", cliffs.slice(0, cliffs.size() / 2), false)
+	_scatter("res://assets/island/coastal_cliff_02.glb", cliffs.slice(cliffs.size() / 2), false)
+	_scatter("res://assets/island/coast_rocks_01.glb", shelves, false)
+	_scatter("res://assets/island/coast_rocks_05.glb", boulders, false)
+
+
+## Instance every mesh part of a .glb at these transforms (one MultiMesh per part).
+func _scatter(path: String, xforms: Array, foliage: bool) -> void:
+	if xforms.is_empty() or not ResourceLoader.exists(path):
+		return
+	var scene: Node = (load(path) as PackedScene).instantiate()
+	var parts := []
+	var stack := [scene]
+	while stack.size() > 0:
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if n is MeshInstance3D:
+			parts.append(n)
+	var chunks := {}
+	for xf in xforms:
+		var key := Vector2i(floori(xf.origin.x / CHUNK), floori(xf.origin.z / CHUNK))
+		if not chunks.has(key):
+			chunks[key] = []
+		chunks[key].append(xf)
+	for key in chunks:
+		_scatter_parts(parts, scene, chunks[key], foliage)
+	scene.free()
+
+
+func _scatter_parts(parts: Array, scene: Node, xforms: Array, foliage: bool) -> void:
+	for mi in parts:
+		var local: Transform3D = (mi as Node3D).transform
+		var p: Node = mi.get_parent()
+		while p and p != scene:
+			local = (p as Node3D).transform * local
+			p = p.get_parent()
+		var mesh: Mesh = mi.mesh
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = xforms.size()
+		for k in xforms.size():
+			mm.set_instance_transform(k, xforms[k] * local)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if foliage:
+			for i in mesh.get_surface_count():
+				var m := mesh.surface_get_material(i) as StandardMaterial3D
+				if m and m.resource_name.ends_with("_leaves"):
+					m = m.duplicate()
+					m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+					m.alpha_scissor_threshold = 0.4
+					m.cull_mode = BaseMaterial3D.CULL_DISABLED
+					m.backlight_enabled = true
+					m.backlight = Color(0.25, 0.35, 0.12)
+					mmi.material_override = m # one material per part (split in build_island_assets.py)
+			trees.append(mmi)
+			mmi.visibility_range_end = 2200.0
+		add_child(mmi)

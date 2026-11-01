@@ -167,6 +167,15 @@ xvfb-run -a godot --path galleon --rendering-method forward_plus --resolution 16
 
 ## 6. Open issues / ideas (ordered by what the owner asked for)
 
+### State as of the last session (step by step, owner's request)
+- Owner said the combat was "really bad": it is **off by default** (`main.gd: combat`, `--combat`
+  turns it on). Don't re-enable it until they ask; improve it first (see roadmap).
+- Island rebuilt with **Poly Haven CC0 scans** (trees, cliffs, rocks, ground textures). Re-run
+  `python3 tools/fetch_island_assets.py && python3 tools/build_island_assets.py` to rebuild them.
+- The **brig** is still not in: the repo is still public, and the download needs the owner's
+  CGTrader login (cgtrader.com is now reachable from the container). Ask the owner to make the repo
+  private and upload `Ship_Blender.rar` + `Sails_Mat_1/2.rar` to Google Drive with a share link.
+
 ### Pirate-game roadmap (the owner's long-term goal)
 Next steps that build on what is there, roughly in order:
 - **Boarding**: grapple when alongside and slow, then a crew fight; needs a walkable deck and a

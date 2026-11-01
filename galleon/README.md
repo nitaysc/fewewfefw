@@ -1,8 +1,9 @@
 # Galleon ⛵
 
 An open-sea galleon sailing simulator for Android, built with **Godot 4.3** (Forward+ renderer: TAA, SSAO, volumetric haze, compute-shader FFT ocean).
-Prototype: your ship, an enemy man-of-war, a tropical island, real wave and buoyancy physics and
-real gunnery (round shot with drag, skipping, splinters, leaks, flooding, sinking).
+Prototype: your ship, open ocean, a tropical island dressed with photo-scanned trees, cliffs and rocks,
+real wave and buoyancy physics. Cannons and an enemy ship exist but are **switched off for now**
+(run with `--combat` to try them); the owner wants to go step by step.
 
 ## Download
 
@@ -39,7 +40,7 @@ Every push that touches `galleon/` builds an APK and publishes it as a
 | Gunnery: ripple broadsides, ballistics (gravity + air drag), shot skipping off the sea, splashes, splinters, shot-hole decals, powder smoke drifting downwind, muzzle flashes, sound delayed by distance | `scripts/gunnery.gd`, `shaders/smoke.gdshader`, `shaders/muzzle_flash.gdshader` |
 | Damage: hull strength, leaks below the waterline, pumps, flooding that lists and sinks her, running aground | `scripts/ship.gd` (`take_hit`, `flood`, `terrain`) |
 | Enemy: an AI captain on the same physics (can't sail into the wind either); closes, turns to bring a broadside to bear, fires on the roll | `scripts/captain.gd` |
-| Island: procedural heightmap (reef shelf, beaches, jungle canopy, palms, volcanic peak); turquoise shallows and surf in the ocean shader | `scripts/island.gd`, `shaders/terrain.gdshader`, `shaders/canopy.gdshader` |
+| Island: procedural heightmap (reef shelf, beaches, volcanic peak) with photo-scanned ground textures, ~1800 scanned trees batched per 150 m tile (so far tiles use low LODs), scanned cliffs/rocks/boulders on the shore; turquoise shallows and surf in the ocean shader. Assets: Poly Haven, CC0 (`assets/island/CREDITS.md`) | `scripts/island.gd`, `shaders/terrain.gdshader`, `tools/fetch_island_assets.py`, `tools/build_island_assets.py` |
 | Ambience and guns: synthesised surf/wind loops, cannon (near and far), splash, impact | `tools/make_audio.py` |
 | HUD, camera, title screen | `scripts/main.gd`, `scripts/helm.gd`, `scripts/rose.gd` |
 

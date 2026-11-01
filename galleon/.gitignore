@@ -5,3 +5,7 @@ assets/ship/galleon_*.png
 assets/ship/galleon_*.png.import
 __pycache__/
 assets/brig/
+assets/island/*.jpg
+assets/island/*.jpg.import
+assets/island/*.png
+assets/island/*.png.import
