@@ -1,0 +1,88 @@
+name: Build Galleon APK
+
+on:
+  push:
+    paths:
+      - 'galleon/**'
+      - '.github/workflows/build-galleon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.3
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: galleon
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-cache
+          key: godot-${{ env.GODOT_VERSION }}-android-v1
+
+      - name: Download Godot and the Android export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p ~/godot-cache
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSLo godot.zip $base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip -d ~/godot-cache
+          curl -sSLo templates.tpz $base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q -j templates.tpz templates/android_debug.apk templates/android_release.apk templates/version.txt -d ~/godot-cache/templates
+
+      - name: Set up Godot
+        run: |
+          echo "GODOT=$HOME/godot-cache/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> $GITHUB_ENV
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cp ~/godot-cache/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          mkdir -p ~/.config/godot
+          for f in editor_settings-4.tres editor_settings-${GODOT_VERSION}.tres; do
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$ANDROID_SDK_ROOT" "$JAVA_HOME" > ~/.config/godot/$f
+          done
+
+      - name: Import assets
+        run: timeout 600 $GODOT --headless --import || true
+
+      - name: Sea trials (physics checks)
+        run: $GODOT --headless res://test/sea_trials.tscn
+
+      - name: Export APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/galleon/keys/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
+          mkdir -p build
+          $GODOT --headless --export-debug "Android" build/galleon.apk
+          ls -la build/galleon.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: galleon-apk
+          path: galleon/build/galleon.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "galleon-v0.1.${{ github.run_number }}" build/galleon.apk \
+            --target "${{ github.sha }}" \
+            --title "Galleon v0.1.${{ github.run_number }}" \
+            --notes "Open-sea galleon simulator (Godot 4). Download: tap galleon.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false

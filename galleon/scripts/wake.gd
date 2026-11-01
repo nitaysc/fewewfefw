@@ -1,0 +1,135 @@
+extends SubViewport
+## The ship's wake, drawn top-down into a small texture the ocean shader reads:
+## red = white foam, green = churned (turquoise) water. Blobs are laid down
+## along the ship's track: a turbulent trail astern, Kelvin wave arms spreading
+## from the bow, and white water pressed against the hull.
+
+const LAYER := 20
+const MAX_BLOBS := 2600
+const SIZE := 300.0
+
+var center := Vector2.ZERO
+var samples: Array = []
+var timer := 0.0
+var mm: MultiMesh
+var cam: Camera3D
+
+
+func _init() -> void:
+	size = Vector2i(512, 512)
+	render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	transparent_bg = false
+	msaa_3d = Viewport.MSAA_DISABLED
+
+
+func _ready() -> void:
+	cam = Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = SIZE
+	cam.near = 1.0
+	cam.far = 200.0
+	cam.cull_mask = 1 << (LAYER - 1)
+	cam.rotation_degrees = Vector3(-90, 0, 0)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color.BLACK
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	cam.environment = env
+	add_child(cam)
+
+	var quad := PlaneMesh.new()
+	quad.size = Vector2(2, 2)
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, depth_test_disabled, fog_disabled;
+varying vec4 val;
+void vertex() { val = INSTANCE_CUSTOM; }
+void fragment() {
+	float d = length(UV * 2.0 - 1.0);
+	float core = smoothstep(0.65, 0.1, d);
+	float soft = smoothstep(1.0, 0.0, d);
+	ALBEDO = vec3(val.x * core, val.y * soft * 0.6, 0.0);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	quad.material = m
+	mm = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = quad
+	mm.instance_count = MAX_BLOBS
+	mm.visible_instance_count = 0
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.layers = 1 << (LAYER - 1)
+	mmi.extra_cull_margin = 16384.0
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+
+
+func update(dt: float, ship) -> void:
+	var t: float = ship.sim_time
+	var spd: float = maxf(0.0, ship.speed())
+	var b: Basis = ship.transform.basis
+	var pos: Vector3 = ship.position
+	var fwd := b.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var right := Vector3(fwd.z, 0.0, -fwd.x)
+	timer += dt
+	if timer > 0.12:
+		timer = 0.0
+		var sides := []
+		for u in [0.85, 0.65, 0.45, 0.25]:
+			for s in [1.0, -1.0]:
+				sides.append(pos + b * Vector3(s * (ship.half_width(u, 0.0) + 0.3), 0.0, ship.z_at(u)))
+		samples.append({
+			"t": t, "speed": spd, "heave": absf(ship.vel.y),
+			"stern": pos + b * Vector3(0, 0, ship.z_at(0.03)), "bow": pos + b * Vector3(0, 0, ship.z_at(0.97)),
+			"right": right, "sides": sides, "rot": randf() * TAU,
+		})
+		while samples.size() > 0 and t - samples[0].t > 45.0:
+			samples.pop_front()
+
+	var texel := SIZE / size.x
+	center = Vector2(roundf(pos.x / texel) * texel, roundf(pos.z / texel) * texel)
+	cam.position = Vector3(center.x, 100.0, center.y)
+
+	var n := 0
+	for s in samples:
+		var age: float = t - s.t
+		var sp := minf(1.0, s.speed / 3.5)
+		var churn := minf(1.0, sp + s.heave * 0.4)
+		var decay := exp(-age / 11.0)
+		n = _put(n, s.stern.x, s.stern.z, 3.0 + age * 0.32, s.rot + age * 0.1, churn * decay * 0.9, churn * exp(-age / 20.0) * 0.9)
+		if age < 22.0:
+			var spread: float = 5.2 + age * s.speed * 0.36
+			var arm := exp(-age / 6.5) * sp
+			for side in [1.0, -1.0]:
+				var p: Vector3 = s.bow + s.right * side * spread
+				n = _put(n, p.x, p.z, 1.5 + age * 0.22, s.rot + side, arm * 0.8, arm * 0.7)
+		if age < 3.0:
+			var k := (1.0 - age / 3.0) * (0.35 + 0.65 * churn)
+			for i in s.sides.size():
+				var p: Vector3 = s.sides[i]
+				var bowish := 1.4 if i < 2 else 1.0 # the bow pushes up the most white water
+				n = _put(n, p.x, p.z, (2.4 + age * 1.4) * bowish, s.rot + age, minf(1.0, k * 0.9 * bowish), k)
+	var idle := minf(1.0, absf(ship.vel.y) * 0.8 + minf(1.0, spd / 3.5) * 0.5)
+	for i in 9:
+		var u := 0.1 + i * 0.1
+		for side in [1.0, -1.0]:
+			var p: Vector3 = pos + b * Vector3(side * (ship.half_width(u, 0.0) + 0.2), 0.0, ship.z_at(u))
+			n = _put(n, p.x, p.z, 2.4, u * 10.0, 0.3 + 0.5 * idle, 0.5 + 0.4 * idle)
+	mm.visible_instance_count = n
+
+
+func _put(n: int, x: float, z: float, r: float, rot: float, foam: float, aer: float) -> int:
+	if n >= MAX_BLOBS:
+		return n
+	var basis := Basis(Vector3.UP, rot).scaled(Vector3(r, 1.0, r))
+	mm.set_instance_transform(n, Transform3D(basis, Vector3(x, 0.0, z)))
+	mm.set_instance_custom_data(n, Color(foam, aer, 0.0, 0.0))
+	return n + 1

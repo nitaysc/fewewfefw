@@ -1,0 +1,6 @@
+.godot/
+build/
+*.tmp
+assets/ship/galleon_*.png
+assets/ship/galleon_*.png.import
+__pycache__/
