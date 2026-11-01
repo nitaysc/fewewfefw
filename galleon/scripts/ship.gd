@@ -301,7 +301,7 @@ func apply_impulse(at: Vector3, j: Vector3) -> void:
 ## Returns true if it went through below the waterline (it'll leak).
 func take_hit(p: Vector3, dir: Vector3, momentum: float) -> bool:
 	var local := transform.affine_inverse() * p
-	hull = maxf(0.0, hull - randf_range(3.0, 6.5))
+	hull = maxf(0.0, hull - randf_range(2.5, 5.0))
 	var low := local.y < 0.9
 	if low:
 		leak += randf_range(0.45, 0.8)

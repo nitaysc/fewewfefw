@@ -68,10 +68,10 @@ func update(dt: float) -> void:
 		return
 	var rel := wrapf(bearing - h, -PI, PI) # +90° = on the port beam
 	var side := 1.0 if rel > 0.0 else -1.0
-	var off_beam := absf(absf(rel) - PI * 0.5)
-	if off_beam < deg_to_rad(9.0):
-		var e: float = gunnery.aim_elevation(dist) + randf_range(-1.0, 1.0) * deg_to_rad(1.2) * (1.0 - skill)
+	var l: Array = gunnery.lay(ship, side, target.position, deg_to_rad(10.0))
+	if l.size() > 0:
+		var e: float = l[0] + randf_range(-1.0, 1.0) * deg_to_rad(1.2) * (1.0 - skill)
 		# wait for the roll: fire as the gunports come level
 		var heel: float = ship.attitude().x
 		if absf(heel) < 4.0:
-			gunnery.fire(ship, side, e)
+			gunnery.fire(ship, side, e, l[1])

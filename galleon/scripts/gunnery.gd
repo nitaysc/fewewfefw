@@ -274,6 +274,19 @@ static func range_at(elev: float) -> float:
 	return p.x
 
 
+## How to lay one side's guns on a target: [elevation, train], or [] if it doesn't bear.
+static func lay(ship, side: float, target_pos: Vector3, arc := deg_to_rad(15.0)) -> Array:
+	var to: Vector3 = target_pos - ship.position
+	to.y = 0.0
+	var rel := wrapf(atan2(to.x, to.z) - ship.heading(), -PI, PI) # +90° = port beam
+	if signf(rel) != side:
+		return []
+	var off := absf(rel) - PI * 0.5 # + = abaft the beam
+	if absf(off) > arc:
+		return []
+	return [aim_elevation(to.length()), -off]
+
+
 ## Elevation (rad) that drops a shot at this range, or the highest the guns go.
 static func aim_elevation(dist: float) -> float:
 	var lo := -0.03
@@ -289,8 +302,12 @@ static func aim_elevation(dist: float) -> float:
 	return (lo + hi) * 0.5
 
 
+const MAX_TRAIN := deg_to_rad(12.0) ## how far the crews can lever the guns fore and aft
+
+
 ## Fire one side: +1 = port, -1 = starboard. The guns ripple from bow to stern.
-func fire(ship, side: float, elevation: float) -> bool:
+## train: radians the guns are levered toward the bow (+) or stern (-) of the beam.
+func fire(ship, side: float, elevation: float, train := 0.0) -> bool:
 	var k := 0 if side > 0.0 else 1
 	if ship.reload[k] > 0.0 or ship.sinking:
 		return false
@@ -300,16 +317,18 @@ func fire(ship, side: float, elevation: float) -> bool:
 	order.reverse()
 	var t := 0.0
 	for i in order:
-		pending.append({"t": _time + t, "ship": ship, "m": mz[i], "side": side, "elev": elevation})
+		pending.append({"t": _time + t, "ship": ship, "m": mz[i], "side": side, "elev": elevation, "train": clampf(train, -MAX_TRAIN, MAX_TRAIN)})
 		t += randf_range(0.09, 0.22)
 	return true
 
 
-func _shoot(ship, m: Vector3, side: float, elev: float) -> void:
+func _shoot(ship, m: Vector3, side: float, elev: float, train: float) -> void:
 	var b: Basis = ship.transform.basis
 	var at: Vector3 = ship.transform * m
 	var spread := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * deg_to_rad(0.7)
-	var dl := Vector3(side * cos(elev + spread.y), sin(elev + spread.y), 0.0).rotated(Vector3.UP, spread.x)
+	var th := side * PI * 0.5 - side * train + spread.x
+	var e := elev + spread.y
+	var dl := Vector3(sin(th) * cos(e), sin(e), cos(th) * cos(e))
 	var dir: Vector3 = (b * dl).normalized()
 	var node := MeshInstance3D.new()
 	node.mesh = _ball_mesh
@@ -348,7 +367,7 @@ func _process(delta: float) -> void:
 		if _time >= g.t:
 			pending.remove_at(i)
 			if is_instance_valid(g.ship) and not g.ship.sinking:
-				_shoot(g.ship, g.m, g.side, g.elev)
+				_shoot(g.ship, g.m, g.side, g.elev, g.train)
 		else:
 			i += 1
 

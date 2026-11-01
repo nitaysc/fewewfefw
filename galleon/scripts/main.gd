@@ -925,22 +925,26 @@ func _update_enemies(dt: float) -> void:
 		(over_box.find_child("Sub", true, false) as Label).text = "Ships sunk: %d" % sunk_count
 
 
-## Lay the guns: if an enemy is near this beam, elevate for her range.
-func _player_elevation(side: float) -> float:
-	var best := INF
+## Lay the guns: if an enemy is near this beam, elevate and train them on her.
+func _player_lay(side: float) -> Array:
+	var best: Array = []
+	var best_d := 900.0
 	for e in enemies:
-		var to: Vector3 = e.ship.position - ship.position
-		to.y = 0.0
-		var d := to.length()
-		var rel := wrapf(atan2(to.x, to.z) - ship.heading(), -PI, PI)
-		if signf(rel) != side or absf(absf(rel) - PI * 0.5) > deg_to_rad(30.0) or d > 900.0:
+		if e.ship.sinking:
 			continue
-		best = minf(best, d)
-	return deg_to_rad(1.0) if best == INF else GunneryScript.aim_elevation(best)
+		var d: float = e.ship.position.distance_to(ship.position)
+		var l: Array = GunneryScript.lay(ship, side, e.ship.position)
+		if l.size() > 0 and d < best_d:
+			best_d = d
+			best = l
+	return best
 
 
 func _fire(side: float) -> void:
-	if gunnery.fire(ship, side, _player_elevation(side)):
+	var l := _player_lay(side)
+	if l.is_empty():
+		l = [deg_to_rad(1.0), 0.0]
+	if gunnery.fire(ship, side, l[0], l[1]):
 		cam_shake = maxf(cam_shake, 0.35)
 
 
@@ -986,7 +990,7 @@ func _update_combat_hud() -> void:
 			b.modulate = Color(1, 1, 1, 0.6)
 		else:
 			b.text = "PORT" if k == 0 else "STBD"
-			var aim := _player_elevation(side) != deg_to_rad(1.0)
+			var aim := not _player_lay(side).is_empty()
 			b.modulate = Color(1.0, 0.8, 0.45) if aim else Color.WHITE
 	# the nearest enemy, labelled over her masts
 	marker.visible = false
