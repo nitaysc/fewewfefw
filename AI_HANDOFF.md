@@ -11,6 +11,9 @@ an AI. Each project has its own notes:
   Read it before adding or changing any art; it explains the style, units, cameras,
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
+- `junkyard-revival/README.md`: "Junkyard Revival: Quick Wash", a first-person car-washing
+  game (WebGPU/three.js). The Blender models are in `junkyard-revival/tools/blender`; the game
+  itself hasn't been built yet. The owner wanted to approve the models first.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still

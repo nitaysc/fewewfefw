@@ -1,1 +1,3 @@
 node_modules/
+junkyard-revival/tools/blender/previews/*.png
+__pycache__/
