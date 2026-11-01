@@ -11,6 +11,7 @@ func setup(rings: int, segments: int, wake_tex: Texture2D) -> void:
 	mesh = _radial_grid(rings, segments)
 	extra_cull_margin = 16384.0
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	layers = 2 # shot-hole decals (layer 1 only) must not print on the sea
 	mat = ShaderMaterial.new()
 	mat.shader = load(SHADER_PATH)
 	mat.set_shader_parameter("map_scales", PackedVector4Array())

@@ -5,6 +5,7 @@ render_mode cull_disabled, specular_schlick_ggx;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
+uniform vec3 tint : source_color = vec3(1.0);
 uniform int mode = 0; // 0 square sail, 1 lateen
 uniform vec3 lat_a;
 uniform vec3 lat_b;
@@ -49,7 +50,7 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = texture(albedo_tex, UV).rgb;
+	ALBEDO = texture(albedo_tex, UV).rgb * tint;
 	NORMAL_MAP = texture(normal_tex, UV).rgb;
 	NORMAL_MAP_DEPTH = 0.35;
 	ROUGHNESS = 0.9;

@@ -8,6 +8,8 @@ extends Node3D
 ##   --cam=NAME        chase | orbit | cinematic | deck
 ##   --yaw= --pitch= --dist=   camera placement
 ##   --shot=PATH --wait=SECONDS   save a screenshot after SECONDS and quit
+##   --noenemy         no enemy ship;  --enemy=DIST,BEARING_DEG  place one (relative to the bow)
+##   --fire=port|stbd|both   fire a broadside at once (screenshots of the smoke)
 
 const ShipScript := preload("res://scripts/ship.gd")
 const OceanScript := preload("res://scripts/ocean.gd")
@@ -16,6 +18,9 @@ const BowWaveScript := preload("res://scripts/bow_wave.gd")
 const WakeScript := preload("res://scripts/wake.gd")
 const HelmScript := preload("res://scripts/helm.gd")
 const RoseScript := preload("res://scripts/rose.gd")
+const GunneryScript := preload("res://scripts/gunnery.gd")
+const IslandScript := preload("res://scripts/island.gd")
+const CaptainScript := preload("res://scripts/captain.gd")
 
 const CAMS := ["Chase", "Orbit", "Cinematic", "Quarterdeck"]
 const BRIG_PATH := "res://assets/brig/brig.glb"
@@ -50,6 +55,16 @@ var pinch0 := 0.0
 var dist0 := 0.0
 
 var running := false
+static var quick_start := false ## "sail again" after a sinking skips the title
+var gunnery: Node3D
+var island: Node3D
+var enemies: Array = [] ## {ship, captain}
+var sunk_count := 0
+var spawn_timer := -1.0
+var game_over := false
+var cam_shake := 0.0
+var was_leaking := false
+var was_aground := false
 var sail_idx := 1
 var sail_design := "white"
 var perf_level := 0 ## 0 = full quality; raised automatically if the phone cannot keep up
@@ -65,6 +80,11 @@ var pos_lbl: Label
 var sail_lbl: Label
 var sail_bars: Array = []
 var cam_lbl: Label
+var hull_lbl: Label
+var banner: Label
+var marker: Label
+var fire_btns: Array = [] ## [port, starboard]
+var over_box: Control
 var title: Control
 var hud_root: Control
 
@@ -93,7 +113,28 @@ func _ready() -> void:
 		ship.step(1.0 / 60.0)
 	cam_heading = ship.heading()
 
-	if args.has("play"):
+	# an island a mile or so off the port bow, and an enemy on the horizon
+	var ih: float = ship.heading() + 0.32
+	island = IslandScript.new()
+	add_child(island)
+	island.build(Vector3(sin(ih), 0.0, cos(ih)) * float(args.get("islanddist", "1350")))
+	ship.terrain = island
+	ocean.mat.set_shader_parameter("island_tex", island.height_tex)
+	ocean.mat.set_shader_parameter("island_rect", island.rect())
+	gunnery = GunneryScript.new()
+	add_child(gunnery)
+	gunnery.ships = [ship]
+	gunnery.terrain = island
+	gunnery.splashed.connect(func(p: Vector3, sz: float): wake.add_splash(p, sz, ship.sim_time))
+	gunnery.hit.connect(_on_hit)
+	if not args.has("noenemy"):
+		if args.has("enemy"):
+			var e: PackedFloat64Array = args.enemy.split_floats(",")
+			_spawn_enemy(e[0], deg_to_rad(e[1]) if e.size() > 1 else 0.6)
+		else:
+			_spawn_enemy(950.0, randf_range(-0.9, 0.9))
+
+	if args.has("play") or quick_start:
 		_start()
 	if args.has("warm"):
 		_set_sail(2)
@@ -103,7 +144,11 @@ func _ready() -> void:
 		for i in n:
 			ship.step(1.0 / 30.0)
 			ship.animate(1.0 / 30.0)
-			wake.update(1.0 / 30.0, ship)
+			for en in enemies:
+				en.captain.update(1.0 / 30.0)
+				en.ship.step(1.0 / 30.0)
+				en.ship.animate(1.0 / 30.0)
+			wake.update(1.0 / 30.0, _all_ships())
 		cam_heading = ship.heading()
 	if args.has("cam"):
 		_set_cam(["chase", "orbit", "cinematic", "deck"].find(args.cam))
@@ -126,6 +171,11 @@ func _ready() -> void:
 		get_viewport().use_taa = false
 	if args.has("shot"):
 		shot_timer = float(args.get("wait", "3"))
+	if args.has("fire"):
+		if args.fire in ["port", "both"]:
+			_fire(1.0)
+		if args.fire in ["stbd", "both"]:
+			_fire(-1.0)
 
 
 # ------------------------------------------------------------------ world
@@ -447,7 +497,40 @@ func _build_hud() -> void:
 	pos_lbl.custom_minimum_size.x = 160
 	pos_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(pos_lbl)
+	hull_lbl = _label("Hull 100%", 20)
+	hull_lbl.custom_minimum_size.x = 150
+	hull_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(hull_lbl)
 	hud_root.add_child(panel)
+
+	# broadsides: port on the left, starboard on the right (as seen from astern)
+	for side in [1.0, -1.0]:
+		var fb := _round_button("PORT" if side > 0.0 else "STBD", 104)
+		fb.add_theme_font_size_override("font_size", 20)
+		var sd: float = side
+		fb.pressed.connect(func(): _fire(sd))
+		if side > 0.0:
+			fb.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+			fb.position = Vector2(60, -360)
+		else:
+			fb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+			fb.position = Vector2(-310, -150)
+		hud_root.add_child(fb)
+		fire_btns.append(fb)
+
+	banner = _label("", 34)
+	banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.position = Vector2(-450, 130)
+	banner.custom_minimum_size = Vector2(900, 50)
+	banner.modulate.a = 0.0
+	hud_root.add_child(banner)
+
+	marker = _label("", 17)
+	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	marker.custom_minimum_size = Vector2(180, 40)
+	marker.visible = false
+	hud_root.add_child(marker)
 
 	# wind rose and buttons, top right
 	var tr := HBoxContainer.new()
@@ -540,6 +623,38 @@ func _build_hud() -> void:
 	box.custom_minimum_size = Vector2(800, 300)
 	title.add_child(box)
 	hud.add_child(title)
+
+	over_box = ColorRect.new()
+	(over_box as ColorRect).color = Color(0.01, 0.03, 0.06, 0.55)
+	over_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	over_box.visible = false
+	var ob := VBoxContainer.new()
+	ob.set_anchors_preset(Control.PRESET_CENTER)
+	ob.position = Vector2(-400, -120)
+	ob.custom_minimum_size = Vector2(800, 240)
+	ob.add_theme_constant_override("separation", 18)
+	var ot := _label("She's gone down", 64)
+	ot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ot.name = "Title"
+	var os_ := _label("", 24, Color(0.97, 0.93, 0.85, 0.8))
+	os_.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	os_.name = "Sub"
+	var again := Button.new()
+	again.text = "  SAIL AGAIN  "
+	again.add_theme_font_size_override("font_size", 30)
+	again.add_theme_stylebox_override("normal", _style(Color(0.85, 0.66, 0.3, 0.3), 40))
+	again.add_theme_stylebox_override("pressed", _style(Color(0.85, 0.66, 0.3, 0.6), 40))
+	again.custom_minimum_size = Vector2(300, 74)
+	again.pressed.connect(func():
+		quick_start = true
+		get_tree().reload_current_scene())
+	var ac := CenterContainer.new()
+	ac.add_child(again)
+	ob.add_child(ot)
+	ob.add_child(os_)
+	ob.add_child(ac)
+	over_box.add_child(ob)
+	hud.add_child(over_box)
 	cam_mode = 2
 
 
@@ -627,6 +742,10 @@ func _unhandled_input(e: InputEvent) -> void:
 				_set_sail(sail_idx - 1)
 			KEY_C:
 				_set_cam(cam_mode + 1)
+			KEY_Q:
+				_fire(1.0)
+			KEY_E:
+				_fire(-1.0)
 
 
 # ------------------------------------------------------------------ frame
@@ -640,7 +759,9 @@ func _process(delta: float) -> void:
 
 	ship.step(dt)
 	ship.animate(dt)
-	wake.update(dt, ship)
+	_update_enemies(dt)
+	wake.update(dt, _all_ships())
+	gunnery.listener = camera.global_position
 	var ratio := clampf((ship.speed() - 2.0) / 4.0 + ship.bow_dip * 0.8, 0.0, 1.0)
 	bow_wave.update(maxf(0.0, ship.speed()), clampf(ship.bow_dip * 0.5, 0.0, 1.2), fft.map_scales)
 	for p in sprays:
@@ -648,6 +769,9 @@ func _process(delta: float) -> void:
 		p.emitting = ratio > 0.01
 
 	_update_camera(dt)
+	if cam_shake > 0.0:
+		cam_shake = maxf(0.0, cam_shake - dt * 1.5)
+		camera.rotate_object_local(Vector3(randf_range(-1, 1), randf_range(-1, 1), 0).normalized(), cam_shake * 0.02 * randf())
 	ocean.follow(camera.global_position, wake.center, sun_dir)
 	fft.follow(camera.global_position)
 	var spd: float = maxf(0.0, ship.speed())
@@ -726,3 +850,154 @@ func _update_hud() -> void:
 	elif d < 160.0:
 		name = "Broad reach"
 	pos_lbl.text = name
+	_update_combat_hud()
+
+
+# ------------------------------------------------------------------ battle
+func _all_ships() -> Array:
+	var out := [ship]
+	for e in enemies:
+		out.append(e.ship)
+	return out
+
+
+## A man-of-war on the horizon: same hull and physics as ours, her own colours.
+func _spawn_enemy(dist: float, rel_bearing: float) -> void:
+	var b: float = ship.heading() + rel_bearing
+	var at := ship.position + Vector3(sin(b), 0.0, cos(b)) * dist
+	# keep her clear of the island
+	for k in 12:
+		if island == null or island.height(at.x, at.z) < -25.0:
+			break
+		b += 0.5
+		at = ship.position + Vector3(sin(b), 0.0, cos(b)) * dist
+	var e = ShipScript.new()
+	add_child(e)
+	e.attach_model(load("res://assets/ship/galleon.glb"), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
+	e.set_colours(Color(0.8, 0.77, 0.7), Color(0.75, 0.06, 0.05))
+	e.terrain = island
+	# sail across our bow, on whichever tack the wind allows
+	var hd: float = b + PI * 0.5
+	if CaptainScript._no_go(hd):
+		hd = b - PI * 0.5
+	e.transform = Transform3D(Basis(Vector3.UP, hd), Vector3(at.x, 0.0, at.z))
+	e.sail_target = 1.0
+	e.sail = 1.0
+	for i in 120:
+		e.step(1.0 / 30.0)
+	var cap = CaptainScript.new(e, ship, gunnery)
+	cap.skill = clampf(0.55 + sunk_count * 0.08, 0.0, 0.95)
+	enemies.append({"ship": e, "captain": cap})
+	gunnery.ships = _all_ships()
+	if running:
+		_say("Sail ho! A man-of-war, %d m off the %s bow" % [int(dist), "port" if rel_bearing > 0.0 else "starboard"])
+
+
+func _update_enemies(dt: float) -> void:
+	var i := 0
+	while i < enemies.size():
+		var e: Dictionary = enemies[i]
+		var s = e.ship
+		if running:
+			e.captain.update(dt)
+		s.step(dt)
+		s.animate(dt)
+		if s.sinking and s.position.y < -16.0:
+			# gone: leave a patch of foam and wreckage where she went down
+			wake.add_splash(s.position, 4.0, ship.sim_time)
+			wake.forget(s)
+			s.queue_free()
+			enemies.remove_at(i)
+			gunnery.ships = _all_ships()
+			sunk_count += 1
+			spawn_timer = 30.0
+			continue
+		i += 1
+	if spawn_timer > 0.0 and not args.has("noenemy"):
+		spawn_timer -= dt
+		if spawn_timer <= 0.0:
+			_spawn_enemy(1000.0, randf_range(-1.2, 1.2))
+	# our own ship going down
+	if ship.sinking and not game_over and ship.position.y < -5.0:
+		game_over = true
+		over_box.visible = true
+		hud_root.visible = false
+		(over_box.find_child("Sub", true, false) as Label).text = "Ships sunk: %d" % sunk_count
+
+
+## Lay the guns: if an enemy is near this beam, elevate for her range.
+func _player_elevation(side: float) -> float:
+	var best := INF
+	for e in enemies:
+		var to: Vector3 = e.ship.position - ship.position
+		to.y = 0.0
+		var d := to.length()
+		var rel := wrapf(atan2(to.x, to.z) - ship.heading(), -PI, PI)
+		if signf(rel) != side or absf(absf(rel) - PI * 0.5) > deg_to_rad(30.0) or d > 900.0:
+			continue
+		best = minf(best, d)
+	return deg_to_rad(1.0) if best == INF else GunneryScript.aim_elevation(best)
+
+
+func _fire(side: float) -> void:
+	if gunnery.fire(ship, side, _player_elevation(side)):
+		cam_shake = maxf(cam_shake, 0.35)
+
+
+func _on_hit(s, below: bool) -> void:
+	if s == ship:
+		cam_shake = maxf(cam_shake, 0.8)
+		if below and not was_leaking:
+			was_leaking = true
+			_say("We're holed below the waterline! The pumps are manned")
+		if ship.sinking:
+			_say("She's breaking up. Abandon ship!")
+	else:
+		if s.sinking and not s.has_meta("struck"):
+			s.set_meta("struck", true)
+			_say("She's striking her colours. She's sinking!")
+
+
+func _say(text: String) -> void:
+	if banner == null:
+		return
+	banner.text = text
+	banner.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_property(banner, "modulate:a", 0.0, 1.0)
+
+
+func _update_combat_hud() -> void:
+	var water := ""
+	if ship.flood > 1.0:
+		water = "\nWater %d t" % int(ship.flood)
+	hull_lbl.text = "Hull %d%%%s" % [int(ship.hull), water]
+	hull_lbl.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35) if ship.hull < 35.0 or ship.flood > 300.0 else Color(0.97, 0.93, 0.85))
+	if ship.aground > 0.3 and not was_aground:
+		_say("Aground! Get her off the reef")
+	was_aground = ship.aground > 0.3
+	for k in 2:
+		var b: Button = fire_btns[k]
+		var r: float = ship.reload[k]
+		var side := 1.0 if k == 0 else -1.0
+		if r > 0.0:
+			b.text = "%d" % ceili(r)
+			b.modulate = Color(1, 1, 1, 0.6)
+		else:
+			b.text = "PORT" if k == 0 else "STBD"
+			var aim := _player_elevation(side) != deg_to_rad(1.0)
+			b.modulate = Color(1.0, 0.8, 0.45) if aim else Color.WHITE
+	# the nearest enemy, labelled over her masts
+	marker.visible = false
+	for e in enemies:
+		var s = e.ship
+		var top: Vector3 = s.position + Vector3.UP * 46.0
+		if camera.is_position_behind(top):
+			continue
+		var d := ship.position.distance_to(s.position)
+		var sp := camera.unproject_position(top)
+		marker.visible = true
+		marker.position = sp - Vector2(90, 40)
+		marker.text = ("Sinking" if s.sinking else "Man-of-war  %d%%" % int(s.hull)) + "\n%d m" % int(d)
+		break

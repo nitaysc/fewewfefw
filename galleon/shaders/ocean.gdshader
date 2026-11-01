@@ -28,6 +28,8 @@ uniform vec3 deep_color : source_color = vec3(0.015, 0.09, 0.22);
 uniform vec3 scatter_color : source_color = vec3(0.04, 0.45, 0.52);
 uniform vec3 sun_dir = vec3(-0.55, 0.62, -0.56);
 uniform float fft_strength = 1.0;
+uniform sampler2D island_tex : filter_linear, repeat_disable; // ground height, metres
+uniform vec4 island_rect = vec4(0.0, 0.0, 0.0, 0.0); // x0, z0, size (0 = no island)
 uniform int debug_view = 0; // 1 = FFT foam, 2 = FFT slopes
 
 varying vec2 grid;
@@ -109,6 +111,22 @@ void fragment() {
 	}
 	slope += vec2(sin(g.x * 1.7 + t * 3.1), cos(g.y * 1.9 - t * 2.6)) * wake.g * 0.22;
 
+	// the island: turquoise shallows over sand, and surf breaking along the shore
+	float surf = 0.0;
+	float shallow = 0.0;
+	if (island_rect.z > 0.0) {
+		vec2 iuv = (world.xz - island_rect.xy) / island_rect.z;
+		if (iuv.x > 0.0 && iuv.x < 1.0 && iuv.y > 0.0 && iuv.y < 1.0) {
+			float ground = texture(island_tex, iuv).r;
+			float wd = world.y - ground;
+			shallow = 1.0 - smoothstep(0.0, 14.0, wd);
+			// lines of breakers marching in, strongest right at the beach
+			float lines = 0.5 + 0.5 * sin(wd * 2.2 - t * 1.6 + texture(foam_tex, g * 0.01).r * 6.0);
+			surf = (1.0 - smoothstep(0.0, 2.2, wd)) * (0.55 + 0.45 * lines) + (1.0 - smoothstep(0.0, 5.0, wd)) * smoothstep(0.75, 1.0, lines) * 0.6;
+			surf *= step(-1.5, wd);
+		}
+	}
+
 	n.xz -= slope;
 	vec3 N = normalize(n);
 
@@ -132,7 +150,7 @@ void fragment() {
 	float fft_foam = smoothstep(0.0, 1.0, grad.z * 0.8) * exp(-dist * 0.004);
 	float crest = smoothstep(0.7, 0.3, jac) * smoothstep(0.0, 1.2, height) * 0.6;
 	float contact = (1.0 - smoothstep(0.0, 1.3, thickness)) * smoothstep(300.0, 0.0, dist);
-	float amt = clamp(max(max(max(fft_foam, crest), wake.r), contact), 0.0, 1.0);
+	float amt = clamp(max(max(max(max(fft_foam, crest), wake.r), contact), surf), 0.0, 1.0);
 	float foam = smoothstep(1.0 - amt, 1.0 - amt + 0.35, fn) * min(1.0, amt * 2.2);
 	foam = max(foam, smoothstep(0.55, 1.0, fft_foam) * 0.8);
 	foam = max(foam, smoothstep(0.8, 1.0, wake.r) * 0.85);
@@ -146,6 +164,7 @@ void fragment() {
 	float sss = pow(clamp(dot(V, -normalize(L + N * 0.6)), 0.0, 1.0), 3.0) * 1.3 + 0.2 * clamp(dot(N, L), 0.0, 1.0);
 	vec3 glow = scatter_color * (sss * smoothstep(-1.0, 2.0, height) * 0.5 + wake.g * 0.85 + film * 0.6);
 	vec3 seen = mix(deep_color * 0.9, refr * vec3(0.3, 0.75, 0.82), trans);
+	seen += vec3(0.02, 0.2, 0.17) * shallow * (1.0 - trans * 0.5);
 
 	ALBEDO = mix(deep_color * 0.25, vec3(0.88, 0.9, 0.92), foam);
 	EMISSION = (seen * 0.85 + glow) * (1.0 - fres) * (1.0 - foam);

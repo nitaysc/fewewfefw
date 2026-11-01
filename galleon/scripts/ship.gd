@@ -29,6 +29,19 @@ var bow_dip := 0.0
 var columns: Array = []
 var sim_time := 0.0
 
+# combat and damage
+const RELOAD_TIME := 14.0 ## seconds for a gun crew to sponge, load and run out again
+const PUMPS := 0.9 ## tonnes of water a second the chain pumps clear while the crew is aboard
+const GUNPORTS_U := [0.33, 0.405, 0.48, 0.555, 0.63, 0.705] ## matches tools/build_constants.py
+var hull := 100.0 ## structural strength, %
+var leak := 0.0 ## tonnes of sea water a second coming in through shot holes
+var flood := 0.0 ## tonnes of water in the hold
+var flood_side := 0.0 ## -1..1: which side the water collects on (makes her list)
+var reload := [0.0, 0.0] ## seconds left: [port, starboard]
+var sinking := false
+var terrain = null ## an object with height(x, z) (the island) or null
+var aground := 0.0 ## how hard the keel is on the bottom, for sounds and HUD
+
 # visuals
 var model: Node3D
 var sails: Array = [] ## {node: MeshInstance3D, pivot: Node3D, kind}
@@ -82,6 +95,32 @@ static func z_at(u: float) -> float:
 	return (u - 0.5) * LENGTH
 
 
+## Height of the top of the bulwark (matches tools/build_constants.py rail_top).
+static func rail_top(u: float) -> float:
+	var y := 4.35 + 0.3 * pow(absf(u - 0.52) / 0.5, 2.0)
+	y += (6.75 - 4.35) * (1.0 - _smooth(0.288, 0.312, u))
+	y += (9.15 - 6.75) * (1.0 - _smooth(0.115, 0.135, u))
+	y += (6.55 - 4.35) * _smooth(0.753, 0.777, u)
+	y -= 0.45 * _smooth(0.9, 1.0, u)
+	return y
+
+
+## Is this ship-space point inside the hull (or its upperworks)?
+static func inside_hull(p: Vector3) -> bool:
+	var u := p.z / LENGTH + 0.5
+	if u < 0.0 or u > 1.0 or p.y < keel(u) or p.y > rail_top(u):
+		return false
+	return absf(p.x) < half_width(u, minf(p.y, 9.0))
+
+
+## Muzzles of the lower-deck guns in ship space; side +1 = port (+X), -1 = starboard.
+static func muzzles(side: float) -> Array:
+	var out := []
+	for u in GUNPORTS_U:
+		out.append(Vector3(side * (half_width(u, 1.9) + 1.3), 1.9, z_at(u)))
+	return out
+
+
 func _build_columns() -> void:
 	columns.clear()
 	var total := 0.0
@@ -127,7 +166,12 @@ func step(dt: float) -> void:
 func _substep(dt: float) -> void:
 	sim_time += dt
 	Waves.time = sim_time
+	if sinking:
+		sail_target = 0.0
 	sail += (sail_target - sail) * minf(1.0, dt * 0.35)
+	reload[0] = maxf(0.0, reload[0] - dt)
+	reload[1] = maxf(0.0, reload[1] - dt)
+	flood = maxf(0.0, flood + (leak - (0.0 if sinking else PUMPS)) * dt)
 	var b := transform.basis.orthonormalized()
 	var pos := position
 	var force := Vector3(0.0, -MASS * G, 0.0)
@@ -152,6 +196,30 @@ func _substep(dt: float) -> void:
 		torque += (p - cg).cross(f)
 	submerged = sub / columns.size()
 	var wet := minf(1.3, submerged)
+
+	# water in the hold: dead weight low down, sloshed to one side
+	if flood > 0.0:
+		var fw := Vector3(0.0, -flood * 1000.0 * G, 0.0)
+		var fp := pos + b * Vector3(flood_side * 2.2, -1.2, 0.0)
+		force += fw
+		torque += (fp - cg).cross(fw)
+
+	# running aground: the keel grinds on the island's sea bed
+	aground = 0.0
+	if terrain:
+		for kp in [Vector3(0.0, -3.0, 16.0), Vector3(0.0, -3.0, 0.0), Vector3(0.0, -2.8, -16.0), Vector3(3.5, -1.5, 0.0), Vector3(-3.5, -1.5, 0.0)]:
+			var p: Vector3 = pos + b * kp
+			var ground: float = terrain.height(p.x, p.z)
+			var pen := ground - p.y
+			if pen <= 0.0:
+				continue
+			aground = maxf(aground, pen)
+			var vp := vel + omega.cross(p - cg)
+			var f := Vector3(0.0, MASS * 4.0 * minf(pen, 3.0) - MASS * 0.8 * minf(vp.y, 0.0), 0.0)
+			var slide := Vector3(vp.x, 0.0, vp.z)
+			f -= slide * MASS * 0.35 * minf(1.0, pen + 0.3)
+			force += f
+			torque += (p - cg).cross(f)
 
 	# hull drag in the ship's own frame
 	var local := b.inverse() * vel
@@ -204,7 +272,7 @@ func _substep(dt: float) -> void:
 		-wl.z * 2.4e7 * wet)
 
 	# integrate
-	vel += force * (dt / MASS)
+	vel += force * (dt / (MASS + flood * 1000.0))
 	pos += vel * dt
 	var tl := b.inverse() * torque
 	wl += Vector3(tl.x / inertia.x, tl.y / inertia.y, tl.z / inertia.z) * dt
@@ -217,6 +285,32 @@ func _substep(dt: float) -> void:
 	var bow := pos + b * Vector3(0.0, 0.0, 17.0)
 	var bow_v := vel + omega.cross(bow - cg)
 	bow_dip = maxf(0.0, -bow_v.y) if bow.y - Waves.height_at(bow.x, bow.z, sim_time) < 1.5 else 0.0
+
+
+## A sudden push at a world point (gun recoil, a shot striking home).
+func apply_impulse(at: Vector3, j: Vector3) -> void:
+	var m := MASS + flood * 1000.0
+	vel += j / m
+	var b := transform.basis.orthonormalized()
+	var cg := position + b * Vector3(0.0, CG_Y, 0.0)
+	var tl := b.inverse() * (at - cg).cross(j)
+	omega += b * Vector3(tl.x / inertia.x, tl.y / inertia.y, tl.z / inertia.z)
+
+
+## A round shot struck the hull at world point p, travelling along dir.
+## Returns true if it went through below the waterline (it'll leak).
+func take_hit(p: Vector3, dir: Vector3, momentum: float) -> bool:
+	var local := transform.affine_inverse() * p
+	hull = maxf(0.0, hull - randf_range(3.0, 6.5))
+	var low := local.y < 0.9
+	if low:
+		leak += randf_range(0.45, 0.8)
+		flood_side = clampf(flood_side + signf(local.x) * 0.12, -1.0, 1.0)
+	apply_impulse(p, dir.normalized() * momentum * 3.0)
+	if hull <= 0.0 and not sinking:
+		sinking = true
+		leak += 38.0 # her timbers are stove in
+	return low
 
 
 func attitude() -> Vector2: ## (heel, pitch) in degrees
@@ -308,6 +402,16 @@ func _attach_brig(sails_node: MeshInstance3D) -> void:
 	sails_node.material_override = brig_sails
 	sails_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	sails_node.extra_cull_margin = 4.0
+
+
+## Repaint an enemy: weathered sails and her own colours at the mastheads.
+func set_colours(sail_tint: Color, flag_tint: Color) -> void:
+	for s in sails:
+		(s.node.material_override as ShaderMaterial).set_shader_parameter("tint", sail_tint)
+	for f in flags:
+		var m := f.material_override as ShaderMaterial
+		m.set_shader_parameter("use_tex", false)
+		m.set_shader_parameter("tint", flag_tint)
 
 
 func set_sail_design(tex: Texture2D) -> void:
