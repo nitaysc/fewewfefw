@@ -55,6 +55,7 @@ var pinch0 := 0.0
 var dist0 := 0.0
 
 var running := false
+var model_path := "res://assets/ship/galleon.glb" ## the brig when its licensed files are present
 static var quick_start := false ## "sail again" after a sinking skips the title
 var gunnery: Node3D
 var island: Node3D
@@ -263,7 +264,7 @@ func _build_ship() -> void:
 	ship = ShipScript.new()
 	add_child(ship)
 	# the purchased brig if its (git-ignored, licensed) files are present, else the built-in galleon
-	var model_path := BRIG_PATH if ResourceLoader.exists(BRIG_PATH) and not args.has("galleon") else "res://assets/ship/galleon.glb"
+	model_path = BRIG_PATH if ResourceLoader.exists(BRIG_PATH) and not args.has("galleon") else "res://assets/ship/galleon.glb"
 	ship.attach_model(load(model_path), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
 	if ship.brig_sails:
 		var cfg := ConfigFile.new()
@@ -875,8 +876,15 @@ func _spawn_enemy(dist: float, rel_bearing: float) -> void:
 		at = ship.position + Vector3(sin(b), 0.0, cos(b)) * dist
 	var e = ShipScript.new()
 	add_child(e)
-	e.attach_model(load("res://assets/ship/galleon.glb"), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
-	e.set_colours(Color(0.8, 0.77, 0.7), Color(0.75, 0.06, 0.05))
+	e.attach_model(load(model_path), load("res://shaders/sail.gdshader"), load("res://shaders/flag.gdshader"))
+	if e.brig_sails:
+		# the purchased brig as an enemy: navy sail designs that came with it
+		var design: String = ["british", "spanish", "dutch"][sunk_count % 3]
+		var tex := "res://assets/brig/sails/%s.jpg" % design
+		if ResourceLoader.exists(tex):
+			e.set_sail_design(load(tex))
+	else:
+		e.set_colours(Color(0.8, 0.77, 0.7), Color(0.75, 0.06, 0.05))
 	e.terrain = island
 	# sail across our bow, on whichever tack the wind allows
 	var hd: float = b + PI * 0.5
