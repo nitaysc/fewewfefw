@@ -27,7 +27,7 @@ namespace RoostMX.Tests
                 $"\"frontHub\":{V(s.Front.HubLocal)},\"frontAxis\":{V(s.Front.AxisLocal)},\"steer\":{F(s.Front.SteerAngle)}," +
                 $"\"rearHub\":{V(s.Rear.HubLocal)},\"spinF\":{F(s.Front.SpinAngle)},\"spinR\":{F(s.Rear.SpinAngle)}," +
                 $"\"rider\":{V(riderLocal)},\"body\":{V(s.Rider.BodyAngle)},\"standing\":{F(s.Rider.Standing)}," +
-                $"\"lean\":{F(s.Lean)},\"pitch\":{F(s.Pitch)},\"speed\":{F(s.Speed)}" + "}";
+                $"\"pos\":{V(r.Body.Position)},\"lean\":{F(s.Lean)},\"pitch\":{F(s.Pitch)},\"speed\":{F(s.Speed)}" + "}";
         }
 
         static string Spec(BikeSpec s) =>

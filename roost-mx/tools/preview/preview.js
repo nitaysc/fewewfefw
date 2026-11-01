@@ -299,8 +299,9 @@ export async function render(canvas, data, idx, view) {
   const bike = new THREE.Object3D();
   const roll = -pose.lean / D2R, pitchDeg = -pose.pitch / D2R;
   bike.quaternion.copy(qmul(angleAxis(roll, V(0, 0, 1)), angleAxis(pitchDeg, V(1, 0, 0))));
-  const comH = spec.rR - spec.rearAxle[1];
-  bike.position.set(0, comH + (pose.name.startsWith('Airborne') ? 0.8 : 0), 0);
+  // height straight from the simulation (the test ground is flat at y = 0, except the jump)
+  const comH = pose.pos ? pose.pos[1] : spec.rR - spec.rearAxle[1];
+  bike.position.set(0, comH, 0);
   world.add(bike);
   const pal = pose.bike === '250F'
     ? { plastic: [0.10, 0.32, 0.80], dark: [0.06, 0.10, 0.22], frame: [0.12, 0.13, 0.15], seat: [0.07, 0.08, 0.10], graphic: [0.95, 0.95, 0.97] }
@@ -309,7 +310,7 @@ export async function render(canvas, data, idx, view) {
   if (view.rider !== false) buildRider(bike, spec, pose, head);
 
   const cam = new THREE.PerspectiveCamera(view.fov ?? 34, canvas.width / canvas.height, 0.05, 200);
-  const target = V(0, comH + 0.25 + (pose.name.startsWith('Airborne') ? 0.8 : 0), 0);
+  const target = V(0, comH + 0.25, 0);
   cam.position.copy(target.clone().add(V(...view.offset)));
   cam.lookAt(target);
   renderer.render(scene, cam);
