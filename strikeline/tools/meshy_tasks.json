@@ -1,0 +1,42 @@
+{
+  "bruno": {
+    "anims": {
+      "bruno": "01a19e24-7031-7342-b46a-2052026ec4d2",
+      "common": "01a19e24-6bd8-7127-b778-25d0fefa929a",
+      "common2": "01a19e24-6e3e-73a5-accc-ea9cdf25772f"
+    },
+    "preview": "01a19e1e-9210-754e-b88b-3824c63db010",
+    "refine": "01a19e22-5803-7192-bb93-ea23217faf8b",
+    "rig": "01a19e23-bfd6-7368-8fd5-c9ab9a5743c4"
+  },
+  "kai": {
+    "anims": {
+      "common": "01a19e24-64a5-7572-a692-8f5beeb75fb1",
+      "common2": "01a19e24-6750-76ef-a5bc-c4045cb06bf7",
+      "kai": "01a19e24-695f-7328-a546-766c8aa5971e"
+    },
+    "preview": "01a19e21-3be5-703c-a2f3-b06091b4272a",
+    "refine": "01a19e22-5666-773c-8c88-ddaf92fe27e7",
+    "rig": "01a19e23-b46b-75fa-9527-f66a06793773"
+  },
+  "nyx": {
+    "anims": {
+      "common": "01a19e24-7295-7563-b456-e0310d87743c",
+      "common2": "01a19e24-74ff-74cd-9ce0-397b2d314760",
+      "nyx": "01a19e24-772e-7584-99ae-24fc73fb90fd"
+    },
+    "preview": "01a19e1e-996e-7413-bc70-008e7c4b2a29",
+    "refine": "01a19e22-5960-748e-9c8a-289ea9adf57c",
+    "rig": "01a19e23-cab1-77ed-9207-1e64d4501ca6"
+  },
+  "sol": {
+    "anims": {
+      "common": "01a19e24-795d-72af-a057-18d07ac08fe0",
+      "common2": "01a19e26-84a4-7019-a2b5-34df398daff6",
+      "sol": "01a19e26-870f-7290-83d7-a4d3a3c08f19"
+    },
+    "preview": "01a19e1e-a0aa-741b-acd6-c4a46b55b3a2",
+    "refine": "01a19e22-5ae6-74b3-aebe-d5e637fb7488",
+    "rig": "01a19e23-d577-72c2-82bf-4c0c916d128f"
+  }
+}

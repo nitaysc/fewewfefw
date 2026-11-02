@@ -2,3 +2,5 @@
 build/
 *.import.tmp
 addons/webrtc/lib/
+assets/meshy/*/anim_*
+assets/meshy/*/model*
