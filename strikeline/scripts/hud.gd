@@ -15,28 +15,34 @@ var sudden_t := -1.0
 
 
 func flash(a: float) -> void:
+	arena.net_rec([&"hud_flash", a])
 	flash_a = maxf(flash_a, a)
 
 
 func bump(port: int) -> void:
+	arena.net_rec([&"hud_bump", port])
 	bumps[port] = 1.0
 
 
 func ko_popup(f: Fighter) -> void:
+	arena.net_rec([&"hud_ko", f.port])
 	popups.append({"port": f.port, "t": 0.0})
 
 
 func game_set(txt := "GAME!") -> void:
+	arena.net_rec([&"hud_game", txt])
 	game_text = txt
 	game_t = 0.0
 
 
 func fs_banner(f: Fighter) -> void:
+	arena.net_rec([&"hud_fs", f.port])
 	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER"}
 	banner = {"name": f.data.name, "move": names.get(f.data.id, "FINAL STRIKE"), "c": f.data.accent, "t": 0.0}
 
 
 func sudden_death() -> void:
+	arena.net_rec([&"hud_sudden"])
 	sudden_t = 0.0
 
 

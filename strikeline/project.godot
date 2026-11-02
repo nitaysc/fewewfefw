@@ -16,6 +16,7 @@ boot_splash/show_image=false
 
 Sfx="*res://scripts/sfx.gd"
 Game="*res://scripts/global.gd"
+Net="*res://scripts/net.gd"
 
 [display]
 

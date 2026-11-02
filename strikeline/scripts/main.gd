@@ -9,7 +9,26 @@ var screen: UiScreen
 func _ready() -> void:
 	randomize()
 	get_tree().root.set_meta("main", self)
+	Net.start.connect(func(cfg: Dictionary): start_match(cfg))
+	Net.results.connect(func(res: Dictionary): call_deferred("show_results", res))
+	Net.go_lobby.connect(func(): call_deferred("show_online"))
+	Net.closed.connect(_on_net_closed)
 	show_title()
+
+
+func _on_net_closed(msg: String) -> void:
+	# the host left mid-match or in the lobby: back to the online menu with the message
+	call_deferred("show_online", msg)
+
+
+func show_online(error := "") -> void:
+	if demo == null or not is_instance_valid(demo):
+		_clear()
+	_ensure_demo()
+	var s := OnlineScreen.new()
+	s.error_msg = error
+	_set_screen(s)
+	Game.play_music("menu")
 
 
 func _clear() -> void:
@@ -77,7 +96,11 @@ func screen_cfg_hack() -> Dictionary:
 
 func _on_finished(res: Dictionary) -> void:
 	if res.has("quit"):
+		if Net.active():
+			Net.leave()
 		call_deferred("show_title")
+	elif Net.active() and res.cfg.get("online", false):
+		Net.match_over(res)
 	else:
 		call_deferred("show_results", res)
 

@@ -7,6 +7,8 @@ enum { SPARK, DOT, RING, FLASH, STAR, DUST, SMOKE, BEAM, SHARD, SLASH, STARKO, P
 
 var parts: Array = []
 var glow: Node2D
+var recording := false   # host of an online match: emitters are recorded for guests
+var rec: Array = []
 
 
 func _ready() -> void:
@@ -145,6 +147,8 @@ func _draw_glow() -> void:
 
 # ---------------------------------------------------------------- emitters
 func hit(p: Vector2, dir: Vector2, power: float, col: Color) -> void:
+	if recording:
+		rec.append([&"hit", p, dir, power, col])
 	var n := int(6 + power * 0.7)
 	for i in n:
 		var a := dir.angle() + randf_range(-1.1, 1.1)
@@ -162,6 +166,8 @@ func hit(p: Vector2, dir: Vector2, power: float, col: Color) -> void:
 
 
 func shield_hit(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"shield_hit", p, col])
 	_add(RING, p, Vector2.ZERO, 10, 34, col, 4.0)
 	for i in 6:
 		var a := randf() * TAU
@@ -169,6 +175,8 @@ func shield_hit(p: Vector2, col: Color) -> void:
 
 
 func shield_break(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"shield_break", p, col])
 	for i in 24:
 		var a := randf() * TAU
 		_add(SHARD, p, Vector2(cos(a), sin(a)) * randf_range(4, 12), randf_range(24, 40), randf_range(5, 10), col)
@@ -177,16 +185,22 @@ func shield_break(p: Vector2, col: Color) -> void:
 
 
 func spark_small(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"spark_small", p, col])
 	for i in 3:
 		var a := randf() * TAU
 		_add(SPARK, p, Vector2(cos(a), sin(a)) * randf_range(2, 5), 10, 5, col)
 
 
 func ring(p: Vector2, col: Color, radius: float, life_s: float, width := 4.0) -> void:
+	if recording:
+		rec.append([&"ring", p, col, radius, life_s, width])
 	_add(RING, p, Vector2.ZERO, life_s * 60.0, radius, col, width)
 
 
 func dust(p: Vector2, dir: float, size: float) -> void:
+	if recording:
+		rec.append([&"dust", p, dir, size])
 	var n := int(3 + size * 4)
 	for i in n:
 		var d := dir if dir != 0.0 else (1.0 if i % 2 == 0 else -1.0)
@@ -195,12 +209,16 @@ func dust(p: Vector2, dir: float, size: float) -> void:
 
 
 func launch_smoke(p: Vector2, speed: float) -> void:
+	if recording:
+		rec.append([&"launch_smoke", p, speed])
 	_add(SMOKE, p + Vector2(randf_range(-4, 4), randf_range(-4, 4)), Vector2.ZERO, 40, 7 + speed * 0.2, Color(0.9, 0.9, 0.95, 0.9))
 	if speed > 24:
 		_add(DOT, p, Vector2(randf_range(-1, 1), randf_range(-1, 1)), 18, 3.0, Color(1, 0.6, 0.3))
 
 
 func smoke(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"smoke", p, col])
 	for i in 10:
 		var a := randf() * TAU
 		_add(SMOKE, p, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(20, 32), randf_range(6, 12), col.darkened(0.4))
@@ -208,11 +226,15 @@ func smoke(p: Vector2, col: Color) -> void:
 
 
 func jet(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"jet", p, col])
 	_add(DOT, p, Vector2(randf_range(-1.5, 1.5), randf_range(3, 6)), 16, 4.0, col)
 	_add(SPARK, p, Vector2(randf_range(-2, 2), randf_range(5, 9)), 10, 7, Color(1, 1, 1))
 
 
 func ko_blast(p: Vector2, toward: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"ko_blast", p, toward, col])
 	_add(BEAM, p, toward, 50, 110, col)
 	_add(BEAM, p, toward.rotated(0.18), 40, 50, Color(1, 1, 1))
 	_add(BEAM, p, toward.rotated(-0.22), 40, 40, col.lerp(Color(1, 1, 1), 0.5))
@@ -225,19 +247,27 @@ func ko_blast(p: Vector2, toward: Vector2, col: Color) -> void:
 
 
 func slash(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"slash", p, col])
 	_add(SLASH, p, Vector2.ZERO, 10, randf_range(50, 90), col, randf() * TAU)
 
 
 func star_ko(p: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"star_ko", p, col])
 	_add(STARKO, p, Vector2.ZERO, 80, 1.0, col)
 
 
 func heal(p: Vector2) -> void:
+	if recording:
+		rec.append([&"heal", p])
 	for i in 8:
 		_add(PLUS, p + Vector2(randf_range(-24, 24), randf_range(-30, 20)), Vector2(0, -1.2), randf_range(30, 45), 6, Color(0.4, 1.0, 0.5))
 
 
 func explosion(p: Vector2) -> void:
+	if recording:
+		rec.append([&"explosion", p])
 	_add(FLASH, p, Vector2.ZERO, 14, 110, Color(1.0, 0.55, 0.15))
 	_add(RING, p, Vector2.ZERO, 22, 130, Color(1.0, 0.75, 0.3), 10.0)
 	for i in 30:
@@ -249,6 +279,8 @@ func explosion(p: Vector2) -> void:
 
 
 func core_break(p: Vector2) -> void:
+	if recording:
+		rec.append([&"core_break", p])
 	_add(FLASH, p, Vector2.ZERO, 26, 200, Color(1.0, 0.85, 0.4))
 	for i in 3:
 		_add(RING, p, Vector2.ZERO, 26 + i * 8, 160 + i * 90, Color.from_hsv(i * 0.3, 0.6, 1.0), 8.0)
@@ -258,6 +290,8 @@ func core_break(p: Vector2) -> void:
 
 
 func beam(p: Vector2, dir: Vector2, col: Color) -> void:
+	if recording:
+		rec.append([&"beam", p, dir, col])
 	_add(BEAM, p, dir, 14, 120, col)
 	_add(BEAM, p, dir, 10, 50, Color(1, 1, 1))
 	_add(FLASH, p, Vector2.ZERO, 8, 60, col)

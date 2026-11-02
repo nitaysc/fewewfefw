@@ -7,7 +7,7 @@ stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v1.1.N` release on the repo's Releases page.
+newest `strikeline-v1.2.N` release on the repo's Releases page.
 
 ## The game
 
@@ -35,6 +35,26 @@ newest `strikeline-v1.1.N` release on the repo's Releases page.
   aerials by position, edge-guarding, ledge options and recovery with each special.
 - **Audio** (`tools/make_audio.py`): every sound effect and both music loops are
   synthesized with numpy (`python3 tools/make_audio.py` regenerates `sfx/`).
+
+## Online play (`scripts/net.gd`, `scripts/netsync.gd`, `scripts/online.gd`)
+
+- **Online rooms**: peer-to-peer WebRTC through the official Godot `webrtc-native`
+  GDExtension (`addons/webrtc`, fetched by `tools/get_webrtc.sh`; Android arm64 only, so
+  online rooms need a 64-bit phone). The free public PeerJS server (`0.peerjs.com`) does the
+  signalling, as in the café game. Room codes are 4 characters. Google/Twilio STUN, no TURN:
+  some strict mobile networks may not connect; Wi-Fi rooms are the fallback.
+- **Wi-Fi rooms**: ENet on port 47821. The 8-character code (`W` + 7) encodes the host's LAN
+  address, and hosts broadcast on UDP 47822 so nearby rooms appear on the join keypad.
+- Up to 4 players; the host can fill empty slots with CPUs and picks stage, rules and items.
+- **Netcode**: host-authoritative. Guests send their stick and button state every frame
+  (button presses as counters, so a dropped packet never loses a press). The host sends a
+  full snapshot every frame (unreliable-ordered) and a reliable stream of effect and sound
+  events. Guests play snapshots through a small jitter buffer and rebuild trails, scarves and
+  afterimages locally. Guest input lag is the round trip to the host.
+- Leaving: a guest who leaves becomes a CPU; if the host leaves, guests are told and return
+  to the online menu. Online matches don't pause.
+- Tests: `test/net_test.tscn` runs a host and a guest as two processes (`lan`, or `online`
+  with `--peer=127.0.0.1:9000` against a local `peer` server from npm).
 
 ## Controls
 

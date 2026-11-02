@@ -10,6 +10,7 @@ const NAMES := ["hit_l", "hit_m", "hit_h", "hit_crit", "swing_l", "swing_m", "sw
 var streams := {}
 var players: Array = []
 var next := 0
+var recorder := Callable()  # set by the host of an online match
 
 
 func _ready() -> void:
@@ -25,6 +26,8 @@ func _ready() -> void:
 
 
 func play(n: String, vol := 0.0, pitch_var := 0.07) -> void:
+	if recorder.is_valid():
+		recorder.call(n, vol)
 	if not streams.has(n):
 		return
 	var a: AudioStreamPlayer = null

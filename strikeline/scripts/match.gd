@@ -39,12 +39,22 @@ var time_left := 0
 var sudden := false
 var focus: Fighter = null
 var focus_t := 0
+# online
+var net_role := ""        # "", "host" or "guest"
+var my_peer := 1
+var rec: Array = []
+var input_seen := {}
+var input_counters := {}
+var menu_open := false
 
 
 func setup(config: Dictionary) -> void:
 	cfg = config
 	demo = cfg.get("mode", "") == "demo"
 	training = cfg.get("mode", "") == "training"
+	if cfg.get("online", false) and Net.active():
+		net_role = "host" if Net.is_host else "guest"
+		my_peer = Net.my_id()
 	timed = int(cfg.get("stocks", 3)) < 0 and not training and not demo
 	if timed:
 		time_left = -int(cfg.stocks) * 3600
@@ -72,6 +82,10 @@ func setup(config: Dictionary) -> void:
 			f.intro_t = 70 + i * 10
 		f.tag_color = PORT_COLORS[i % 4]
 		f.tag_text = ("CPU" if pl.cpu else "P%d" % (i + 1)) if not demo else ""
+		f.peer = int(pl.get("peer", 1 if not pl.cpu else 0))
+		if net_role != "" and not pl.cpu:
+			f.tag_text = "YOU" if f.peer == my_peer else str(pl.get("name", "P%d" % (i + 1))).to_upper()
+		f.puppet = net_role == "guest"
 		var sp: Vector2 = stage.spawns[i % stage.spawns.size()]
 		f.place(sp, 1.0 if sp.x < 0 else -1.0)
 		f.grounded = true
@@ -88,6 +102,10 @@ func setup(config: Dictionary) -> void:
 	world.add_child(items)
 	fx = FX.new()
 	world.add_child(fx)
+	if net_role == "host":
+		fx.recording = true
+		Sfx.recorder = func(n: String, vol: float): rec.append([&"sfx", n, vol])
+		Net.peer_left.connect(_on_peer_left)
 
 	cam = Camera2D.new()
 	cam.position = cam_center
@@ -123,7 +141,12 @@ func _physics_process(_delta: float) -> void:
 		if slowmo_t <= 0.0:
 			Engine.time_scale = 1.0
 
+	if net_role == "guest":
+		_guest_tick()
+		return
 	var human_in: Dictionary = pad.poll() if pad != null else {}
+	if menu_open:
+		human_in = _idle_input()
 	if countdown > 0:
 		countdown -= 1
 		if countdown == 170 or countdown == 120 or countdown == 70:
@@ -134,6 +157,7 @@ func _physics_process(_delta: float) -> void:
 			f.tick(_idle_input())
 		_update_camera()
 		fx.step()
+		_net_send()
 		return
 
 	if timed and not over:
@@ -155,6 +179,12 @@ func _physics_process(_delta: float) -> void:
 		var i: Dictionary
 		if f.is_cpu:
 			i = f.brain.think() if not over else _idle_input()
+		elif net_role == "host" and f.peer != my_peer:
+			if not input_seen.has(f.peer):
+				input_seen[f.peer] = {}
+			i = NetSync.unpack_input(Net.inputs.get(f.peer, PackedByteArray()), input_seen[f.peer])
+			if over:
+				i = _idle_input()
 		else:
 			i = human_in if not over else _idle_input()
 		f.tick(i)
@@ -164,10 +194,90 @@ func _physics_process(_delta: float) -> void:
 	_check_blast()
 	fx.step()
 	_update_camera()
+	_net_send()
 	if over:
 		over_t += 1
 		if over_t == 150:
 			_finish()
+
+
+# ------------------------------------------------------------------ online
+func net_rec(ev: Array) -> void:
+	if net_role == "host":
+		rec.append(ev)
+
+
+func _net_send() -> void:
+	if net_role != "host":
+		return
+	if fx.rec.size() > 0:
+		rec.append_array(fx.rec)
+		fx.rec.clear()
+	Net.send_frame(NetSync.pack(self), rec)
+	rec = []
+
+
+func _guest_tick() -> void:
+	var inp: Dictionary = pad.poll() if pad != null else {}
+	if menu_open:
+		inp = _idle_input()
+	Net.send_input(NetSync.pack_input(inp, input_counters))
+	var snap: PackedByteArray = Net.take_snapshot()
+	if snap.size() > 0:
+		NetSync.unpack(self, snap)
+	for f in fighters:
+		f.puppet_tick()
+	for ev in Net.take_events():
+		_replay(ev)
+	proj.queue_redraw()
+	items.t += 1
+	items.queue_redraw()
+	fx.step()
+	_update_camera()
+
+
+func _replay(ev: Array) -> void:
+	var name: StringName = ev[0]
+	match name:
+		&"sfx":
+			Sfx.play(ev[1], ev[2])
+		&"shake":
+			camera_shake(ev[1])
+		&"punch":
+			zoom_punch = ev[1]
+		&"vibrate":
+			if int(ev[1]) < fighters.size() and fighters[int(ev[1])].peer == my_peer:
+				Input.vibrate_handheld(int(ev[2]))
+		&"hud_flash":
+			if hud: hud.flash(ev[1])
+		&"hud_bump":
+			if hud: hud.bump(ev[1])
+		&"hud_ko":
+			if hud: hud.ko_popup(fighters[int(ev[1])])
+		&"hud_game":
+			if hud: hud.game_set(ev[1])
+		&"hud_fs":
+			if hud: hud.fs_banner(fighters[int(ev[1])])
+		&"hud_sudden":
+			if hud: hud.sudden_death()
+		_:
+			if fx.has_method(name):
+				fx.callv(name, ev.slice(1))
+
+
+func _on_peer_left(peer: int) -> void:
+	for f in fighters:
+		if f.peer == peer and not f.is_cpu:
+			f.is_cpu = true
+			f.brain = AiBrain.new(f, 2)
+			f.tag_text = "CPU"
+
+
+func _exit_tree() -> void:
+	if net_role == "host":
+		Sfx.recorder = Callable()
+		if Net.peer_left.is_connected(_on_peer_left):
+			Net.peer_left.disconnect(_on_peer_left)
 
 
 func _idle_input() -> Dictionary:
@@ -279,6 +389,7 @@ func apply_hit(a: Fighter, v: Fighter, h: Dictionary, c: Vector2, dirx: float, m
 			camera_shake(minf(3.0 + kb * 0.35, 16.0))
 			if strong:
 				zoom_punch = 0.08
+				net_rec([&"punch", 0.08])
 				Sfx.play("hit_crit", 0)
 				if hud: hud.flash(0.25)
 			elif dmg >= 10.0:
@@ -288,8 +399,14 @@ func apply_hit(a: Fighter, v: Fighter, h: Dictionary, c: Vector2, dirx: float, m
 			else:
 				Sfx.play("hit_l", -4)
 			if hud: hud.bump(v.port)
-			if (not a.is_cpu or not v.is_cpu) and not demo:
-				Input.vibrate_handheld(clampi(int(20 + kb * 2.0), 20, 90))
+			var vib := clampi(int(20 + kb * 2.0), 20, 90)
+			for g in [a, v]:
+				if g.is_cpu or demo:
+					continue
+				if g.peer == my_peer or net_role == "":
+					Input.vibrate_handheld(vib)
+				else:
+					net_rec([&"vibrate", g.port, vib])
 
 
 func _counter(kai: Fighter, att: Fighter, dmg: float) -> void:
@@ -381,6 +498,7 @@ func final_launch(att: Fighter) -> void:
 		apply_hit(att, v, {"d": 12.0, "b": 34.0, "g": 14.0, "a": 42.0}, v.core_world(), dirx, 1.0, true)
 	att.fs_victims.clear()
 	zoom_punch = 0.12
+	net_rec([&"punch", 0.12])
 	camera_shake(26.0)
 	if hud: hud.flash(0.6)
 	Sfx.play("hit_crit", 0)
@@ -496,6 +614,7 @@ func _finish() -> void:
 # ------------------------------------------------------------------ camera
 func camera_shake(a: float) -> void:
 	shake = maxf(shake, a)
+	net_rec([&"shake", a])
 
 
 func _update_camera() -> void:
@@ -540,7 +659,11 @@ func _update_camera() -> void:
 
 # ------------------------------------------------------------------ pause
 func set_paused(p: bool) -> void:
-	paused = p
+	if net_role != "":
+		# online matches never stop: the menu just opens over the fight
+		menu_open = p
+	else:
+		paused = p
 	if pad: pad.reset()
 	if p:
 		Engine.time_scale = 1.0
@@ -564,5 +687,5 @@ func quit_to_menu() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and not demo:
 		set_paused(not paused)
-	elif what == NOTIFICATION_APPLICATION_PAUSED and not demo and not paused and not over:
+	elif what == NOTIFICATION_APPLICATION_PAUSED and not demo and not paused and not over and not menu_open:
 		set_paused(true)

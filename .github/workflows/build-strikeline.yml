@@ -56,6 +56,9 @@ jobs:
           done
           godot --version
 
+      - name: Fetch the WebRTC extension (online play)
+        run: ./tools/get_webrtc.sh
+
       - name: Import the project
         run: godot --headless --import || true
 
@@ -68,13 +71,33 @@ jobs:
       - name: Timed matches end in sudden death
         run: timeout 300 godot --headless --fixed-fps 60 res://test/time_test.tscn 2>&1 | tee time.log; grep -q "RESULT winner" time.log
 
+      - name: Two players connect over Wi-Fi (ENet)
+        run: |
+          rm -f /tmp/code_lan
+          (timeout 120 godot --headless res://test/net_test.tscn -- host lan /tmp/code_lan > host_lan.log 2>&1 &)
+          timeout 120 godot --headless res://test/net_test.tscn -- guest lan /tmp/code_lan 2>&1 | tee guest_lan.log
+          sleep 3; cat host_lan.log
+          grep -q "guest RESULTS" guest_lan.log && grep -q "host OK done" host_lan.log
+
+      - name: Two players connect online (WebRTC + PeerJS signalling)
+        run: |
+          mkdir -p /tmp/peersrv && cd /tmp/peersrv && npm init -y > /dev/null && npm i peer@1.0.2 > /dev/null
+          (node -e "require('peer').PeerServer({port: 9000, host: '127.0.0.1', path: '/'})" &)
+          sleep 2
+          cd "$GITHUB_WORKSPACE/strikeline"
+          rm -f /tmp/code_online
+          (timeout 120 godot --headless res://test/net_test.tscn -- host online /tmp/code_online --peer=127.0.0.1:9000 > host_on.log 2>&1 &)
+          timeout 120 godot --headless res://test/net_test.tscn -- guest online /tmp/code_online --peer=127.0.0.1:9000 2>&1 | tee guest_on.log
+          sleep 3; cat host_on.log
+          grep -q "guest RESULTS" guest_on.log && grep -q "host OK done" host_on.log
+
       - name: Export the APK
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/strikeline/android/strikeline.keystore
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: strikeline
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: strikeline
         run: |
-          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.1.${{ github.run_number }}\"/" export_presets.cfg
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.2.${{ github.run_number }}\"/" export_presets.cfg
           mkdir -p build
           godot --headless --export-release "Android" build/strikeline.apk
           test -s build/strikeline.apk
@@ -89,8 +112,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "strikeline-v1.1.${{ github.run_number }}" ../strikeline.apk \
+          gh release create "strikeline-v1.2.${{ github.run_number }}" ../strikeline.apk \
             --target "${{ github.sha }}" \
-            --title "Strikeline v1.1.${{ github.run_number }}" \
+            --title "Strikeline v1.2.${{ github.run_number }}" \
             --notes "Download: tap strikeline.apk below. Built from ${{ github.ref_name }}." \
             --latest=false

@@ -107,6 +107,8 @@ var combo := 0
 var climb_attack := false
 var pose_vel := PackedFloat32Array()
 var score := 0
+var peer := 0          # online: the player's network id (0 for CPUs)
+var puppet := false    # online guest: state comes from the host's snapshots
 
 # stats
 var st_kos := 0
@@ -307,6 +309,27 @@ func tick(i: Dictionary) -> void:
 	if state != S.DEAD and state != S.OUT and state != S.LEDGE and state != S.CLIMB and state != S.RESPAWN and state != S.GRABBED:
 		_physics()
 	_animate()
+	position = pos + shake
+	queue_redraw()
+
+
+## Online guest: everything was set from the host's snapshot; rebuild the visuals.
+func puppet_tick() -> void:
+	Rig.solve(cur, dims, facing, joints)
+	style.facing = facing
+	if state == S.ATTACK and not mv.is_empty():
+		var tr: Array = mv.get("trail", [])
+		if tr.size() > 0 and mf >= tr[0] and mf <= tr[1]:
+			_push_trail(tr[2])
+		var lg: String = mv.get("logic", "")
+		if (lg == "flash_step" and mf >= 8 and mf < 18) or (lg == "shadow" and mf >= 6 and mf < 14) \
+			or (lg == "final" and data.id == "kai" and mf >= 64 and mf < 78):
+			_ghost()
+	if hitlag > 0 and state == S.HITSTUN:
+		shake = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 3.5
+	else:
+		shake = Vector2.ZERO
+	_update_fx_only()
 	position = pos + shake
 	queue_redraw()
 

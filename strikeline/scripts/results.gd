@@ -10,18 +10,36 @@ func setup(r: Dictionary) -> void:
 	res = r
 
 
+func _online() -> bool:
+	return res.cfg.get("online", false) and Net.active()
+
+
 func layout() -> void:
 	var vs := get_viewport_rect().size
+	if _online() and not Net.is_host:
+		add_btn("menu", Rect2(vs.x - 260, vs.y - 100, 220, 64), "LEAVE ROOM", "secondary")
+		return
 	add_btn("again", Rect2(vs.x - 300, vs.y - 110, 260, 80), "REMATCH", "gold")
-	add_btn("menu", Rect2(vs.x - 520, vs.y - 100, 200, 64), "MENU", "secondary")
+	add_btn("menu", Rect2(vs.x - 520, vs.y - 100, 200, 64), "LOBBY" if _online() else "MENU", "secondary")
 
 
 func on_button(id: String) -> void:
 	match id:
 		"again", "enter":
-			main.start_match(res.cfg)
+			if _online():
+				if Net.is_host:
+					Net.host_start()
+			else:
+				main.start_match(res.cfg)
 		"menu", "back":
-			main.show_title()
+			if _online():
+				if Net.is_host:
+					Net.back_to_lobby()
+				else:
+					Net.leave()
+					main.show_title()
+			else:
+				main.show_title()
 
 
 func _draw() -> void:
@@ -73,3 +91,5 @@ func _draw() -> void:
 		if f.port == w:
 			text("WINNER", Vector2(x + 470, rr.position.y - 2), 11, Color(1.0, 0.85, 0.3, fa), HORIZONTAL_ALIGNMENT_LEFT, -1, false)
 	draw_buttons()
+	if _online() and not Net.is_host:
+		text("Waiting for the host" + ".".repeat(int(t * 2.0) % 4), Vector2(vs.x - 560, vs.y - 60), 20, Color(1.0, 0.85, 0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, false)

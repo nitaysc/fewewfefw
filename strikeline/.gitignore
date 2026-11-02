@@ -1,3 +1,4 @@
 .godot/
 build/
 *.import.tmp
+addons/webrtc/lib/

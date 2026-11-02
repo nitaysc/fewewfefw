@@ -56,7 +56,7 @@ func _button_at(p: Vector2) -> String:
 
 func _input(event: InputEvent) -> void:
 
-	if arena == null or arena.paused:
+	if arena == null or arena.paused or arena.menu_open:
 		return
 	var vs := get_viewport_rect().size
 	if event is InputEventScreenTouch:
