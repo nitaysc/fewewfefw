@@ -120,10 +120,33 @@ func _draw_city() -> void:
 	draw_circle(Vector2(420, -230), 72, Color(1.0, 0.88, 0.92))
 	draw_circle(Vector2(445, -250), 16, Color(0.95, 0.78, 0.86))
 	draw_circle(Vector2(395, -205), 10, Color(0.95, 0.78, 0.86))
+	# searchlights sweeping behind the skyline
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for k in 2:
+		var base := Vector2(vs.x * (0.25 + k * 0.5), vs.y)
+		var a := -PI / 2 + sin(t * 0.35 + k * 2.0) * 0.5
+		var d := Vector2(cos(a), sin(a))
+		var n := Vector2(-d.y, d.x)
+		var far := base + d * vs.y * 1.3
+		draw_colored_polygon(PackedVector2Array([base - n * 6.0, base + n * 6.0, far + n * 90.0, far - n * 90.0]), Color(0.8, 0.85, 1.0, 0.05))
 	for li in layers.size():
 		var L: Dictionary = layers[li]
 		_layer_xform(L.f)
 		var c: Color = L.col
+		if li == 1:
+			# hover-car traffic between the skyline layers
+			for lane in 3:
+				var y := -120.0 + lane * 70.0
+				for car in 5:
+					var spd := 120.0 + lane * 50.0
+					var dirc := 1.0 if lane % 2 == 0 else -1.0
+					var x := fmod(t * spd * dirc + car * 900.0 + lane * 333.0, 5000.0)
+					if x < 0.0:
+						x += 5000.0
+					x -= 2500.0
+					draw_rect(Rect2(x - 14, y - 4, 28, 8), Color(0.1, 0.06, 0.16))
+					draw_circle(Vector2(x + 14 * dirc, y), 3.0, Color(1, 0.95, 0.8, 0.9))
+					draw_circle(Vector2(x - 14 * dirc, y), 2.0, Color(1, 0.2, 0.3, 0.9))
 		for r in L.rects:
 			draw_rect(r, c)
 		var lc := Color(1.0, 0.75, 0.45, 0.35 + li * 0.15)
@@ -161,6 +184,15 @@ func _draw_sunset() -> void:
 	for li in layers.size():
 		var L: Dictionary = layers[li]
 		_layer_xform(L.f)
+		if li == 1:
+			# a shrine gate on the far ridge
+			var gx := 520.0
+			var gy := 30.0
+			var gc := Color(0.55, 0.16, 0.24)
+			draw_rect(Rect2(gx - 60, gy - 110, 12, 110), gc)
+			draw_rect(Rect2(gx + 48, gy - 110, 12, 110), gc)
+			draw_rect(Rect2(gx - 80, gy - 118, 160, 12), gc)
+			draw_rect(Rect2(gx - 66, gy - 92, 132, 8), gc)
 		draw_colored_polygon(L.poly, L.col)
 		if li == 0:
 			for c in clouds:
@@ -171,6 +203,12 @@ func _draw_sunset() -> void:
 		var cx := fmod(c.x * 1.3 - t * 20.0 + 3000.0, 6000.0) - 3000.0
 		_cloud(Vector2(cx, 420 + c.y * 0.3), c.z * 1.4, Color(1.0, 0.9, 0.85, c.w * 0.6))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# birds
+	for b in 5:
+		var bx := fmod(t * (30.0 + b * 6.0) + b * 260.0, vs.x + 200.0) - 100.0
+		var by := vs.y * 0.2 + sin(t * 0.5 + b) * 20.0 + b * 14.0
+		var flap := sin(t * 8.0 + b) * 4.0
+		draw_polyline(PackedVector2Array([Vector2(bx - 8, by - flap), Vector2(bx, by), Vector2(bx + 8, by - flap)]), Color(0.25, 0.12, 0.2, 0.7), 2.0, true)
 	for m in motes:
 		var y := fmod(m.y * vs.y + t * 25.0 * m.z, vs.y)
 		var x := fmod(m.x * vs.x + t * 50.0 * m.z + sin(t + m.x * 10.0) * 20.0, vs.x)

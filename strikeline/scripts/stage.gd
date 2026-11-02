@@ -17,6 +17,8 @@ var t := 0.0
 var rng := RandomNumberGenerator.new()
 var windows: Array = []
 var deco: Array = []
+var frame := 0
+var drops: Array = []
 
 
 func setup(stage_id: int) -> void:
@@ -39,6 +41,8 @@ func setup(stage_id: int) -> void:
 			_solid(Rect2(-520, 0, 1040, 64))
 			_soft(Rect2(-360, -140, 200, 14))
 			_soft(Rect2(160, -140, 200, 14))
+			_soft(Rect2(-90, -285, 180, 14))
+			plats[3].move = {"base": Rect2(-90, -285, 180, 14), "amp": Vector2(250, 22), "spd": 0.011}
 			spawns = [Vector2(-320, 0), Vector2(320, 0), Vector2(-120, 0), Vector2(120, 0)]
 			var pts := PackedVector2Array()
 			pts.append(Vector2(-528, 20))
@@ -67,6 +71,25 @@ func _solid(r: Rect2) -> void:
 
 func _soft(r: Rect2) -> void:
 	plats.append({"rect": r, "solid": false})
+
+
+## Advances moving platforms; returns {plat index: delta} for the ones that moved.
+func step() -> Dictionary:
+	frame += 1
+	var out := {}
+	for i in plats.size():
+		var p: Dictionary = plats[i]
+		if not p.has("move"):
+			continue
+		var mvd: Dictionary = p.move
+		var base: Rect2 = mvd.base
+		var a: Vector2 = mvd.amp
+		var ph: float = frame * mvd.spd
+		var np := base.position + Vector2(sin(ph) * a.x, sin(ph * 2.0) * a.y)
+		var old: Rect2 = p.rect
+		p.rect = Rect2(np, base.size)
+		out[i] = np - old.position
+	return out
 
 
 func is_soft(i: int) -> bool:
@@ -154,6 +177,19 @@ func _draw_rooftop() -> void:
 	# roof props
 	_ac_unit(Vector2(-430, 0))
 	_ac_unit(Vector2(380, 0))
+	# antenna with a blinking light
+	draw_line(Vector2(300, 0), Vector2(300, -120), Color(0.25, 0.25, 0.35), 3.0)
+	draw_line(Vector2(300, -80), Vector2(285, -60), Color(0.25, 0.25, 0.35), 2.0)
+	draw_line(Vector2(300, -80), Vector2(315, -60), Color(0.25, 0.25, 0.35), 2.0)
+	var bl := 1.0 if fmod(t, 1.4) < 0.5 else 0.2
+	draw_circle(Vector2(300, -122), 9, Color(1, 0.2, 0.2, 0.25 * bl))
+	draw_circle(Vector2(300, -122), 4, Color(1, 0.3, 0.3, bl))
+	# rain splashes on the roof
+	for i in 14:
+		var ph := fmod(t * 1.7 + i * 0.37, 1.0)
+		var x := -440.0 + fmod(i * 137.0 + floor(t * 1.7 + i * 0.37) * 211.0, 880.0)
+		var rr := ph * 10.0
+		draw_arc(Vector2(x, -1), rr, PI, TAU, 10, Color(0.7, 0.8, 1.0, (1.0 - ph) * 0.5), 1.2, true)
 
 
 func _ac_unit(at: Vector2) -> void:
@@ -198,9 +234,28 @@ func _draw_island() -> void:
 		draw_rect(Rect2(x - 9, -90, 18, 22), Color(0.85, 0.2, 0.15))
 		draw_rect(Rect2(x - 6, -86, 12, 14), Color(1.0, 0.8, 0.4, gl))
 		draw_rect(Rect2(x - 11, -92, 22, 4), Color(0.2, 0.1, 0.1))
+	# waterfall pouring off the island's edge
+	for k in 6:
+		var x := r.position.x + 40.0 + k * 9.0
+		var y0 := fmod(t * 260.0 + k * 53.0, 120.0)
+		draw_line(Vector2(x, 20), Vector2(x - 6, 700), Color(0.7, 0.85, 1.0, 0.22), 6.0)
+		for j in 6:
+			var yy := 30.0 + y0 + j * 120.0
+			draw_line(Vector2(x - yy * 0.009, yy), Vector2(x - (yy + 40.0) * 0.009, yy + 40.0), Color(1, 1, 1, 0.35), 2.0)
+	draw_circle(Vector2(r.position.x + 62, 18), 22, Color(1, 1, 1, 0.25))
 	# wooden soft platforms
 	for i in range(1, plats.size()):
 		var p: Rect2 = plats[i].rect
+		if plats[i].has("move"):
+			# a floating stone slab with glowing runes
+			draw_rect(Rect2(p.position, Vector2(p.size.x, 18)), Color(0.42, 0.3, 0.32))
+			draw_rect(Rect2(p.position, Vector2(p.size.x, 4)), Color(0.5, 0.7, 0.35))
+			draw_colored_polygon(PackedVector2Array([p.position + Vector2(10, 18), p.end + Vector2(-10, 4), p.position + Vector2(p.size.x * 0.5, 60)]), Color(0.3, 0.18, 0.2))
+			for k in 3:
+				var rc := p.position + Vector2(40 + k * 50, 11)
+				draw_circle(rc, 4, Color(1.0, 0.7, 0.4, 0.6 + 0.4 * sin(t * 3.0 + k)))
+			draw_circle(p.position + Vector2(p.size.x * 0.5, 70), 10, Color(1.0, 0.6, 0.3, 0.15 + 0.1 * sin(t * 4.0)))
+			continue
 		draw_line(p.position + Vector2(8, 4), p.position + Vector2(-20, 140), Color(0.5, 0.4, 0.3, 0.6), 2.0)
 		draw_line(Vector2(p.end.x - 8, p.position.y + 4), Vector2(p.end.x + 20, p.position.y + 140), Color(0.5, 0.4, 0.3, 0.6), 2.0)
 		draw_rect(Rect2(p.position, Vector2(p.size.x, 12)), Color(0.55, 0.33, 0.2))

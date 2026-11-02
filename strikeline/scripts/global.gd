@@ -3,7 +3,7 @@ extends Node
 
 var font_display: Font
 var font_body: Font
-var settings := {"fighter": 0, "cpus": 1, "level": 2, "stage": 0, "stocks": 3, "rivals": [1, 2, 3]}
+var settings := {"fighter": 0, "cpus": 1, "level": 2, "stage": 0, "stocks": 3, "items": true, "rivals": [1, 2, 3]}
 var music: AudioStreamPlayer
 var music_name := ""
 const SETTINGS_PATH := "user://settings.cfg"

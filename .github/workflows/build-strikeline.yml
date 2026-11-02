@@ -65,13 +65,16 @@ jobs:
       - name: CPU matches finish on every stage
         run: timeout 600 godot --headless --fixed-fps 60 res://test/sim.tscn 2>&1 | tee sim.log; grep -q "ALL DONE" sim.log
 
+      - name: Timed matches end in sudden death
+        run: timeout 300 godot --headless --fixed-fps 60 res://test/time_test.tscn 2>&1 | tee time.log; grep -q "RESULT winner" time.log
+
       - name: Export the APK
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/strikeline/android/strikeline.keystore
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: strikeline
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: strikeline
         run: |
-          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.0.${{ github.run_number }}\"/" export_presets.cfg
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.1.${{ github.run_number }}\"/" export_presets.cfg
           mkdir -p build
           godot --headless --export-release "Android" build/strikeline.apk
           test -s build/strikeline.apk
@@ -86,8 +89,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "strikeline-v1.0.${{ github.run_number }}" ../strikeline.apk \
+          gh release create "strikeline-v1.1.${{ github.run_number }}" ../strikeline.apk \
             --target "${{ github.sha }}" \
-            --title "Strikeline v1.0.${{ github.run_number }}" \
+            --title "Strikeline v1.1.${{ github.run_number }}" \
             --notes "Download: tap strikeline.apk below. Built from ${{ github.ref_name }}." \
             --latest=false

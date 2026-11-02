@@ -294,6 +294,50 @@ static func _build() -> void:
 		"hits": [{"f": [9, 13], "j": "core", "r": 74, "d": 8, "b": 9, "g": 8, "a": 60, "radial": true}],
 		"sfx": [[8, "zap"]]}
 
+	# ---- grabs & throws ----
+	var gr_p := P.call([0.35, -0.1, 1.5, 0.1, 1.4, 0.25, 0.85, 0.6, -0.6, 0.25, 0, 0, 0.6])
+	var hold := P.call([0.12, 0.0, 1.3, 0.45, 1.2, 0.55, 0.5, 0.45, -0.45, 0.35, 0, 0, 0.8])
+	var pum := P.call([0.25, 0.1, 1.3, 0.5, 1.2, 0.6, 1.5, 2.2, -0.3, 0.3, 0, 0, 0.8])
+	var tf_w := P.call([-0.3, 0.1, 0.6, 1.2, 0.5, 1.3, 0.4, 0.5, -0.6, 0.4, 0, 0, 0.8])
+	var tf_s := P.call([0.5, -0.2, 1.6, 0.0, 1.5, 0.05, 1.0, 0.45, -0.85, 0.1, 0, 0, 0.6])
+	var tb_w := P.call([-0.2, 0.2, 2.6, 0.2, 2.4, 0.3, 0.5, 0.5, -0.5, 0.4, 0, 0, 0.8])
+	var tb_s := P.call([0.45, 0.4, -1.5, 0.0, -1.4, 0.1, 0.9, 0.6, -0.5, 0.2, 0, 0, 0.8])
+	var tu_w := P.call([0.35, 0.2, 0.6, 0.4, 0.5, 0.5, 1.0, 1.9, -0.6, 1.2, 0, 0, 0.8])
+	var tu_s := P.call([-0.1, -0.4, 3.0, 0.0, 2.9, 0.05, 0.15, 0.05, -0.15, 0.1, 0, 0, 0.8])
+	var td_w := P.call([-0.15, -0.3, 2.9, 0.1, 2.7, 0.1, 0.3, 0.2, -0.3, 0.2, 0, 0, 0.8])
+	var td_s := P.call([0.65, 0.3, 0.7, 0.0, 0.6, 0.1, 1.1, 1.8, -0.5, 1.1, 0, 0, 0.8])
+	m.grab = {"anim": [[0, g], [6, gr_p, E_OUT], [14, gr_p], [30, g]], "len": 30,
+		"hits": [{"f": [6, 9], "j": "hf", "r": 18, "d": 0, "b": 0, "g": 0, "a": 0, "grab": true}],
+		"sfx": [[5, "swing_l"]]}
+	m.pummel = {"anim": [[0, hold], [4, pum, E_OUT], [14, hold]], "len": 14, "logic": "pummel"}
+	m.throw_f = {"anim": [[0, hold], [5, tf_w], [9, tf_s, E_OUT], [30, g]], "len": 30, "logic": "throw",
+		"throw": {"at": 9, "d": 8.0, "b": 8.0, "g": 10.0, "a": 40.0, "dir": 1.0}, "sfx": [[8, "swing_m"]], "trail": [7, 12, "hf"]}
+	m.throw_b = {"anim": [[0, hold], [6, tb_w], [11, tb_s, E_OUT], [34, g]], "len": 34, "logic": "throw",
+		"throw": {"at": 11, "d": 10.0, "b": 8.0, "g": 12.0, "a": 40.0, "dir": -1.0}, "sfx": [[9, "swing_h"]], "trail": [7, 13, "hf"]}
+	m.throw_u = {"anim": [[0, hold], [6, tu_w], [10, tu_s, E_OUT], [32, g]], "len": 32, "logic": "throw",
+		"throw": {"at": 10, "d": 7.0, "b": 9.0, "g": 9.0, "a": 90.0, "dir": 1.0}, "sfx": [[9, "swing_h"]], "trail": [7, 12, "hf"]}
+	m.throw_d = {"anim": [[0, hold], [5, td_w], [10, td_s, E_OUT], [34, g]], "len": 34, "logic": "throw",
+		"throw": {"at": 10, "d": 6.0, "b": 7.0, "g": 4.0, "a": 78.0, "dir": 1.0}, "sfx": [[9, "slam"]], "trail": [6, 12, "hf"]}
+	m.item_throw = {"anim": [[0, g], [4, th_w], [7, th_s, E_OUT], [20, g]], "len": 20, "logic": "item_throw", "sfx": [[6, "throw"]]}
+	# ---- ledge & get-up attacks ----
+	m.ledge_atk = {"anim": [[0, ps.crouch], [4, dt_s, E_OUT], [10, dt_s], [24, g]], "len": 24,
+		"hits": [{"f": [4, 9], "j": "ff", "r": 14, "d": 8, "b": 7, "g": 5, "a": 35}], "sfx": [[3, "swing_m"]], "trail": [3, 10, "ff"]}
+	m.getup_atk = {"anim": [[0, ps.lying], [5, ds_s, E_OUT], [14, ds_s], [28, g]], "len": 28,
+		"hits": [{"f": [5, 10], "j": "ff", "r": 14, "d": 7, "b": 7, "g": 5, "a": 30, "radial": true},
+			{"f": [5, 10], "j": "fb", "r": 14, "d": 7, "b": 7, "g": 5, "a": 30, "radial": true}], "sfx": [[4, "swing_m"]], "trail": [4, 11, "ff"]}
+	# ---- final smash ----
+	var fs_c := P.call([-0.2, -0.35, 2.7, 0.3, 2.5, 0.3, 0.5, 0.6, -0.5, 0.5, 0, 0, 0.3])
+	m.final = {"anim": [[0, g], [20, fs_c, E_OUT], [58, fs_c], [64, dsl_s, E_OUT], [150, dsl_s], [170, g]], "len": 170,
+		"logic": "final", "special": true}
+
+	# victory poses
+	ps.victory_kai = P.call([-0.05, -0.25, 3.1, 0.0, 0.4, 1.9, 0.25, 0.2, -0.35, 0.25, 0, 0, 0.0])
+	ps.victory_bruno = P.call([0.0, -0.2, 2.2, 1.9, -2.2, -1.9, 0.4, 0.3, -0.4, 0.3, 0, 0, 0.0])
+	ps.victory_nyx = P.call([0.45, 0.2, 1.2, 1.0, -0.6, 1.6, 1.25, 2.3, -0.45, 1.5, 0, 0, 1.2])
+	ps.victory_sol = P.call([-0.1, -0.3, 2.95, 0.1, 0.9, 1.6, 0.3, 0.2, -0.4, 0.25, 0, 0, -0.1])
+	ps.grabbed = P.call([-0.2, 0.4, 2.4, 0.5, -1.8, 0.6, 0.6, 1.0, -0.4, 0.9, 0, 0, 0.5])
+	ps.hold = hold
+
 	# convert keyframe frame numbers to floats once
 	for k in m:
 		var mv: Dictionary = m[k]

@@ -4,7 +4,8 @@ extends Node
 const NAMES := ["hit_l", "hit_m", "hit_h", "hit_crit", "swing_l", "swing_m", "swing_h", "jump", "djump",
 	"land", "land_heavy", "shield_up", "shield_hit", "shield_break", "dodge", "ledge", "ko", "beep", "go",
 	"game", "dash", "charge", "counter", "counter_ready", "throw", "orb", "zap", "jet", "vanish", "slam",
-	"bounce", "tech", "respawn", "ui_move", "ui_ok", "ui_back"]
+	"bounce", "tech", "respawn", "ui_move", "ui_ok", "ui_back",
+	"grab", "core_spawn", "core_hit", "core_break", "explosion", "pickup", "eat", "parry", "star", "tick", "fs_start"]
 
 var streams := {}
 var players: Array = []

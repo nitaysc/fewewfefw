@@ -3,7 +3,7 @@ extends Node2D
 ## One stickman fighter: input handling, state machine, physics, animation and drawing.
 
 enum S { IDLE, RUN, CROUCH, SQUAT, AIR, LAND, ATTACK, HITSTUN, SHIELD, ROLL, SPOT, AIRDODGE,
-	LEDGE, CLIMB, HELPLESS, KNOCKDOWN, GETUP, DIZZY, DEAD, OUT, RESPAWN }
+	LEDGE, CLIMB, HELPLESS, KNOCKDOWN, GETUP, DIZZY, DEAD, OUT, RESPAWN, GRABBING, GRABBED }
 
 const SHIELD_MAX := 60.0
 const GROUND_STATES := [S.IDLE, S.RUN, S.CROUCH, S.SQUAT, S.LAND, S.SHIELD, S.ROLL, S.SPOT,
@@ -92,6 +92,21 @@ var ghosts: Array = []
 var scarf: Array = []
 var scarf_prev: Array = []
 var style := {}
+
+# smash systems
+var grab_victim: Fighter = null
+var grab_holder: Fighter = null
+var grab_t := 0
+var held_item: Dictionary = {}
+var fs_ready := false
+var fs_victims: Array = []
+var parry_t := 0
+var squash := 0.0
+var intro_t := 0
+var combo := 0
+var climb_attack := false
+var pose_vel := PackedFloat32Array()
+var score := 0
 
 # stats
 var st_kos := 0
@@ -195,6 +210,7 @@ func tick(i: Dictionary) -> void:
 	if i.get("shd_p", false): buf.shd = 8
 
 	flash = maxf(0.0, flash - 0.12)
+	squash *= 0.8
 	if hitlag > 0:
 		hitlag -= 1
 		if state == S.HITSTUN:
@@ -207,6 +223,16 @@ func tick(i: Dictionary) -> void:
 
 	if intangible > 0: intangible -= 1
 	if invincible > 0: invincible -= 1
+	if parry_t > 0: parry_t -= 1
+	if intro_t > 0:
+		intro_t -= 1
+		if intro_t == 1:
+			squash = 1.0
+			arena.fx.ring(pos + Vector2(0, -4), data.accent, 70.0, 0.5, 6.0)
+			arena.fx.dust(pos, 0, 1.6)
+			_sfx("land_heavy", -6)
+	if state != S.HITSTUN and state != S.GRABBED:
+		combo = 0
 	if ledge_cd > 0: ledge_cd -= 1
 	if drop_timer > 0: drop_timer -= 1
 	if last_hitter_t > 0:
@@ -251,7 +277,11 @@ func tick(i: Dictionary) -> void:
 			_st_climb()
 		S.KNOCKDOWN:
 			vel.x = move_toward(vel.x, 0, 0.8)
-			if sframe >= 28 or (sframe > 8 and (absf(inp.x) > 0.5 or buf.jmp > 0 or buf.atk > 0)):
+			if sframe > 8 and buf.atk > 0:
+				buf.atk = 0
+				intangible = 10
+				_begin("getup_atk")
+			elif sframe >= 28 or (sframe > 8 and (absf(inp.x) > 0.5 or buf.jmp > 0)):
 				_set_state(S.GETUP)
 				intangible = 14
 		S.GETUP:
@@ -269,8 +299,12 @@ func tick(i: Dictionary) -> void:
 			_st_respawn()
 		S.OUT:
 			pass
+		S.GRABBING:
+			_st_grabbing()
+		S.GRABBED:
+			_st_grabbed()
 
-	if state != S.DEAD and state != S.OUT and state != S.LEDGE and state != S.CLIMB and state != S.RESPAWN:
+	if state != S.DEAD and state != S.OUT and state != S.LEDGE and state != S.CLIMB and state != S.RESPAWN and state != S.GRABBED:
 		_physics()
 	_animate()
 	position = pos + shake
@@ -319,6 +353,21 @@ func _ground_control() -> void:
 
 
 func _try_ground_actions() -> bool:
+	if buf.spc > 0 and fs_ready:
+		buf.spc = 0
+		_begin("final")
+		return true
+	if buf.atk > 0 and not held_item.is_empty():
+		buf.atk = 0
+		_begin("item_throw")
+		return true
+	if buf.atk > 0 and inp.get("shd", false):
+		buf.atk = 0
+		_begin("grab")
+		return true
+	if buf.atk > 0 and arena.items.try_pickup(self):
+		buf.atk = 0
+		return true
 	if buf.jmp > 0:
 		buf.jmp = 0
 		_set_state(S.SQUAT)
@@ -359,6 +408,7 @@ func _st_squat() -> void:
 		jumps_left = data.jumps - 1
 		_set_state(S.AIR)
 		arena.fx.dust(pos, 0, 1.0)
+		squash = -0.8
 		_sfx("jump", -6)
 
 
@@ -372,9 +422,17 @@ func _air_control(actions: bool) -> void:
 			buf.jmp = 0
 			_double_jump()
 			return
+		if buf.spc > 0 and fs_ready:
+			buf.spc = 0
+			_begin("final")
+			return
 		if buf.spc > 0:
 			buf.spc = 0
 			_start_special()
+			return
+		if buf.atk > 0 and not held_item.is_empty():
+			buf.atk = 0
+			_begin("item_throw")
 			return
 		if buf.atk > 0:
 			buf.atk = 0
@@ -409,6 +467,7 @@ func _double_jump() -> void:
 	vel.x = inp.x * data.air * 0.95
 	fastfall = false
 	flip_t = 22
+	squash = -0.5
 	flip_dir = 1.0 if inp.x * facing >= -0.2 else -1.0
 	arena.fx.ring(pos + Vector2(0, -6), data.accent, 26.0, 0.45)
 	_sfx("djump", -6)
@@ -497,6 +556,7 @@ func _st_ledge() -> void:
 			_sfx("jump", -6)
 			return
 		if inp.x * toward > 0.6 or buf.atk > 0:
+			climb_attack = buf.atk > 0
 			buf.atk = 0
 			_set_state(S.CLIMB)
 			intangible = maxi(intangible, 22)
@@ -524,6 +584,9 @@ func _st_climb() -> void:
 		plat = l.plat
 		vel = Vector2.ZERO
 		_set_state(S.IDLE)
+		if climb_attack:
+			climb_attack = false
+			_begin("ledge_atk")
 
 
 # ------------------------------------------------------------------ attacks
@@ -680,7 +743,15 @@ func _st_attack() -> void:
 
 func _end_move() -> void:
 	var helpless: bool = mv.get("helpless", false)
+	var was: String = mv.get("id", "")
 	mv = {}
+	no_grav = false
+	if was == "pummel" and grab_victim != null and is_instance_valid(grab_victim) and grab_victim.state == S.GRABBED:
+		state = S.GRABBING
+		sframe = 5
+		return
+	if was == "final":
+		intangible = 30
 	if grounded:
 		_set_state(S.CROUCH if inp.y > 0.65 else S.IDLE)
 	elif helpless:
@@ -695,6 +766,31 @@ func _special_logic() -> void:
 		return
 	var f := mf
 	match lg:
+		"pummel":
+			_hold_victim()
+			if _crossed(4) and grab_victim != null:
+				grab_victim.damage += 1.6 * data.dmg
+				grab_victim.flash = 0.8
+				st_dealt += 1.6 * data.dmg
+				arena.fx.spark_small(grab_victim.core_world(), data.accent)
+				_sfx("hit_l", -6)
+		"throw":
+			var th: Dictionary = mv.throw
+			vel.x = move_toward(vel.x, 0, 1.0)
+			if grab_victim == null or not is_instance_valid(grab_victim):
+				return
+			if f < th.at:
+				_hold_victim()
+			elif _crossed(th.at):
+				var v := grab_victim
+				grab_victim = null
+				v.grab_holder = null
+				arena.throw_hit(self, v, th, facing * th.dir)
+		"item_throw":
+			if _crossed(7):
+				arena.items.throw_item(self, Vector2(inp.x, inp.y))
+		"final":
+			_final_logic(f)
 		"flash_step":
 			if f >= 8 and f < 18:
 				vel = Vector2(facing * 24.0, 0)
@@ -834,6 +930,156 @@ func _special_logic() -> void:
 				arena.destroy_projectiles_near(core_world(), 95.0, self)
 
 
+# ------------------------------------------------------------------ grabs
+func start_grab(v: Fighter) -> void:
+	grab_victim = v
+	v.grab_holder = self
+	mv = {}
+	_set_state(S.GRABBING)
+	grab_t = int(80 + v.damage * 0.8)
+	vel = Vector2.ZERO
+	if v.ledge_id >= 0:
+		v._release_ledge()
+	if not v.held_item.is_empty():
+		arena.items.drop(v)
+	v.mv = {}
+	v._set_state(S.GRABBED)
+	v.vel = Vector2.ZERO
+	v.kvel = Vector2.ZERO
+	v.facing = -facing
+	_hold_victim()
+	_sfx("grab", -2)
+
+
+func _hold_victim() -> void:
+	var v := grab_victim
+	if v == null or not is_instance_valid(v):
+		return
+	v.pos = joint_world(Rig.J_HF) - (v.root + v.joints[Rig.J_CORE]) + Vector2(facing * 6.0, 0)
+	if v.grounded or grounded:
+		v.pos.y = minf(v.pos.y, pos.y)
+	v.position = v.pos
+
+
+func release_grab(_push := true) -> void:
+	var v := grab_victim
+	grab_victim = null
+	if v != null and is_instance_valid(v) and v.state == S.GRABBED:
+		v.grab_holder = null
+		v._set_state(S.IDLE if v.grounded else S.AIR)
+		v.vel.x = facing * 7.0
+		v.intangible = 10
+	if state == S.GRABBING:
+		_set_state(S.IDLE if grounded else S.AIR)
+		vel.x = -facing * 5.0
+
+
+func _st_grabbing() -> void:
+	vel.x = move_toward(vel.x, 0, 1.0)
+	var v := grab_victim
+	if v == null or not is_instance_valid(v) or v.state != S.GRABBED:
+		grab_victim = null
+		_set_state(S.IDLE if grounded else S.AIR)
+		return
+	_hold_victim()
+	grab_t -= 1
+	if grab_t <= 0:
+		release_grab()
+		_sfx("dodge", -6)
+		return
+	if sframe < 6:
+		return
+	if absf(inp.x) > 0.6 or absf(inp.y) > 0.6:
+		var name := ""
+		if absf(inp.y) > absf(inp.x):
+			name = "throw_u" if inp.y < 0.0 else "throw_d"
+		else:
+			name = "throw_f" if signf(inp.x) == facing else "throw_b"
+		_begin(name)
+	elif buf.atk > 0:
+		buf.atk = 0
+		_begin("pummel")
+
+
+func _st_grabbed() -> void:
+	var h := grab_holder
+	if h == null or not is_instance_valid(h) or h.grab_victim != self:
+		grab_holder = null
+		_set_state(S.IDLE if grounded else S.AIR)
+		return
+	if buf.atk > 0 or buf.spc > 0 or buf.jmp > 0 or inp.get("flick_x", false):
+		buf.atk = 0
+		buf.spc = 0
+		buf.jmp = 0
+		h.grab_t -= 6
+		shake = Vector2(randf_range(-2, 2), 0)
+
+
+# ------------------------------------------------------------------ final smash
+func _final_logic(f: float) -> void:
+	intangible = maxi(intangible, 2)
+	if _crossed(1):
+		fs_ready = false
+		fs_victims.clear()
+		arena.start_final(self)
+	if f < 64:
+		vel *= 0.8
+		no_grav = true
+		if t % 3 == 0:
+			arena.fx.spark_small(core_world() + Vector2(randf_range(-30, 30), randf_range(-40, 30)), data.accent)
+		return
+	var r: Rect2 = arena.stage.main_rect()
+	match data.id:
+		"kai":
+			no_grav = true
+			if f < 78:
+				vel = Vector2(facing * 36.0, 0)
+				_ghost()
+				arena.final_catch(self, Rect2(pos.x - 90, pos.y - 230, 180, 290))
+				if pos.x < r.position.x - 60.0 or pos.x > r.end.x + 60.0:
+					pos.x = clampf(pos.x, r.position.x - 60.0, r.end.x + 60.0)
+			else:
+				vel = Vector2.ZERO
+		"bruno":
+			if _crossed(64):
+				vel = Vector2(facing * 4.0, -21.0)
+				grounded = false
+				plat = -1
+			no_grav = f >= 82 and has_meta("fs_slam")
+			if not has_meta("fs_slam"):
+				if f > 70 and vel.y > -4.0:
+					vel = Vector2(0, 30.0)
+				if (grounded and f > 70) or f >= 110:
+					set_meta("fs_slam", true)
+					arena.final_catch(self, Rect2(pos.x - 480, pos.y - 320, 960, 380))
+					arena.fx.explosion(pos + Vector2(0, -10))
+					arena.fx.ring(pos, data.accent, 500.0, 0.6, 12.0)
+					arena.camera_shake(26.0)
+					_sfx("slam", 0)
+		"nyx":
+			no_grav = true
+			if _crossed(64):
+				arena.final_catch(self, Rect2(pos.x - 1100, pos.y - 900, 2200, 1400))
+				arena.fx.smoke(core_world(), data.accent)
+		"sol":
+			no_grav = true
+			vel = Vector2.ZERO
+			if f < 120:
+				var x0 := pos.x
+				var x1 := pos.x + facing * 1600.0
+				arena.final_catch(self, Rect2(minf(x0, x1), pos.y - 230, absf(x1 - x0), 300))
+				if int(f) % 6 == 0:
+					arena.fx.beam(joint_world(Rig.J_WT), Vector2(facing, 0), data.accent)
+	# phase B: rapid hits on everyone caught
+	if f >= 76 and f < 140 and int(f) % 6 == 0:
+		for v in fs_victims:
+			arena.final_tick(self, v)
+	if _crossed(140):
+		arena.final_launch(self)
+		if has_meta("fs_slam"):
+			remove_meta("fs_slam")
+
+
 func _teleport(offset: Vector2) -> void:
 	# step toward the target so we never end up inside a solid platform
 	var steps := 24
@@ -932,6 +1178,18 @@ func hurt_test(c: Vector2, r: float) -> bool:
 func take_hit(att: Fighter, dmg: float, kb: float, angle_deg: float, dir_x: float, lag: int) -> String:
 	if state == S.ATTACK and counter_on and att != null:
 		return "counter"
+	if parry_t > 0 and att != null and att != self:
+		parry_t = 0
+		flash = 0.8
+		return "parry"
+	if state == S.HITSTUN or state == S.GRABBED:
+		combo += 1
+	else:
+		combo = 1
+	if state == S.GRABBING or move_name().begins_with("throw"):
+		release_grab()
+	if not held_item.is_empty() and state != S.SHIELD:
+		arena.items.drop(self)
 	if state == S.SHIELD:
 		shield_hp -= dmg * 1.15
 		hitlag = lag
@@ -951,6 +1209,8 @@ func take_hit(att: Fighter, dmg: float, kb: float, angle_deg: float, dir_x: floa
 		return "armor"
 	if state == S.LEDGE or state == S.CLIMB:
 		_release_ledge()
+	if state == S.GRABBED:
+		grab_holder = null
 	hitlag = lag
 	var a := deg_to_rad(angle_deg)
 	if grounded and angle_deg < 0.0:
@@ -1019,6 +1279,10 @@ func _st_shield() -> void:
 		buf.jmp = 0
 		_set_state(S.SQUAT)
 		return
+	if buf.atk > 0:
+		buf.atk = 0
+		_begin("grab")
+		return
 	if absf(inp.x) > 0.6 and (inp.get("flick_x", false) or sframe <= 2):
 		roll_dir = signf(inp.x)
 		_set_state(S.ROLL)
@@ -1032,6 +1296,7 @@ func _st_shield() -> void:
 		return
 	if not inp.get("shd", false):
 		land_lag = 5
+		parry_t = 6
 		_set_state(S.LAND)
 
 
@@ -1051,6 +1316,19 @@ func _st_roll() -> void:
 func ko() -> void:
 	if state == S.DEAD or state == S.OUT:
 		return
+	if grab_victim != null:
+		release_grab()
+	if grab_holder != null and is_instance_valid(grab_holder):
+		grab_holder.grab_victim = null
+		grab_holder = null
+	if not held_item.is_empty():
+		arena.items.drop(self)
+	for v in fs_victims:
+		if is_instance_valid(v):
+			v.hitlag = 0
+			v.hitstun = 10
+	fs_victims.clear()
+	fs_ready = false
 	if ledge_id >= 0:
 		_release_ledge()
 	stocks -= 1
@@ -1238,6 +1516,7 @@ func _land(pi: int, motion: Vector2) -> void:
 	kvel.y = 0
 	_on_ground_reset()
 	arena.fx.dust(pos, 0, 0.6 + minf(motion.y / 15.0, 1.0) * 0.6)
+	squash = clampf(motion.y / 14.0, 0.25, 1.0)
 	match state:
 		S.ATTACK:
 			var lg: String = mv.get("logic", "")
@@ -1368,6 +1647,12 @@ func _target_pose() -> PackedFloat32Array:
 			p = Roster.pose("dizzy").duplicate()
 			p[Rig.LEAN] += sin(t * 0.09) * 0.25
 			p[Rig.HEAD] += sin(t * 0.13) * 0.3
+		S.GRABBING:
+			p = Roster.pose("hold").duplicate()
+		S.GRABBED:
+			p = Roster.pose("grabbed").duplicate()
+			p[Rig.HF] += sin(t * 0.4) * 0.5
+			p[Rig.HB] += cos(t * 0.4) * 0.5
 		_:
 			p = Roster.pose("guard").duplicate()
 	return p
@@ -1387,7 +1672,20 @@ func _animate() -> void:
 			k = 0.3 if flip_t <= 0 else 0.6
 		S.ROLL, S.LEDGE, S.CLIMB, S.KNOCKDOWN:
 			k = 0.55
-	Rig.approach(cur, target, k)
+	var springy := state in [S.IDLE, S.RUN, S.AIR, S.LAND, S.SQUAT, S.CROUCH, S.SHIELD, S.HELPLESS, S.LEDGE, S.GETUP, S.DIZZY, S.GRABBING, S.GRABBED, S.RESPAWN] and flip_t <= 0
+	if pose_vel.size() != Rig.NP:
+		pose_vel.resize(Rig.NP)
+	if springy:
+		var stiff := 0.24 if state != S.RUN else 0.34
+		for i in Rig.NP:
+			var diff := target[i] - cur[i]
+			if i == Rig.ROT:
+				diff = wrapf(diff, -PI, PI)
+			pose_vel[i] = pose_vel[i] * 0.6 + diff * stiff
+			cur[i] += pose_vel[i]
+	else:
+		pose_vel.fill(0.0)
+		Rig.approach(cur, target, k)
 	if (state == S.HITSTUN and tumble) or (state == S.AIR and flip_t > 0) or state == S.ROLL:
 		cur[Rig.ROT] = target[Rig.ROT]
 	_solve()
@@ -1470,7 +1768,7 @@ func _draw() -> void:
 
 	# ground shadow
 	var gy: float = arena.stage.ground_below(pos)
-	if gy < INF:
+	if gy < INF and intro_t <= 0:
 		var hgt := gy - pos.y
 		var sc := clampf(1.0 - hgt / 400.0, 0.2, 1.0)
 		draw_set_transform(Vector2(0, gy - pos.y), 0.0, Vector2(1.0, 0.22))
@@ -1510,7 +1808,7 @@ func _draw() -> void:
 			draw_primitive(PackedVector2Array([pts[0], pts[2], pts[3]]), PackedColorArray([ci0, c1, ci1]), PackedVector2Array())
 
 	# scarf (tapered ribbon drawn as round-capped strokes, no polygon triangulation)
-	if scarf.size() > 1:
+	if scarf.size() > 1 and intro_t <= 0:
 		var sc: Color = data.scarf
 		sc.a = a
 		var dark := Color(0, 0, 0, 0.45 * a)
@@ -1529,7 +1827,24 @@ func _draw() -> void:
 	var fl := flash
 	if charging:
 		fl = maxf(fl, 0.25 + 0.25 * sin(t * 0.9))
+	if fs_ready:
+		var cc := joints[Rig.J_CORE] + o
+		for k in 3:
+			var hue := fmod(t * 0.012 + k * 0.33, 1.0)
+			draw_circle(cc, (58.0 - k * 12.0 + sin(t * 0.2 + k) * 4.0) * scale_k, Color.from_hsv(hue, 0.7, 1.0, 0.12 * a))
+		fl = maxf(fl, 0.12 + 0.12 * sin(t * 0.3))
+	var intro_off := 0.0
+	if intro_t > 0:
+		var u := intro_t / 70.0
+		intro_off = -u * u * 650.0
+		var c: Color = data.accent
+		draw_rect(Rect2(-14, -900, 28, 900 + intro_off), Color(c.r, c.g, c.b, 0.18 * u))
+		draw_rect(Rect2(-4, -900, 8, 900 + intro_off), Color(1, 1, 1, 0.35 * u))
+	var sq := clampf(squash, -1.0, 1.0)
+	draw_set_transform(Vector2(0, intro_off), 0.0, Vector2(1.0 + sq * 0.16, 1.0 - sq * 0.16))
+	style.ko = state == S.DIZZY or (state == S.HITSTUN and tumble and kvel.length() > 12.0)
 	Rig.draw_body(self, joints, o, style, a, fl)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# shield bubble
 	if state == S.SHIELD:
@@ -1554,7 +1869,7 @@ func _draw() -> void:
 			_star(sp, 5.0, Color(1, 0.95, 0.4))
 
 	# player tag
-	if alive() and state != S.DEAD:
+	if alive() and state != S.DEAD and intro_t <= 0:
 		var hp := joints[Rig.J_HEAD] + o
 		var top := Vector2(0, minf(hp.y, o.y + joints[Rig.J_NECK].y) - dims.head - 22.0)
 		var tri := PackedVector2Array([top + Vector2(-7, -9), top + Vector2(7, -9), top + Vector2(0, 0)])

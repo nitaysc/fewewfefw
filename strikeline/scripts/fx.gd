@@ -3,7 +3,7 @@ extends Node2D
 ## World-space particles: hit sparks, impact stars, shockwave rings, dust, smoke, KO blasts.
 ## Glowing things go to an additive child layer, dust and smoke draw normally.
 
-enum { SPARK, DOT, RING, FLASH, STAR, DUST, SMOKE, BEAM, SHARD }
+enum { SPARK, DOT, RING, FLASH, STAR, DUST, SMOKE, BEAM, SHARD, SLASH, STARKO, PLUS }
 
 var parts: Array = []
 var glow: Node2D
@@ -42,6 +42,8 @@ func step() -> void:
 			DOT:
 				q.v *= 0.92
 				q.v.y += 0.08
+			PLUS:
+				q.v.y -= 0.02
 			DUST:
 				q.v *= 0.9
 				q.v.y -= 0.03
@@ -71,6 +73,33 @@ func _draw_glow() -> void:
 		var u: float = q.life / q.max
 		var c: Color = q.c
 		match q.k:
+			SLASH:
+				c.a = u
+				var d: Vector2 = Vector2(cos(q.x), sin(q.x)) * q.s * (1.4 - u * 0.4)
+				var n := Vector2(-d.y, d.x).normalized() * 6.0 * u
+				glow.draw_colored_polygon(PackedVector2Array([q.p - d, q.p + n, q.p + d, q.p - n]), c)
+				glow.draw_line(q.p - d * 0.9, q.p + d * 0.9, Color(1, 1, 1, u), 2.0, true)
+			STARKO:
+				# a fighter shrinking into the sky, then a twinkle
+				var k: float = 1.0 - u
+				var pp: Vector2 = q.p + Vector2(sin(k * 6.0) * 30.0, -k * 260.0)
+				if k < 0.82:
+					var sz := 26.0 * (1.0 - k)
+					glow.draw_circle(pp, sz, Color(c.r, c.g, c.b, 0.8))
+					glow.draw_circle(pp, sz * 0.5, Color(1, 1, 1, 0.9))
+				else:
+					var tw := (k - 0.82) / 0.18
+					var r := 40.0 * sin(tw * PI)
+					var pts := PackedVector2Array()
+					for i in 8:
+						var rr := r if i % 2 == 0 else r * 0.18
+						var a := i * PI / 4.0 + tw
+						pts.append(pp + Vector2(cos(a), sin(a)) * rr)
+					glow.draw_colored_polygon(pts, Color(1, 1, 0.8, 1))
+			PLUS:
+				c.a = u
+				glow.draw_line(q.p - Vector2(q.s, 0), q.p + Vector2(q.s, 0), c, 3.0, true)
+				glow.draw_line(q.p - Vector2(0, q.s), q.p + Vector2(0, q.s), c, 3.0, true)
 			SPARK:
 				c.a = u
 				var d: Vector2 = q.v
@@ -193,3 +222,42 @@ func ko_blast(p: Vector2, toward: Vector2, col: Color) -> void:
 	for i in 40:
 		var a := toward.angle() + randf_range(-0.9, 0.9)
 		_add(SPARK, p, Vector2(cos(a), sin(a)) * randf_range(10, 34), randf_range(20, 40), randf_range(10, 22), col.lerp(Color(1, 1, 1), randf() * 0.6))
+
+
+func slash(p: Vector2, col: Color) -> void:
+	_add(SLASH, p, Vector2.ZERO, 10, randf_range(50, 90), col, randf() * TAU)
+
+
+func star_ko(p: Vector2, col: Color) -> void:
+	_add(STARKO, p, Vector2.ZERO, 80, 1.0, col)
+
+
+func heal(p: Vector2) -> void:
+	for i in 8:
+		_add(PLUS, p + Vector2(randf_range(-24, 24), randf_range(-30, 20)), Vector2(0, -1.2), randf_range(30, 45), 6, Color(0.4, 1.0, 0.5))
+
+
+func explosion(p: Vector2) -> void:
+	_add(FLASH, p, Vector2.ZERO, 14, 110, Color(1.0, 0.55, 0.15))
+	_add(RING, p, Vector2.ZERO, 22, 130, Color(1.0, 0.75, 0.3), 10.0)
+	for i in 30:
+		var a := randf() * TAU
+		_add(SPARK, p, Vector2(cos(a), sin(a)) * randf_range(6, 18), randf_range(14, 26), randf_range(8, 16), Color(1.0, randf_range(0.4, 0.8), 0.2))
+	for i in 14:
+		var a := randf() * TAU
+		_add(SMOKE, p + Vector2(cos(a), sin(a)) * 20.0, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(30, 50), randf_range(14, 24), Color(0.25, 0.22, 0.22, 1))
+
+
+func core_break(p: Vector2) -> void:
+	_add(FLASH, p, Vector2.ZERO, 26, 200, Color(1.0, 0.85, 0.4))
+	for i in 3:
+		_add(RING, p, Vector2.ZERO, 26 + i * 8, 160 + i * 90, Color.from_hsv(i * 0.3, 0.6, 1.0), 8.0)
+	for i in 40:
+		var a := randf() * TAU
+		_add(SHARD, p, Vector2(cos(a), sin(a)) * randf_range(5, 16), randf_range(30, 50), randf_range(6, 11), Color.from_hsv(randf(), 0.6, 1.0))
+
+
+func beam(p: Vector2, dir: Vector2, col: Color) -> void:
+	_add(BEAM, p, dir, 14, 120, col)
+	_add(BEAM, p, dir, 10, 50, Color(1, 1, 1))
+	_add(FLASH, p, Vector2.ZERO, 8, 60, col)

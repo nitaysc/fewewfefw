@@ -234,6 +234,34 @@ def make_effects():
     back = np.concatenate([np.sin(2 * np.pi * 1200 * t_(0.06)) * env(int(0.06 * SR), 0.001, 0.04),
                            np.sin(2 * np.pi * 800 * t_(0.09)) * env(int(0.09 * SR), 0.001, 0.05)])
     save("ui_back", back, peak=0.45)
+    # --- smash systems ---
+    save("grab", mix(crack(0.06, 300, 3000, 0.02), thump(200, 120, 0.08, 1.2) * 0.6), peak=0.6)
+    tt = t_(0.9)
+    save("core_spawn", reverb(sum(np.sin(2 * np.pi * f * tt) * env(len(tt), 0.02 + i * 0.08, 0.35, curve=2.5) for i, f in enumerate([523, 659, 784, 1047])) * 0.3, mixv=0.5), peak=0.55)
+    tt = t_(0.25)
+    save("core_hit", mix(np.sin(2 * np.pi * 1568 * tt + 2 * np.sin(2 * np.pi * 2200 * tt)) * env(len(tt), 0.001, 0.08), thump(180, 90, 0.1, 1.5) * 0.6), peak=0.6)
+    tt = t_(1.4)
+    arp = np.zeros(len(tt))
+    for i, f in enumerate([523, 659, 784, 1047, 1319, 1568]):
+        st = int(i * 0.06 * SR)
+        tone = np.sin(2 * np.pi * f * t_(0.5)) * env(int(0.5 * SR), 0.002, 0.2)
+        arp[st:st + len(tone)] += tone * 0.4
+    save("core_break", reverb(mix(arp, crack(0.3, 2000, 10000, 0.08) * 0.6, thump(120, 40, 0.4, 2.0) * 0.6), mixv=0.4), peak=0.8)
+    save("explosion", reverb(mix(thump(70, 25, 0.9, 4.0), crack(0.8, 50, 4000, 0.25) * 1.3, crack(0.2, 2000, 9000, 0.05) * 0.5), mixv=0.3), peak=0.9)
+    save("pickup", np.concatenate([np.sin(2 * np.pi * 660 * t_(0.05)) * env(int(0.05 * SR), 0.001, 0.03), np.sin(2 * np.pi * 990 * t_(0.07)) * env(int(0.07 * SR), 0.001, 0.04)]), peak=0.45)
+    tt = t_(0.5)
+    save("eat", reverb(sum(np.sin(2 * np.pi * f * tt) * env(len(tt), 0.01 + i * 0.07, 0.2, curve=2.0) for i, f in enumerate([784, 988, 1175, 1568])) * 0.3, mixv=0.3), peak=0.5)
+    tt = t_(0.6)
+    save("parry", reverb(mix(np.sin(2 * np.pi * 2093 * tt + 1.5 * np.sin(2 * np.pi * 3000 * tt)) * env(len(tt), 0.0005, 0.18), crack(0.05, 3000, 10000, 0.01)), mixv=0.5), peak=0.7)
+    tt = t_(1.2)
+    star = chirp(1400, 2600, 1.2, shape=0.5) * env(len(tt), 0.01, 0.5, curve=2.0) * 0.4 + np.sin(2 * np.pi * 3136 * tt) * env(len(tt), 0.9, 0.2) * 0.4
+    save("star", reverb(star, mixv=0.4), peak=0.55)
+    tt = t_(0.06)
+    save("tick", np.sin(2 * np.pi * 1760 * tt) * env(len(tt), 0.001, 0.02), peak=0.4)
+    tt = t_(1.6)
+    rise = sweep_noise(1.2, 300, 6000, 0.4) * np.linspace(0.2, 1, int(1.2 * SR))
+    chord = sum(np.sin(2 * np.pi * f * tt) for f in [196, 247, 294, 392]) * env(len(tt), 0.8, 0.5, curve=2.0) * 0.3
+    save("fs_start", reverb(mix(rise * 0.7, chord, np.concatenate([np.zeros(int(1.15 * SR)), thump(120, 35, 0.45, 3.0)])), mixv=0.4), peak=0.9)
 
 
 # ------------------------------------------------------------------ music

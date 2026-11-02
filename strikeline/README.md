@@ -7,7 +7,7 @@ stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v1.0.N` release on the repo's Releases page.
+newest `strikeline-v1.1.N` release on the repo's Releases page.
 
 ## The game
 
@@ -20,6 +20,11 @@ newest `strikeline-v1.0.N` release on the repo's Releases page.
   (shield break → dizzy), rolls, spot and air dodges, ledge grabs with intangibility,
   techs, fast fall, drop-through platforms, helpless state after recoveries, blast-zone
   KOs, stocks, respawn platform.
+- **Smash systems**: grabs (shield + attack), pummels and four throws with mash-out,
+  the **Strike Core** (break it to unlock a cinematic **Final Smash** per fighter), items
+  (throwable bombs, healing food), parry, ledge and get-up attacks, star KOs, timed matches
+  with scoring and sudden death, entrance animations, a training combo counter, and a
+  moving platform on Sunset Shrine.
 - **Animation**: every fighter is a procedural skeleton (`scripts/rig.gd`). Attacks are
   keyframed poses with easing; running, idling, jumping, flips, tumbling and ledge hangs
   are procedural. Weapon smears, verlet scarves, afterimages and hit-flash on top.
@@ -43,7 +48,8 @@ K special, Space jump, L shield, Shift = smash.
 godot --headless --import
 godot --headless --fixed-fps 60 res://test/touch_test.tscn   # touch controls
 godot --headless --fixed-fps 60 res://test/sim.tscn          # CPU matches on every stage
-# screenshots (needs xvfb): res://test/shots.tscn, res://test/fx_shots.tscn, res://test/sheet.tscn
+godot --headless --fixed-fps 60 res://test/time_test.tscn    # timed match -> sudden death
+# screenshots (needs xvfb): res://test/shots.tscn, fx_shots.tscn, fx2.tscn, sheet.tscn, closeup.tscn
 ```
 
 Export: `export_presets.cfg` (preset "Android"), signed with the committed

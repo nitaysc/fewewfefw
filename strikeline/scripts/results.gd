@@ -39,7 +39,9 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 200, Color(acc.r, acc.g, acc.b, 0.3))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var e := enter_t
-	var pose := Rig.blend(Roster.pose("guard"), Roster.pose("victory"), clampf(t * 2.0, 0.0, 1.0))
+	var vp := "victory_" + str(d.id)
+	var pose := Rig.blend(Roster.pose("guard"), Roster.pose(vp), clampf(t * 2.0, 0.0, 1.0))
+	pose[Rig.LEAN] += sin(t * 2.0) * 0.02
 	pose[Rig.SB] += sin(t * 3.0) * 0.1
 	UiScreen.draw_fighter(self, wf.fighter, c, 2.6, pose, 1.0, 1.0)
 	var label := "YOU WIN!" if not wf.cpu else "%s WINS" % d.name

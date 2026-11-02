@@ -29,8 +29,10 @@ func layout() -> void:
 	if mode == "versus":
 		add_btn("cpus", Rect2(cx, by, 150, 74), "RIVALS", "chip", str(s.cpus))
 		add_btn("level", Rect2(cx + 160, by, 170, 74), "CPU LEVEL", "chip", LEVELS[clampi(int(s.level) - 1, 0, 2)])
-		add_btn("stocks", Rect2(cx + 340, by, 150, 74), "STOCKS", "chip", str(s.stocks))
-		add_btn("stage", Rect2(cx + 500, by, 250, 74), "STAGE", "chip", Stage.STAGES[int(s.stage)].name)
+		var st := int(s.stocks)
+		add_btn("stocks", Rect2(cx + 340, by, 130, 74), "RULES", "chip", ("%d STOCK" % st) if st > 0 else ("%d MIN" % -st))
+		add_btn("items", Rect2(cx + 480, by, 110, 74), "ITEMS", "chip", "ON" if s.get("items", true) else "OFF")
+		add_btn("stage", Rect2(cx + 600, by, 230, 74), "STAGE", "chip", Stage.STAGES[int(s.stage)].name)
 	else:
 		add_btn("stage", Rect2(cx, by, 280, 74), "STAGE", "chip", Stage.STAGES[int(s.stage)].name)
 	add_btn("go", Rect2(vs.x - 270, by - 6, 240, 86), "FIGHT!", "gold")
@@ -55,7 +57,10 @@ func on_button(id: String) -> void:
 		"level":
 			s.level = int(s.level) % 3 + 1
 		"stocks":
-			s.stocks = int(s.stocks) % 5 + 1
+			var order := [1, 2, 3, 4, 5, -2, -3]
+			s.stocks = order[(order.find(int(s.stocks)) + 1) % order.size()]
+		"items":
+			s.items = not s.get("items", true)
 		"stage":
 			s.stage = (int(s.stage) + 1) % Stage.STAGES.size()
 		"go", "enter":
@@ -75,7 +80,7 @@ func _config() -> Dictionary:
 		for i in int(s.cpus):
 			var f: int = pool[i % pool.size()] if i < 3 else randi() % 4
 			players.append({"fighter": f, "cpu": true, "level": int(s.level)})
-	return {"mode": mode, "stage": int(s.stage), "stocks": int(s.stocks), "players": players}
+	return {"mode": mode, "stage": int(s.stage), "stocks": int(s.stocks), "items": s.get("items", true) and mode != "training", "players": players}
 
 
 func _process(delta: float) -> void:

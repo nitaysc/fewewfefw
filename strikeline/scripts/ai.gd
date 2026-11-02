@@ -17,6 +17,7 @@ var smash_t := 0
 var ledge_wait := -1
 var approach_bias := 0.0
 var rng := RandomNumberGenerator.new()
+var grab_wait := 0
 
 
 func _init(f: Fighter, lvl: int) -> void:
@@ -59,6 +60,13 @@ func think() -> Dictionary:
 	if me.state == S.LEDGE:
 		_ledge(out, main)
 		return out
+	if me.state == S.GRABBED:
+		if level > 0 and rng.randf() < 0.07 * level:
+			out.atk = true
+		return out
+	if me.state == S.GRABBING:
+		_throw(out, main)
+		return out
 	if me.state == S.HITSTUN:
 		out.x = -signf(me.pos.x) * (0.0 if level < 2 else 1.0)
 		if me.tumble and level >= 2 and rng.randf() < (0.08 if level == 3 else 0.03):
@@ -74,6 +82,41 @@ func think() -> Dictionary:
 
 	var tgt := _target()
 	if tgt == null:
+		return out
+	# Final Smash as soon as someone is close enough
+	if me.fs_ready and timer <= 0 and me.is_ground_state() or (me.fs_ready and me.state == S.AIR):
+		if tgt.pos.distance_to(me.pos) < 500.0:
+			me.facing = signf(tgt.pos.x - me.pos.x) if absf(tgt.pos.x - me.pos.x) > 1.0 else me.facing
+			out.x = 0.0
+			out.y = 0.0
+			_press(out, "spc")
+			return out
+	# holding an item: throw it at the target
+	if not me.held_item.is_empty():
+		var ddx: float = tgt.pos.x - me.pos.x
+		if absf(ddx) < 420.0 and absf(tgt.pos.y - me.pos.y) < 120.0 and timer <= 0:
+			me.facing = signf(ddx) if absf(ddx) > 1.0 else me.facing
+			out.x = 0.0
+			_press(out, "atk")
+			timer = react
+			return out
+	# go for the Strike Core / items
+	var goal := _item_goal()
+	if goal != Vector2.INF and me.state in [S.IDLE, S.RUN, S.AIR, S.CROUCH, S.LAND]:
+		var gd := goal - me.pos
+		out.x = signf(gd.x) if absf(gd.x) > 25.0 else 0.0
+		if me.grounded and gd.y < -110.0 and absf(gd.x) < 200.0 and jump_cd <= 0:
+			_press(out, "jmp", 10)
+			jump_cd = 30
+		elif not me.grounded and gd.y < -60.0 and me.jumps_left > 0 and me.vel.y > 0 and jump_cd <= 0:
+			_press(out, "jmp", 10)
+			jump_cd = 20
+		if gd.length() < 70.0 and timer <= 0:
+			timer = react
+			out.x = 0.0
+			if gd.y < -40.0:
+				out.y = -1.0
+			_press(out, "atk")
 		return out
 	var dx: float = tgt.pos.x - me.pos.x
 	var dy: float = tgt.pos.y - me.pos.y
@@ -192,9 +235,14 @@ func _ground_decision(out: Dictionary, tgt: Fighter, dx: float, dy: float, adx: 
 			out.x = 0.0
 			out.y = 1.0
 			_press(out, "atk")
-		elif r < 0.85:
+		elif r < 0.8:
 			_press(out, "jmp", 3)
 			jump_cd = 20
+		elif r < 0.9 or tgt.state == S.SHIELD:
+			# grab (shield + attack)
+			out.shd = true
+			me.facing = face
+			_press(out, "atk")
 		else:
 			# special up close
 			out.y = 1.0 if me.data.id in ["sol", "kai"] else 0.0
@@ -295,3 +343,45 @@ func _ledge(out: Dictionary, main: Rect2) -> void:
 			out.x = toward
 		else:
 			_press(out, "jmp", 8)
+
+
+func _throw(out: Dictionary, main: Rect2) -> void:
+	if grab_wait <= 0:
+		grab_wait = rng.randi_range(6, 18)
+	grab_wait -= 1
+	if grab_wait > 1:
+		if rng.randf() < 0.15:
+			out.atk = true
+		return
+	var v := me.grab_victim
+	var to_left: float = me.pos.x - main.position.x
+	var to_right: float = main.end.x - me.pos.x
+	if v != null and v.damage > 110.0 and rng.randf() < 0.5:
+		out.y = -1.0
+	elif v != null and v.damage < 40.0 and rng.randf() < 0.4:
+		out.y = 1.0
+	else:
+		out.x = -1.0 if to_left < to_right else 1.0
+
+
+func _item_goal() -> Vector2:
+	if level == 0:
+		return Vector2.INF
+	var items = me.arena.items
+	if not items.core.is_empty():
+		var c: Vector2 = items.core.p
+		if c.distance_to(me.pos) < 650.0 and c.y > -500.0:
+			return c + Vector2(0, 60)
+	if not me.held_item.is_empty():
+		return Vector2.INF
+	for it in items.list:
+		if it.held_by != null or not it.grounded:
+			continue
+		var p: Vector2 = it.p
+		if p.distance_to(me.pos) > 380.0:
+			continue
+		if it.kind == "food" and me.damage > 35.0:
+			return p
+		if it.kind == "bomb" and level >= 2:
+			return p
+	return Vector2.INF

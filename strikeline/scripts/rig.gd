@@ -118,15 +118,48 @@ static func _seg(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, w: float) -
 	ci.draw_circle(b, w * 0.5, col)
 
 
-static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, fill: Color, line: Color, w: float, ow: float) -> void:
-	_seg(ci, a, b, line, w + ow * 2.0)
-	_seg(ci, b, c, line, w + ow * 2.0)
-	_seg(ci, a, b, fill, w)
-	_seg(ci, b, c, fill, w)
+static func _taper(ci: CanvasItem, a: Vector2, b: Vector2, wa: float, wb: float, col: Color) -> void:
+	# a tapered, round-capped stroke built from antialiased sub-strokes
+	var n := 3
+	var prev := a
+	for i in range(1, n + 1):
+		var u := float(i) / n
+		var p := a.lerp(b, u)
+		var w := lerpf(wa, wb, (u - 0.5 / n))
+		ci.draw_line(prev, p, col, w, true)
+		ci.draw_circle(p, w * 0.5, col, true, -1.0, true)
+		prev = p
+	ci.draw_circle(a, wa * 0.5, col, true, -1.0, true)
+
+
+static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, fill: Color, line: Color, w: float, ow: float, upper := 1.0, lower := 0.86) -> void:
+	_taper(ci, a, b, w * upper + ow * 2.0, w * (upper + lower) * 0.5 + ow * 2.0, line)
+	_taper(ci, b, c, w * (upper + lower) * 0.5 + ow * 2.0, w * lower + ow * 2.0, line)
+	_taper(ci, a, b, w * upper, w * (upper + lower) * 0.5, fill)
+	_taper(ci, b, c, w * (upper + lower) * 0.5, w * lower, fill)
+
+
+static func _sheen(ci: CanvasItem, a: Vector2, b: Vector2, w: float, col: Color) -> void:
+	var off := Vector2(-0.55, -0.83) * w * 0.2
+	ci.draw_line(a.lerp(b, 0.2) + off, a.lerp(b, 0.75) + off, col, maxf(1.0, w * 0.13), true)
+
+
+static func _boot(ci: CanvasItem, knee: Vector2, foot: Vector2, facing: float, fill: Color, line: Color, w: float, ow: float) -> void:
+	var d := (foot - knee).normalized()
+	var fd := d.rotated(-PI * 0.5 * facing)
+	var heel := foot - fd * w * 0.25 + d * w * 0.1
+	var toe := foot + fd * w * 1.15 + d * w * 0.15
+	_taper(ci, heel, toe, w * 1.0 + ow * 2.0, w * 0.75 + ow * 2.0, line)
+	_taper(ci, heel, toe, w * 1.0, w * 0.75, fill)
+
+
+static func _hand(ci: CanvasItem, p: Vector2, fill: Color, line: Color, w: float, ow: float) -> void:
+	ci.draw_circle(p, w * 0.62 + ow, line, true, -1.0, true)
+	ci.draw_circle(p, w * 0.62, fill, true, -1.0, true)
 
 
 ## Draws a fighter. `o` is the hip position in the canvas item's space.
-## st: body, back, line, accent, w, head, weapon, facing
+## st: body, back, line, accent, w, head, weapon, facing (+ optional ko)
 static func draw_body(ci: CanvasItem, jj: PackedVector2Array, o: Vector2, st: Dictionary, alpha := 1.0, flash := 0.0) -> void:
 	var j := PackedVector2Array()
 	j.resize(NJ)
@@ -144,6 +177,8 @@ static func draw_body(ci: CanvasItem, jj: PackedVector2Array, o: Vector2, st: Di
 	back.a *= alpha
 	line.a *= alpha
 	accent.a *= alpha
+	var sheen := body.lightened(0.4)
+	sheen.a = 0.3 * alpha
 	var w: float = st.w
 	var ow: float = st.get("ow", 2.2)
 	var facing: float = st.facing
@@ -153,25 +188,48 @@ static func draw_body(ci: CanvasItem, jj: PackedVector2Array, o: Vector2, st: Di
 	if weapon == "knives":
 		_draw_knife(ci, j[J_HB], j[J_WB], line, accent, alpha)
 	_limb(ci, j[J_SH], j[J_EB], j[J_HB], back, line, w * 0.92, ow)
-	_limb(ci, j[J_HIP], j[J_KB], j[J_FB], back, line, w * 0.95, ow)
 	if weapon == "fists":
 		_fist(ci, j[J_HB], back, line, accent, w, ow, alpha * 0.8)
+	else:
+		_hand(ci, j[J_HB], back, line, w * 0.92, ow)
+	_limb(ci, j[J_HIP], j[J_KB], j[J_FB], back, line, w * 0.95, ow, 1.18, 0.9)
+	_boot(ci, j[J_KB], j[J_FB], facing, back, line, w * 0.95, ow)
 
-	# torso
-	_seg(ci, j[J_HIP], j[J_NECK], line, w * 1.2 + ow * 2.0)
-	_seg(ci, j[J_HIP], j[J_NECK], body, w * 1.2)
+	# torso: narrow hips, broad chest
+	var mid := j[J_HIP].lerp(j[J_NECK], 0.55)
+	_taper(ci, j[J_HIP], mid, w * 1.15 + ow * 2.0, w * 1.45 + ow * 2.0, line)
+	_taper(ci, mid, j[J_NECK], w * 1.45 + ow * 2.0, w * 1.25 + ow * 2.0, line)
+	_taper(ci, j[J_HIP], mid, w * 1.15, w * 1.45, body)
+	_taper(ci, mid, j[J_NECK], w * 1.45, w * 1.25, body)
+	_sheen(ci, j[J_HIP], j[J_NECK], w * 1.4, sheen)
+	# belt
+	var td := (j[J_NECK] - j[J_HIP]).normalized()
+	var tn := Vector2(-td.y, td.x)
+	var bc := j[J_HIP] + td * w * 0.7
+	ci.draw_line(bc - tn * w * 0.62, bc + tn * w * 0.62, accent, maxf(2.0, w * 0.32), true)
 	# front leg
-	_limb(ci, j[J_HIP], j[J_KF], j[J_FF], body, line, w, ow)
+	_limb(ci, j[J_HIP], j[J_KF], j[J_FF], body, line, w, ow, 1.18, 0.9)
+	_boot(ci, j[J_KF], j[J_FF], facing, body, line, w, ow)
+	_sheen(ci, j[J_HIP], j[J_KF], w * 1.1, sheen)
 
 	# head
 	var hr: float = st.head
-	ci.draw_circle(j[J_HEAD], hr + ow, line)
-	ci.draw_circle(j[J_HEAD], hr, body)
+	ci.draw_circle(j[J_HEAD], hr + ow, line, true, -1.0, true)
+	ci.draw_circle(j[J_HEAD], hr, body, true, -1.0, true)
 	var hv := (j[J_HEAD] - j[J_NECK]).normalized()
 	var side := Vector2(-hv.y, hv.x) * facing
+	ci.draw_arc(j[J_HEAD] - side * hr * 0.15, hr * 0.7, hv.angle() - 2.2 * facing - 0.6, hv.angle() - 2.2 * facing + 0.6, 10, sheen, maxf(1.5, hr * 0.16), true)
 	var vis_c := j[J_HEAD] + side * hr * 0.35 + hv * hr * 0.12
 	var visor := accent.lerp(Color(1, 1, 1), 0.25)
-	ci.draw_line(vis_c - side * hr * 0.25, vis_c + side * hr * 0.62, visor, maxf(3.0, hr * 0.34), true)
+	if st.get("ko", false):
+		var e := vis_c + side * hr * 0.2
+		var k := hr * 0.26
+		ci.draw_line(e + Vector2(-k, -k), e + Vector2(k, k), visor, 2.5, true)
+		ci.draw_line(e + Vector2(-k, k), e + Vector2(k, -k), visor, 2.5, true)
+	else:
+		ci.draw_line(vis_c - side * hr * 0.25, vis_c + side * hr * 0.62, visor, maxf(3.0, hr * 0.34), true)
+		var glint := Color(1, 1, 1, 0.85 * alpha)
+		ci.draw_circle(vis_c + side * hr * 0.45 - hv * hr * 0.04, maxf(1.0, hr * 0.09), glint)
 	# headband knot
 	var knot := j[J_HEAD] - side * hr * 0.95 + hv * hr * 0.15
 	ci.draw_circle(knot, hr * 0.22, accent)
@@ -184,8 +242,11 @@ static func draw_body(ci: CanvasItem, jj: PackedVector2Array, o: Vector2, st: Di
 	elif weapon == "knives":
 		_draw_knife(ci, j[J_HF], j[J_WT], line, accent, alpha)
 	_limb(ci, j[J_SH], j[J_EF], j[J_HF], body, line, w, ow)
+	_sheen(ci, j[J_SH], j[J_EF], w, sheen)
 	if weapon == "fists":
 		_fist(ci, j[J_HF], body, line, accent, w, ow, alpha)
+	else:
+		_hand(ci, j[J_HF], body, line, w, ow)
 
 
 static func _fist(ci: CanvasItem, p: Vector2, fill: Color, line: Color, accent: Color, w: float, ow: float, alpha: float) -> void:

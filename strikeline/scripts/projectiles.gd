@@ -82,6 +82,12 @@ func step() -> void:
 
 func _collide(p: Dictionary) -> void:
 	var owner: Fighter = p.owner
+	if arena.items.core_hits(p.p, p.r) and not p.hit.has("core"):
+		p.hit["core"] = true
+		arena.items.hit_core(owner, p.d, p.v)
+		if p.kind != "shockwave":
+			p.life = 0
+			return
 	for f in arena.fighters:
 		if f == owner or not f.can_be_hit() or p.hit.has(f.port):
 			continue

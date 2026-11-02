@@ -9,6 +9,9 @@ var popups: Array = []
 var game_t := -1.0
 var t := 0.0
 var shown_dmg := {}
+var game_text := "GAME!"
+var banner: Dictionary = {}
+var sudden_t := -1.0
 
 
 func flash(a: float) -> void:
@@ -23,8 +26,18 @@ func ko_popup(f: Fighter) -> void:
 	popups.append({"port": f.port, "t": 0.0})
 
 
-func game_set() -> void:
+func game_set(txt := "GAME!") -> void:
+	game_text = txt
 	game_t = 0.0
+
+
+func fs_banner(f: Fighter) -> void:
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER"}
+	banner = {"name": f.data.name, "move": names.get(f.data.id, "FINAL STRIKE"), "c": f.data.accent, "t": 0.0}
+
+
+func sudden_death() -> void:
+	sudden_t = 0.0
 
 
 func _process(delta: float) -> void:
@@ -39,6 +52,12 @@ func _process(delta: float) -> void:
 		popups.pop_front()
 	if game_t >= 0.0:
 		game_t += rd
+	if not banner.is_empty():
+		banner.t += rd
+		if banner.t > 1.8:
+			banner = {}
+	if sudden_t >= 0.0:
+		sudden_t += rd
 	queue_redraw()
 
 
@@ -104,7 +123,9 @@ func _draw() -> void:
 			var tw := fd.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 			draw_string(fd, pos + Vector2(tw + 3, 0), "%", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, dc)
 			# stocks
-			if not arena.training:
+			if arena.timed:
+				draw_string(fb, Vector2(x + 26, y + 96), "SCORE %+d" % f.score, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.8))
+			elif not arena.training:
 				for s in mini(f.stocks, 8):
 					var sc := Vector2(x + 26 + s * 14, y + 90)
 					draw_circle(sc, 5.5, Color(acc.r, acc.g, acc.b))
@@ -167,10 +188,54 @@ func _draw() -> void:
 		draw_rect(Rect2(0, cy - 72 * band, vs.x, 4), Color(1, 0.85, 0.3, 0.9))
 		draw_rect(Rect2(0, cy + 68 * band, vs.x, 4), Color(1, 0.85, 0.3, 0.9))
 		var size := int(110 * s)
-		var txt := "GAME!"
+		var txt := game_text
 		var tw := fd.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		draw_string(fd, Vector2(vs.x * 0.5 - tw * 0.5 + 6, cy + size * 0.36 + 6), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.8, 0.2, 0.1, 0.8))
 		draw_string(fd, Vector2(vs.x * 0.5 - tw * 0.5, cy + size * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 0.95, 0.85))
+
+	# timer (time mode)
+	if arena.timed or arena.sudden:
+		var txt := "SUDDEN DEATH" if arena.sudden else "%d:%02d" % [arena.time_left / 3600, (arena.time_left / 60) % 60]
+		var col := Color(1, 0.4, 0.35) if (arena.sudden or arena.time_left < 600) else Color(1, 1, 1)
+		var size := 30
+		var tw := fd.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		draw_rect(Rect2(vs.x * 0.5 - tw * 0.5 - 16, 104, tw + 32, 42), Color(0, 0, 0, 0.5))
+		draw_string(fd, Vector2(vs.x * 0.5 - tw * 0.5, 136), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+	if sudden_t >= 0.0 and sudden_t < 2.5:
+		_big_text("SUDDEN DEATH", Vector2(vs.x * 0.5, vs.y * 0.45), sudden_t * 0.5, Color(1, 0.35, 0.3))
+
+	# Final Smash ready badges
+	for i in n:
+		var f: Fighter = fs[i]
+		if f.fs_ready:
+			var x := x0 + i * (cw + gap)
+			var hue := fmod(t * 0.4, 1.0)
+			draw_rect(Rect2(x + 14, 12 + 78, cw - 28, 4), Color.from_hsv(hue, 0.6, 1.0))
+			draw_string(fb, Vector2(x + 80, 12 + 104), "FINAL SMASH READY!", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.from_hsv(hue, 0.4, 1.0))
+
+	# combo counter (training)
+	if arena.training:
+		for f in fs:
+			if f.is_cpu and f.combo >= 2:
+				var txt := "%d HIT COMBO!" % f.combo
+				draw_string(fd, Vector2(vs.x * 0.5 - 140, vs.y * 0.3 + 3), txt, HORIZONTAL_ALIGNMENT_CENTER, 280, 34, Color(0, 0, 0, 0.5))
+				draw_string(fd, Vector2(vs.x * 0.5 - 142, vs.y * 0.3), txt, HORIZONTAL_ALIGNMENT_CENTER, 280, 34, Color(1, 0.85, 0.3))
+
+	# final smash cinematic: dark vignette + name banner
+	if arena.focus != null:
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(0, 0, 0, 0.35))
+	if not banner.is_empty():
+		var u: float = banner.t
+		var slide := clampf(u * 4.0, 0.0, 1.0)
+		var fade := clampf((1.8 - u) * 3.0, 0.0, 1.0)
+		var by := vs.y * 0.3
+		var c: Color = banner.c
+		var w := vs.x * slide
+		draw_colored_polygon(PackedVector2Array([Vector2(vs.x - w, by - 50), Vector2(vs.x, by - 50), Vector2(vs.x, by + 46), Vector2(vs.x - w - 40, by + 46)]), Color(0, 0, 0, 0.75 * fade))
+		draw_rect(Rect2(vs.x - w, by - 54, w, 5), Color(c.r, c.g, c.b, fade))
+		draw_rect(Rect2(vs.x - w - 40, by + 44, w + 40, 5), Color(c.r, c.g, c.b, fade))
+		draw_string(fb, Vector2(vs.x - w + 60, by - 18), banner.name + "'S FINAL SMASH", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(c.r, c.g, c.b, fade))
+		draw_string(fd, Vector2(vs.x - w + 60, by + 30), banner.move, HORIZONTAL_ALIGNMENT_LEFT, -1, 46, Color(1, 1, 1, fade))
 
 	if flash_a > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 1, 1, flash_a * 0.6))

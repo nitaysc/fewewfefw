@@ -66,7 +66,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(gxx, ly - 70), Vector2(gxx + 22, ly - 70), Vector2(gxx - 8, ly + 48), Vector2(gxx - 30, ly + 48)]), Color(1, 1, 1, 0.22))
 	text("STICK  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
 	draw_buttons()
-	text("v1.0  ·  4 fighters  ·  3 stages", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
+	text("v1.1  ·  4 fighters  ·  3 stages  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
 
 
 func _draw_help(vs: Vector2) -> void:
@@ -83,12 +83,15 @@ func _draw_help(vs: Vector2) -> void:
 		["SPECIAL", "Neutral, side, up and down specials. UP + SPECIAL is your recovery when you're knocked off the stage."],
 		["JUMP", "Jump, then jump again in the air (Nyx gets three). Grab ledges automatically when you're close."],
 		["SHIELD", "Hold to block. Shield + left/right rolls, + down dodges in place, in the air it's an air dodge."],
-		["TECH", "Press SHIELD just before you hit the ground while tumbling to recover instantly."],
+		["GRAB", "SHIELD + ATTACK grabs. ATTACK to pummel, push the stick to throw. Mash buttons to escape a grab."],
+		["FINAL", "Break the glowing Strike Core, then press SPECIAL to unleash your Final Smash!"],
+		["ITEMS", "ATTACK near a bomb to pick it up, ATTACK again to throw. Touch food to heal."],
+		["TECH", "SHIELD just before landing while tumbling to recover. Drop SHIELD right before a hit to parry."],
 	]
 	var y := r.position.y + 140
-	var cols := [Color(1, 1, 1), Color(1.0, 0.35, 0.35), Color(1.0, 0.6, 0.25), Color(0.4, 0.7, 1.0), Color(0.4, 1.0, 0.6), Color(1.0, 0.85, 0.3), Color(0.8, 0.6, 1.0)]
+	var cols := [Color(1, 1, 1), Color(1.0, 0.35, 0.35), Color(1.0, 0.6, 0.25), Color(0.4, 0.7, 1.0), Color(0.4, 1.0, 0.6), Color(1.0, 0.85, 0.3), Color(1.0, 0.5, 0.8), Color(1.0, 0.8, 0.4), Color(0.6, 1.0, 0.8), Color(0.8, 0.6, 1.0)]
 	for i in rows.size():
 		var row: Array = rows[i]
 		text(row[0], Vector2(r.position.x + 36, y + 20), 20, cols[i])
-		text(row[1], Vector2(r.position.x + 180, y + 20), 16, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 220, false)
+		text(row[1], Vector2(r.position.x + 180, y + 20), 15, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 220, false)
 		y += minf(54.0, (r.size.y - 160) / rows.size())
