@@ -46,6 +46,10 @@ var rec: Array = []
 var input_seen := {}
 var input_counters := {}
 var menu_open := false
+# 3D fighters
+var use3d := false
+var world3d: Node3D
+var cam3d: Camera3D
 
 
 func setup(config: Dictionary) -> void:
@@ -70,7 +74,17 @@ func setup(config: Dictionary) -> void:
 	add_child(world)
 	stage = Stage.new()
 	stage.setup(cfg.stage)
-	world.add_child(stage)
+	stage.arena = self
+	use3d = FighterView3D.available() and bool(Game.settings.get("models3d", true))
+	if use3d:
+		# the stage becomes part of the 3D background so the models stand in front of it
+		var sl := CanvasLayer.new()
+		sl.layer = -1
+		sl.follow_viewport_enabled = true
+		add_child(sl)
+		sl.add_child(stage)
+	else:
+		world.add_child(stage)
 
 	var players: Array = cfg.players
 	for i in players.size():
@@ -107,6 +121,8 @@ func setup(config: Dictionary) -> void:
 		Sfx.recorder = func(n: String, vol: float): rec.append([&"sfx", n, vol])
 		Net.peer_left.connect(_on_peer_left)
 
+	if use3d:
+		_setup_3d()
 	cam = Camera2D.new()
 	cam.position = cam_center
 	cam.zoom = Vector2(cam_zoom, cam_zoom)
@@ -655,6 +671,62 @@ func _update_camera() -> void:
 	cam.zoom = Vector2(zz, zz)
 	bg.cam_pos = cam.position
 	bg.cam_zoom = zz
+	if use3d:
+		_sync_3d(cam.position, zz)
+
+
+# ------------------------------------------------------------------ 3D fighters
+func _setup_3d() -> void:
+	world3d = Node3D.new()
+	add_child(world3d)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CANVAS
+	env.background_canvas_max_layer = -1
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = [Color(0.75, 0.6, 0.85), Color(1.0, 0.75, 0.7), Color(0.6, 0.75, 1.0)][cfg.stage % 3]
+	env.ambient_light_energy = 0.55
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.glow_enabled = true
+	env.glow_intensity = 0.6
+	env.glow_hdr_threshold = 1.3
+	var we := WorldEnvironment.new()
+	we.environment = env
+	world3d.add_child(we)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-35, -30, 0)
+	key.light_color = Color(1.0, 0.92, 0.85)
+	key.light_energy = 1.25
+	world3d.add_child(key)
+	var back := DirectionalLight3D.new()
+	back.rotation_degrees = Vector3(-15, 160, 0)
+	back.light_color = [Color(1.0, 0.4, 0.9), Color(1.0, 0.6, 0.35), Color(0.4, 0.8, 1.0)][cfg.stage % 3]
+	back.light_energy = 1.4
+	world3d.add_child(back)
+	cam3d = Camera3D.new()
+	cam3d.fov = 30.0
+	cam3d.near = 0.5
+	cam3d.far = 400.0
+	world3d.add_child(cam3d)
+	cam3d.make_current()
+	for f in fighters:
+		var v := FighterView3D.new()
+		world3d.add_child(v)
+		v.setup(f)
+		f.view3d = v
+
+
+func _sync_3d(c: Vector2, zoom: float) -> void:
+	var vs := get_viewport_rect().size
+	var h := vs.y / zoom / FighterView3D.PXU
+	var d := h * 0.5 / tan(deg_to_rad(cam3d.fov) * 0.5)
+	cam3d.position = Vector3(c.x / FighterView3D.PXU, -c.y / FighterView3D.PXU, d)
+	for f in fighters:
+		var off := 0.0
+		if f.intro_t > 0:
+			var u: float = f.intro_t / 70.0
+			off = -u * u * 650.0
+		f.view3d.update_view(off)
+
 
 
 # ------------------------------------------------------------------ pause

@@ -132,7 +132,10 @@ func _card(b: Dictionary) -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# animated fighter
 	var pose := _preview_pose(i, on)
-	UiScreen.draw_fighter(self, i, feet, 1.45, pose, 1.0, a)
+	var did: String = d.id
+	var clip3: String = Portrait3D.SHOWCASE[did] if on else "Combat_Stance"
+	if not draw_portrait("card%d" % i, i, clip3, feet + Vector2(0, 4), 190.0, a):
+		UiScreen.draw_fighter(self, i, feet, 1.45, pose, 1.0, a)
 	# name & title
 	text(d.name, Vector2(r.position.x, r.position.y + 268), 34, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	text(d.title, Vector2(r.position.x, r.position.y + 290), 14, Color(acc.r, acc.g, acc.b, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, false)

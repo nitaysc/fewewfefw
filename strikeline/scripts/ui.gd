@@ -125,6 +125,19 @@ func dim(a: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.02, 0.02, 0.05, a))
 
 
+## Draws a live 3D portrait with its feet at `feet`, about `height` pixels tall.
+## Returns false when the 3D models aren't available (callers fall back to the stickman).
+func draw_portrait(key: String, idx: int, clip: String, feet: Vector2, height: float, alpha := 1.0) -> bool:
+	if not bool(Game.settings.get("models3d", true)):
+		return false
+	var tex := Portrait3D.texture(self, key, idx, clip)
+	if tex == null:
+		return false
+	var s := height / 0.76
+	draw_texture_rect(tex, Rect2(feet - Vector2(s * 0.5, s * 0.913), Vector2(s, s)), false, Color(1, 1, 1, alpha))
+	return true
+
+
 ## Draws a fighter preview at `at` (feet position) with scale `s`.
 static func draw_fighter(ci: CanvasItem, idx: int, at: Vector2, s: float, pose: PackedFloat32Array, facing := 1.0, alpha := 1.0) -> void:
 	var d: Dictionary = Roster.fighter(idx)

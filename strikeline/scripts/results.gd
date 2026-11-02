@@ -61,7 +61,8 @@ func _draw() -> void:
 	var pose := Rig.blend(Roster.pose("guard"), Roster.pose(vp), clampf(t * 2.0, 0.0, 1.0))
 	pose[Rig.LEAN] += sin(t * 2.0) * 0.02
 	pose[Rig.SB] += sin(t * 3.0) * 0.1
-	UiScreen.draw_fighter(self, wf.fighter, c, 2.6, pose, 1.0, 1.0)
+	if not draw_portrait("winner", wf.fighter, Portrait3D.VICTORY[str(d.id)], c + Vector2(0, 10), 330.0):
+		UiScreen.draw_fighter(self, wf.fighter, c, 2.6, pose, 1.0, 1.0)
 	var label := "YOU WIN!" if not wf.cpu else "%s WINS" % d.name
 	var big := 84
 	text_shadow(label, Vector2(vs.x * 0.5 - 40, 120 - (1.0 - e) * 40.0), big, Color(1, 1, 1))

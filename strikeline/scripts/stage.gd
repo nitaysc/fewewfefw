@@ -18,6 +18,7 @@ var rng := RandomNumberGenerator.new()
 var windows: Array = []
 var deco: Array = []
 var frame := 0
+var arena
 var drops: Array = []
 
 
@@ -131,6 +132,19 @@ func _draw() -> void:
 		0: _draw_rooftop()
 		1: _draw_island()
 		_: _draw_line_stage()
+	# soft contact shadows under the 3D fighters
+	if arena != null and arena.use3d:
+		for f in arena.fighters:
+			if not f.visible or f.intro_t > 0:
+				continue
+			var gy: float = ground_below(f.pos)
+			if gy == INF:
+				continue
+			var k := clampf(1.0 - (gy - f.pos.y) / 400.0, 0.2, 1.0)
+			draw_set_transform(Vector2(f.pos.x, gy), 0.0, Vector2(1.0, 0.2))
+			draw_circle(Vector2.ZERO, 34.0 * k * f.scale_k, Color(0, 0, 0, 0.35 * k))
+			draw_circle(Vector2.ZERO, 22.0 * k * f.scale_k, Color(0, 0, 0, 0.25 * k))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 # ----------------------------------------------------------------- neon rooftop

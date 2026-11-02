@@ -12,7 +12,9 @@ an AI. Each project has its own notes:
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `strikeline/README.md`: **Strikeline**, a native Godot 4 stickman platform fighter
-  (smash-style: damage %, launches, ledges, 4 fighters, CPU AI, touch controls).
+  (smash-style: damage %, launches, ledges, 4 fighters, CPU AI, touch controls, online play).
+  Fighters are Meshy-generated 3D models over the 2D simulation; see its README. The Meshy
+  key must come from the environment (MESHY_API_KEY); never commit it.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still

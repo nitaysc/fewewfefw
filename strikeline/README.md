@@ -7,7 +7,7 @@ stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v1.2.N` release on the repo's Releases page.
+newest `strikeline-v1.3.N` release on the repo's Releases page.
 
 ## The game
 
@@ -35,6 +35,25 @@ newest `strikeline-v1.2.N` release on the repo's Releases page.
   aerials by position, edge-guarding, ledge options and recovery with each special.
 - **Audio** (`tools/make_audio.py`): every sound effect and both music loops are
   synthesized with numpy (`python3 tools/make_audio.py` regenerates `sfx/`).
+
+## 3D fighters (`scripts/fighter_view3d.gd`, `scripts/weapons.gd`, `scripts/portrait3d.gd`)
+
+The fighters are 3D models generated with **Meshy** (text to 3D, PBR textures, auto-rig,
+motion-capture clips). Gameplay is still the 2D simulation; each `Fighter` gets a
+`FighterView3D` that follows it and plays the clip for its state or move. Clip time is
+mapped so the clip's measured moment of impact (`assets/meshy/clipinfo.json`, from
+`tools/analyze_clips.gd`) lands on the move's first active hitbox frame. Horizontal root
+motion is stripped from the clips so physics stays in charge (`tools/extract_anims.gd`).
+Tumbling uses the gameplay spin for a ragdoll feel. Weapons are mesh props on the hand bones.
+
+Layering: background and stage are canvas layers below 3D (`Environment.BG_CANVAS`); the 3D
+camera is synced to the 2D camera so models sit exactly on their hitboxes; effects, HUD and
+controls draw on top. The title screen's GRAPHICS chip switches to the classic stickmen.
+
+Regenerating assets: `MESHY_API_KEY=... python3 tools/meshy.py preview|refine|rig|animate <fighters>`
+(task ids in `tools/meshy_tasks.json`), then `godot --headless -s tools/extract_anims.gd` and
+`godot --headless -s tools/analyze_clips.gd`. Only `rigged.glb`, `anims.res` and the textures
+are committed; the per-batch animation GLBs are large and ignored.
 
 ## Online play (`scripts/net.gd`, `scripts/netsync.gd`, `scripts/online.gd`)
 

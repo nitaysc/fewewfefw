@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvg6mcf157hqk"
-path="res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.ctex"
+path.s3tc="res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.s3tc.ctex"
+path.etc2="res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "76964dd8c9222f5f1aed11a3111551c2"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/meshy/sol/rigged_Image_1.jpg"
-dest_files=["res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.ctex"]
+dest_files=["res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.s3tc.ctex", "res://.godot/imported/rigged_Image_1.jpg-434de4ab0c10c9b4603bae43dc43321d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
@@ -33,5 +35,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

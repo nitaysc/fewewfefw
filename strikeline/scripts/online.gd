@@ -220,7 +220,8 @@ func _draw_lobby(vs: Vector2) -> void:
 			draw_rect(Rect2(r.position, Vector2(r.size.x, 5)), col)
 			var pose := Roster.pose("guard").duplicate()
 			pose[Rig.LEAN] += sin(t * 4.0 + i) * 0.03
-			UiScreen.draw_fighter(self, fi, Vector2(x + 128, 330), 1.25, pose, 1.0)
+			if not draw_portrait("slot%d" % i, fi, "Combat_Stance", Vector2(x + 128, 360), 170.0):
+				UiScreen.draw_fighter(self, fi, Vector2(x + 128, 330), 1.25, pose, 1.0)
 			var tag := "YOU" if int(p.peer) == Net.my_id() else ("HOST" if int(p.peer) == 1 else "")
 			text(str(p.name).to_upper(), Vector2(x + 14, 192), 20, Color(1, 1, 1))
 			if tag != "":

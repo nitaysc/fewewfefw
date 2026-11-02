@@ -109,6 +109,7 @@ var pose_vel := PackedFloat32Array()
 var score := 0
 var peer := 0          # online: the player's network id (0 for CPUs)
 var puppet := false    # online guest: state comes from the host's snapshots
+var view3d = null      # FighterView3D when the 3D models are in use
 
 # stats
 var st_kos := 0
@@ -1789,9 +1790,9 @@ func _draw() -> void:
 	if invincible > 0 and (t / 4) % 2 == 0:
 		a *= 0.55
 
-	# ground shadow
+	# ground shadow (in 3D mode the stage draws it under the model)
 	var gy: float = arena.stage.ground_below(pos)
-	if gy < INF and intro_t <= 0:
+	if gy < INF and intro_t <= 0 and view3d == null:
 		var hgt := gy - pos.y
 		var sc := clampf(1.0 - hgt / 400.0, 0.2, 1.0)
 		draw_set_transform(Vector2(0, gy - pos.y), 0.0, Vector2(1.0, 0.22))
@@ -1806,6 +1807,9 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 44.0, 0, TAU, 40, Color(1, 1, 1, 0.8), 3.0, true)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
+	if view3d != null:
+		_draw_overlays_3d(a)
+		return
 	# afterimages
 	for g in ghosts:
 		var gst := style.duplicate()
@@ -1899,6 +1903,35 @@ func _draw() -> void:
 		draw_colored_polygon(tri, tag_color)
 		var font: Font = Game.font_body
 		draw_string(font, top + Vector2(-20, -13), tag_text, HORIZONTAL_ALIGNMENT_CENTER, 40, 15, tag_color)
+
+
+## Overlays drawn over the 3D model: entrance beam, shield, counter, dizzy stars, tag.
+func _draw_overlays_3d(a: float) -> void:
+	var o := root
+	if intro_t > 0:
+		var u := intro_t / 70.0
+		var c: Color = data.accent
+		var intro_off := -u * u * 650.0
+		draw_rect(Rect2(-14, -900, 28, 900 + intro_off), Color(c.r, c.g, c.b, 0.18 * u))
+		draw_rect(Rect2(-4, -900, 8, 900 + intro_off), Color(1, 1, 1, 0.35 * u))
+	var core := Vector2(0, -hh * 0.5)
+	if state == S.SHIELD:
+		var c: Color = data.accent
+		var r := shield_radius() * 1.25
+		draw_circle(core, r, Color(c.r, c.g, c.b, 0.2))
+		draw_arc(core, r, 0, TAU, 48, Color(c.r, c.g, c.b, 0.85), 3.0, true)
+		draw_arc(core, r * 0.82, -2.2, -1.2, 12, Color(1, 1, 1, 0.5), 3.0, true)
+	if counter_on:
+		draw_arc(core, 52.0 + sin(t * 0.8) * 3.0, 0, TAU, 40, Color(1, 1, 1, 0.55), 2.0, true)
+	if state == S.DIZZY:
+		var hc := Vector2(0, -hh - 12)
+		for i in 3:
+			var ang := t * 0.12 + i * TAU / 3.0
+			_star(hc + Vector2(cos(ang) * 20.0, sin(ang) * 6.0), 5.0, Color(1, 0.95, 0.4))
+	if alive() and state != S.DEAD and intro_t <= 0:
+		var top := Vector2(0, -hh - 26)
+		draw_colored_polygon(PackedVector2Array([top + Vector2(-7, -9), top + Vector2(7, -9), top]), tag_color)
+		draw_string(Game.font_body, top + Vector2(-20, -13), tag_text, HORIZONTAL_ALIGNMENT_CENTER, 40, 15, tag_color)
 
 
 func _star(c: Vector2, r: float, col: Color) -> void:

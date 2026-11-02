@@ -97,7 +97,7 @@ jobs:
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: strikeline
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: strikeline
         run: |
-          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.2.${{ github.run_number }}\"/" export_presets.cfg
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"1.3.${{ github.run_number }}\"/" export_presets.cfg
           mkdir -p build
           godot --headless --export-release "Android" build/strikeline.apk
           test -s build/strikeline.apk
@@ -112,8 +112,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "strikeline-v1.2.${{ github.run_number }}" ../strikeline.apk \
+          gh release create "strikeline-v1.3.${{ github.run_number }}" ../strikeline.apk \
             --target "${{ github.sha }}" \
-            --title "Strikeline v1.2.${{ github.run_number }}" \
+            --title "Strikeline v1.3.${{ github.run_number }}" \
             --notes "Download: tap strikeline.apk below. Built from ${{ github.ref_name }}." \
             --latest=false
