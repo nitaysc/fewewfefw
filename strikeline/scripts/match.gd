@@ -57,6 +57,9 @@ var szoom_t := 0
 var szoom_v: Fighter = null
 var szoom_a: Fighter = null
 var szoom_quad: MeshInstance3D
+var cine: Cinematic
+var bg_layer: CanvasLayer
+var stage_layer: CanvasLayer
 
 
 func setup(config: Dictionary) -> void:
@@ -73,6 +76,7 @@ func setup(config: Dictionary) -> void:
 	var bgl := CanvasLayer.new()
 	bgl.layer = -10
 	add_child(bgl)
+	bg_layer = bgl
 	bg = StageBG.new()
 	bg.setup(cfg.stage)
 	bgl.add_child(bg)
@@ -86,6 +90,7 @@ func setup(config: Dictionary) -> void:
 	if use3d:
 		# the stage becomes part of the 3D background so the models stand in front of it
 		var sl := CanvasLayer.new()
+		stage_layer = sl
 		sl.layer = -1
 		sl.follow_viewport_enabled = true
 		add_child(sl)
@@ -294,6 +299,15 @@ func _replay(ev: Array) -> void:
 			if hud: hud.fs_banner(fighters[int(ev[1])])
 		&"hud_sudden":
 			if hud: hud.sudden_death()
+		&"cine":
+			var vs: Array = []
+			for p in ev[2]:
+				vs.append(fighters[int(p)])
+			if cine: cine.start(fighters[int(ev[1])], vs)
+		&"cine_hit":
+			if cine: cine.hit(fighters[int(ev[1])])
+		&"cine_end":
+			if cine: cine.stop()
 		&"szoom":
 			special_zoom(fighters[int(ev[1])], fighters[int(ev[2])])
 		_:
@@ -562,6 +576,11 @@ func final_catch(att: Fighter, r: Rect2) -> void:
 func final_tick(att: Fighter, v: Fighter) -> void:
 	if not is_instance_valid(v) or not v.alive():
 		return
+	if cine and not cine.active and use3d and not demo:
+		start_cine(att)
+	if cine and cine.active:
+		cine.hit(v)
+		net_rec([&"cine_hit", v.port])
 	v.damage += 2.4
 	att.st_dealt += 2.4
 	v.flash = 1.0
@@ -575,7 +594,29 @@ func final_tick(att: Fighter, v: Fighter) -> void:
 	if hud: hud.bump(v.port)
 
 
+## Final Smash cutscene (visual only; synced to online guests as events).
+func start_cine(att: Fighter) -> void:
+	var ports: Array = []
+	for v in att.fs_victims:
+		ports.append(v.port)
+	net_rec([&"cine", att.port, ports])
+	var vs: Array = []
+	for p in ports:
+		vs.append(fighters[p])
+	cine.start(att, vs)
+	for g in fighters:
+		if g != att and not vs.has(g) and g.alive():
+			g.hitlag = maxi(g.hitlag, int(Cinematic.LEN * 60.0) + 10)
+
+
+func end_cine() -> void:
+	if cine and cine.active:
+		net_rec([&"cine_end"])
+		cine.stop()
+
+
 func final_launch(att: Fighter) -> void:
+	end_cine()
 	for v in att.fs_victims:
 		if not is_instance_valid(v) or not v.alive():
 			continue
@@ -790,6 +831,9 @@ func _setup_3d() -> void:
 		world3d.add_child(v)
 		v.setup(f)
 		f.view3d = v
+	cine = Cinematic.new()
+	world3d.add_child(cine)
+	cine.setup(self)
 	szoom_quad = MeshInstance3D.new()
 	var qm := QuadMesh.new()
 	qm.size = Vector2(34, 34)
@@ -820,6 +864,8 @@ func _sync_3d(c: Vector2, zoom: float) -> void:
 	var h := vs.y / zoom / FighterView3D.PXU
 	var d := h * 0.5 / tan(deg_to_rad(cam3d.fov) * 0.5)
 	cam3d.position = Vector3(c.x / FighterView3D.PXU, -c.y / FighterView3D.PXU, d)
+	cam3d.rotation = Vector3.ZERO
+	cam3d.fov = 30.0
 	for f in fighters:
 		var off := 0.0
 		if f.intro_t > 0:
@@ -838,6 +884,8 @@ func _sync_3d(c: Vector2, zoom: float) -> void:
 			szoom_quad.rotation.z = (SZOOM_LEN - szoom_t) * 0.01
 			var m := szoom_quad.material_override as StandardMaterial3D
 			m.albedo_color.a = 0.93 * k
+	if cine and cine.update(get_process_delta_time() / maxf(Engine.time_scale, 0.05), cam3d):
+		pass
 	if stage3d:
 		# haze only the scenery behind the fighters, wherever the camera is
 		var e: Environment = (world3d.get_child(0) as WorldEnvironment).environment

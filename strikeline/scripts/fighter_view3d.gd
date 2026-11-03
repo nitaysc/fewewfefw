@@ -74,6 +74,10 @@ var info: Dictionary = {}
 var accent := Color.WHITE
 var trail: MeshInstance3D
 var trail_pts: Array = []
+var cine_hidden := false
+var yaw := INF        # smoothed facing (degrees)
+var spin_s := 0.0     # smoothed whole-body spin
+var lean := 0.0       # forward lean while running   # Final Smash cutscene: fighters not in it step out of shot
 
 
 static func available() -> bool:
@@ -197,7 +201,7 @@ func _has(c: String) -> bool:
 
 func update_view(intro_off: float) -> void:
 	var S = Fighter.S
-	visible = f.visible and f.state != S.DEAD and f.state != S.OUT
+	visible = f.visible and f.state != S.DEAD and f.state != S.OUT and not cine_hidden
 	if not visible:
 		trail.visible = false
 		return
@@ -207,12 +211,12 @@ func update_view(intro_off: float) -> void:
 	var st: int = f.state
 	match st:
 		S.IDLE, S.RESPAWN, S.SQUAT, S.LAND, S.GETUP:
-			_loop("Combat_Stance", 1.0)
+			_loop("Combat_Stance", 1.0, 0.2)
 		S.RUN:
 			var k := clampf(absf(f.vel.x) / float(f.data.run), 0.45, 1.25)
-			_loop(RUN_CLIP if _has(RUN_CLIP) else "Running", k * 0.95, 0.12)
+			_loop(RUN_CLIP if _has(RUN_CLIP) else "Running", k * 0.95, 0.18)
 		S.CROUCH:
-			_play("Cautious_Crouch_Walk_Forward", 0.15, 0.1)
+			_play("Cautious_Crouch_Walk_Forward", 0.15, 0.16)
 		S.AIR, S.HELPLESS:
 			if f.flip_t > 0:
 				# double jump: a real backflip, timed to the jump
@@ -220,9 +224,9 @@ func update_view(intro_off: float) -> void:
 				_play("Backflip", L * (0.22 + 0.5 * (1.0 - f.flip_t / 22.0)), 0.05)
 			elif f.vel.y < -2.0:
 				var L2: float = _cinfo("Regular_Jump").len
-				_play("Regular_Jump", L2 * clampf(0.35 + f.sframe / 60.0 * 0.6, 0.35, 0.55), 0.1)
+				_play("Regular_Jump", L2 * clampf(0.35 + f.sframe / 60.0 * 0.6, 0.35, 0.55), 0.14)
 			else:
-				_loop(FALL_CLIP if _has(FALL_CLIP) else "Fall1", 0.8, 0.22)
+				_loop(FALL_CLIP if _has(FALL_CLIP) else "Fall1", 0.8, 0.3)
 		S.AIRDODGE:
 			_play("Stand_Dodge", clampf(f.sframe / 60.0 * 1.6, 0.0, 1.2), 0.06)
 		S.ATTACK:
@@ -263,8 +267,23 @@ func update_view(intro_off: float) -> void:
 	position = feet + Vector3(shake.x / PXU, -shake.y / PXU, 0)
 	pivot.position = Vector3(0, 0.95, 0)
 	model.position = Vector3(0, -0.95, 0)
-	pivot.rotation = Vector3(0, 0, spin)
-	model.rotation_degrees = Vector3(0, TURN * turn, 0)
+	# smooth turnarounds and recoveries instead of snapping between poses
+	var dt := get_process_delta_time()
+	var target_yaw := TURN * turn
+	if yaw == INF or st == S.RESPAWN:
+		yaw = target_yaw
+	yaw = lerpf(yaw, target_yaw, 1.0 - exp(-dt * 24.0))
+	if st == S.HITSTUN and f.tumble:
+		spin_s = spin
+	else:
+		spin_s = lerp_angle(spin_s, 0.0, 1.0 - exp(-dt * 14.0))
+	var want_lean := 0.0
+	if st == S.RUN:
+		want_lean = clampf(absf(f.vel.x) / float(f.data.run), 0.0, 1.2) * 7.0
+	lean = lerpf(lean, want_lean, 1.0 - exp(-dt * 10.0))
+	pivot.rotation = Vector3(0, 0, spin_s)
+	model.rotation_degrees = Vector3(0, yaw, 0)
+	model.rotate_object_local(Vector3.RIGHT, deg_to_rad(lean))
 	var sq := clampf(float(f.squash), -1.0, 1.0)
 	model.scale = Vector3(1.0 + sq * 0.12, 1.0 - sq * 0.12, 1.0 + sq * 0.12)
 

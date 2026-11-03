@@ -41,6 +41,14 @@ func fs_banner(f: Fighter) -> void:
 	banner = {"name": f.data.name, "move": names.get(f.data.id, "FINAL STRIKE"), "c": f.data.accent, "t": 0.0}
 
 
+var cine_card: Dictionary = {}
+
+
+func cine_title(f: Fighter) -> void:
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER"}
+	cine_card = {"move": names.get(f.data.id, "FINAL STRIKE"), "name": f.data.name, "c": f.data.accent, "t": 0.0}
+
+
 func sudden_death() -> void:
 	arena.net_rec([&"hud_sudden"])
 	sudden_t = 0.0
@@ -64,6 +72,10 @@ func _process(delta: float) -> void:
 			banner = {}
 	if sudden_t >= 0.0:
 		sudden_t += rd
+	if not cine_card.is_empty():
+		cine_card.t += rd
+		if not (arena.cine and arena.cine.active) and cine_card.t > 0.3:
+			cine_card = {}
 	queue_redraw()
 
 
@@ -162,6 +174,7 @@ func _draw() -> void:
 
 	_draw_bubbles(vs)
 	_draw_szoom(vs)
+	_draw_cine(vs)
 
 	# countdown
 	if arena.countdown > 0:
@@ -300,6 +313,35 @@ func _draw_bubbles(vs: Vector2) -> void:
 		var dmg := "%d%%" % int(round(f.damage))
 		var fb: Font = Game.font_display
 		draw_string(fb, bp + Vector2(-r, r + 2), dmg, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 15, dmg_color(f.damage))
+
+
+## Final Smash cutscene: cinematic bars and the move's title card.
+func _draw_cine(vs: Vector2) -> void:
+	if cine_card.is_empty() or arena.cine == null or not arena.cine.active:
+		return
+	var u: float = cine_card.t
+	var bar := vs.y * 0.12 * minf(1.0, u * 6.0)
+	draw_rect(Rect2(0, 0, vs.x, bar), Color(0, 0, 0))
+	draw_rect(Rect2(0, vs.y - bar, vs.x, bar), Color(0, 0, 0))
+	var c: Color = cine_card.c
+	draw_rect(Rect2(0, bar - 3, vs.x, 3), Color(c, 0.9))
+	draw_rect(Rect2(0, vs.y - bar, vs.x, 3), Color(c, 0.9))
+	# title card slams in during the wide shot
+	var k := clampf((u - 0.55) * 5.0, 0.0, 1.0) * clampf((1.45 - u) * 5.0, 0.0, 1.0)
+	if k <= 0.0:
+		return
+	var fd: Font = Game.font_display
+	var fb: Font = Game.font_body
+	var sc := 1.0 + (1.0 - minf(1.0, (u - 0.55) * 5.0)) * 0.6
+	var size := int(84 * sc)
+	var txt: String = cine_card.move
+	var tw := fd.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var p := Vector2(vs.x * 0.5 - tw * 0.5, vs.y - bar - 40)
+	var sl := PackedVector2Array([Vector2(p.x - 60, p.y - size * 0.85), Vector2(p.x + tw + 80, p.y - size * 0.85), Vector2(p.x + tw + 40, p.y + 22), Vector2(p.x - 100, p.y + 22)])
+	draw_colored_polygon(sl, Color(0, 0, 0, 0.55 * k))
+	draw_string(fb, Vector2(p.x, p.y - size * 0.82 + 4), cine_card.name + "'S FINAL SMASH", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(c, k))
+	draw_string_outline(fd, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 10, Color(c.darkened(0.6), k))
+	draw_string(fd, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, k))
 
 
 ## KO special zoom: letterbox bars and speed lines over the frozen moment.

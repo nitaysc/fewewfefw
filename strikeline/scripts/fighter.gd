@@ -1040,6 +1040,9 @@ func _st_grabbed() -> void:
 
 
 # ------------------------------------------------------------------ final smash
+const FS_END := 220   # launch frame; the hit phase in between is the cutscene
+
+
 func _final_logic(f: float) -> void:
 	intangible = maxi(intangible, 2)
 	if _crossed(1):
@@ -1065,6 +1068,7 @@ func _final_logic(f: float) -> void:
 			else:
 				vel = Vector2.ZERO
 		"bruno":
+			drop_timer = maxi(drop_timer, 2)   # crash through thin platforms to the ground
 			if _crossed(64):
 				vel = Vector2(facing * 4.0, -21.0)
 				grounded = false
@@ -1094,11 +1098,15 @@ func _final_logic(f: float) -> void:
 				arena.final_catch(self, Rect2(minf(x0, x1), pos.y - 230, absf(x1 - x0), 300))
 				if int(f) % 6 == 0:
 					arena.fx.beam(joint_world(Rig.J_WT), Vector2(facing, 0), data.accent)
-	# phase B: rapid hits on everyone caught
-	if f >= 76 and f < 140 and int(f) % 6 == 0:
+	# phase B: hits on everyone caught (the cutscene plays over it); a miss ends early
+	if f >= 122 and fs_victims.is_empty() and f < FS_END - 24:
+		mf_prev = FS_END - 25
+		mf = FS_END - 24
+		return
+	if f >= 76 and f < FS_END - 4 and int(f) % 12 == 0:
 		for v in fs_victims:
 			arena.final_tick(self, v)
-	if _crossed(140):
+	if _crossed(FS_END):
 		arena.final_launch(self)
 		if has_meta("fs_slam"):
 			remove_meta("fs_slam")
@@ -1563,8 +1571,8 @@ func _land(pi: int, motion: Vector2) -> void:
 				land_lag = 12
 				_set_state(S.LAND)
 				_sfx("land", -8)
-			elif mv.get("special", false) and lg in ["flash_step", "rush", "lance", "shadow"]:
-				pass  # keep sliding on the ground
+			elif mv.get("special", false) and lg in ["flash_step", "rush", "lance", "shadow", "final"]:
+				pass  # keep going on the ground (a Final Smash never ends on landing)
 			else:
 				mv = {}
 				land_lag = 6

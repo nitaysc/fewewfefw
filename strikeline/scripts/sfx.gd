@@ -1,5 +1,6 @@
 extends Node
-## Autoload "Sfx": a small pool of players for the synthesized sound effects.
+## Autoload "Sfx": a small pool of players for the sound effects (CC0 recordings, see
+## tools/build_sfx.py). A name can have variants (hit_m, hit_m_2, ...) picked at random.
 
 const NAMES := ["hit_l", "hit_m", "hit_h", "hit_crit", "swing_l", "swing_m", "swing_h", "jump", "djump",
 	"land", "land_heavy", "shield_up", "shield_hit", "shield_break", "dodge", "ledge", "ko", "beep", "go",
@@ -16,9 +17,13 @@ var recorder := Callable()  # set by the host of an online match
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for n in NAMES:
-		var p := "res://sfx/%s.wav" % n
-		if ResourceLoader.exists(p):
-			streams[n] = load(p)
+		var list: Array = []
+		for k in range(1, 6):
+			var p := "res://sfx/%s.wav" % n if k == 1 else "res://sfx/%s_%d.wav" % [n, k]
+			if ResourceLoader.exists(p):
+				list.append(load(p))
+		if not list.is_empty():
+			streams[n] = list
 	for i in 14:
 		var a := AudioStreamPlayer.new()
 		add_child(a)
@@ -39,7 +44,8 @@ func play(n: String, vol := 0.0, pitch_var := 0.07) -> void:
 	if a == null:
 		a = players[next]
 	next = (next + 1) % players.size()
-	a.stream = streams[n]
+	var list: Array = streams[n]
+	a.stream = list[randi() % list.size()]
 	a.volume_db = vol
 	a.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
 	a.play()

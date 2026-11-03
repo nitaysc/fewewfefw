@@ -1,0 +1,9 @@
+Sound effects are built by tools/build_sfx.py from CC0 (public domain) recordings on OpenGameArt.org:
+- "37 hits/punches" (independent.nu ljudbank)
+- "Swishes Sound Pack"
+- "10 Impact/Shield Blocks" (starninjas)
+- "100 CC0 SFX"
+- "25 CC0 bang / firework SFX"
+- "RPG Sound Pack"
+- "Interface Sounds" (Kenney)
+The charge sound and the music are synthesized.

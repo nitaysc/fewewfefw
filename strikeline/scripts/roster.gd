@@ -327,7 +327,7 @@ static func _build() -> void:
 			{"f": [5, 10], "j": "fb", "r": 14, "d": 7, "b": 7, "g": 5, "a": 30, "radial": true}], "sfx": [[4, "swing_m"]], "trail": [4, 11, "ff"]}
 	# ---- final smash ----
 	var fs_c := P.call([-0.2, -0.35, 2.7, 0.3, 2.5, 0.3, 0.5, 0.6, -0.5, 0.5, 0, 0, 0.3])
-	m.final = {"anim": [[0, g], [20, fs_c, E_OUT], [58, fs_c], [64, dsl_s, E_OUT], [150, dsl_s], [170, g]], "len": 170,
+	m.final = {"anim": [[0, g], [20, fs_c, E_OUT], [58, fs_c], [64, dsl_s, E_OUT], [230, dsl_s], [250, g]], "len": 250,
 		"logic": "final", "special": true}
 
 	# victory poses
