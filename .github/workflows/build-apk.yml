@@ -9,6 +9,10 @@ on:
       - '.github/workflows/build-redeclipse.yml'
       - 'whiskers-coffee/**'
       - '.github/workflows/build-whiskers.yml'
+      - 'breach-point/**'
+      - '.github/workflows/build-breach-point.yml'
+      - 'research_notes/**'
+      - 'reports/**'
   workflow_dispatch:
 
 permissions:
