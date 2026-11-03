@@ -2,9 +2,9 @@ extends SceneTree
 ## Pulls the animation clips out of Meshy's per-batch GLBs (each one repeats the whole
 ## character mesh) into one small AnimationLibrary per fighter: assets/meshy/<id>/anims.res
 func _initialize() -> void:
-	for id in ["kai", "bruno", "nyx", "sol"]:
+	for id in FighterView3D.MODEL_DIRS.values():
 		var lib := AnimationLibrary.new()
-		for f in ["anim_common", "anim_common2", "anim_" + id, "anim_run"]:
+		for f in ["anim_common", "anim_common2", "anim_" + id.get_slice("_", 0), "anim_move", "anim_run"]:
 			var path := "res://assets/meshy/%s/%s.glb" % [id, f]
 			if not ResourceLoader.exists(path):
 				continue

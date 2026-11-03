@@ -75,7 +75,7 @@ func setup(config: Dictionary) -> void:
 	stage = Stage.new()
 	stage.setup(cfg.stage)
 	stage.arena = self
-	use3d = FighterView3D.available() and bool(Game.settings.get("models3d", true))
+	use3d = FighterView3D.available()
 	if use3d:
 		# the stage becomes part of the 3D background so the models stand in front of it
 		var sl := CanvasLayer.new()

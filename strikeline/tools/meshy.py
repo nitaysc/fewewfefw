@@ -26,6 +26,11 @@ STYLE = ("Stylized 3D fighting game hero in the style of a modern Nintendo platf
          "standing in A-pose, empty open hands holding nothing, clean readable silhouette, bold colors, "
          "high quality game-ready character, smooth hand-painted PBR materials.")
 
+STYLE_ARMED = ("Stylized 3D fighting game hero in the style of a modern Nintendo platform fighter, full body, "
+               "standing upright facing forward, arms held slightly away from the body, clean readable silhouette, bold colors, high quality game-ready character, "
+               "smooth hand-painted PBR materials. The weapon is firmly gripped in a closed fist, fingers wrapped "
+               "around the handle, held out to the side away from the body and legs.")
+
 FIGHTERS = {
     "kai": "Young heroic ronin samurai. Crimson and black samurai armor with layered shoulder pads, chest "
            "plate and armored skirt over a dark fitted suit, long flowing red scarf, red headband, spiky black "
@@ -38,6 +43,16 @@ FIGHTERS = {
            "and shins.",
     "sol": "Young storm mage. Long flowing cyan and white robes with gold trim, short hooded cloak, glowing "
            "cyan rune patterns on the sleeves, silver hair, calm focused face, sandals.",
+    # armed versions: the weapon is part of the model, gripped in the hand
+    "kai_w": "Samurai warrior HOLDING A DRAWN KATANA SWORD IN HIS RIGHT HAND, closed fist around the hilt, blade "
+             "pointing down and out to the side. Young heroic ronin in crimson and black samurai armor with layered "
+             "shoulder pads and armored skirt, long red scarf, red headband, spiky black hair, determined face.",
+    "nyx_w": "Female ninja HOLDING A SHORT KUNAI DAGGER IN EACH HAND, closed fists around the handles, blades "
+             "pointing down. Agile shadow ninja with slim athletic build, purple and black stealth suit with violet "
+             "armor accents, hooded ninja mask with glowing violet eyes, long purple scarf.",
+    "sol_w": "Mage HOLDING A LONG STAFF IN HIS RIGHT HAND, closed fist around the shaft, the staff topped with a "
+             "glowing cyan orb inside a gold crescent. Young storm mage in long flowing cyan and white robes with "
+             "gold trim, short hooded cloak, glowing cyan runes on the sleeves, silver hair, calm focused face.",
 }
 
 # Meshy animation library ids (https://api.meshy.ai/web/public/animations/resources)
@@ -48,7 +63,13 @@ ANIMS = {
     "bruno": [193, 194, 214, 206, 211, 127, 198, 88],
     "nyx": [216, 218, 208, 91, 93, 212, 217, 90],
     "sol": [125, 126, 129, 130, 131, 132, 127, 142],
+    # movement: backflip (double jump), jump, falling, ledge hang, crouch, victory, jump with arms open
+    "move": [452, 466, 502, 478, 524, 412, 461],
 }
+
+
+def base(n: str) -> str:
+    return n.split("_")[0]
 
 
 def key() -> str:
@@ -109,8 +130,8 @@ def download(url: str, dest: str) -> None:
 def preview(names):
     s = load_state()
     for n in names:
-        body = {"mode": "preview", "prompt": (STYLE + " " + FIGHTERS[n])[:800], "ai_model": "meshy-7.1",
-                "pose_mode": "a-pose", "target_formats": ["glb"], "should_remesh": True, "topology": "triangle",
+        body = {"mode": "preview", "prompt": ((FIGHTERS[n] + " " + STYLE_ARMED) if n.endswith("_w") else (STYLE + " " + FIGHTERS[n]))[:800], "ai_model": "meshy-7.1",
+                "pose_mode": "" if n.endswith("_w") else "a-pose", "target_formats": ["glb"], "should_remesh": True, "topology": "triangle",
                 "target_polycount": 40000}
         r = req("POST", "/v2/text-to-3d", body)
         s.setdefault(n, {})["preview"] = r["result"]
@@ -140,7 +161,7 @@ def refine(names):
 def rig(names):
     s = load_state()
     for n in names:
-        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": 1.75 if n != "bruno" else 1.95})
+        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": 1.75 if base(n) != "bruno" else 1.95})
         s[n]["rig"] = r["result"]
         save_state(s)
         print(n, "rig task", r["result"])
@@ -168,7 +189,7 @@ def animate(names):
                     download(t["result"]["animation_glb_url"], dest)
                 else:
                     print(json.dumps(t.get("task_error"), indent=1))
-        pending = [(n, g) for n in names for g in ("common", "common2", n) if g not in s[n]["anims"]]
+        pending = [(n, g) for n in names for g in ("common", "common2", base(n), "move") if g not in s[n]["anims"]]
         if not pending:
             break
         for n, group in pending[:8]:
@@ -187,6 +208,16 @@ def animate(names):
                 download(ba["running_glb_url"], dest)
 
 
+def anim_test(names):
+    """One quick clip (3 credits) to check how a new rig deforms: anim_test <name> <action_id>."""
+    s = load_state()
+    n, aid = names[0], int(names[1])
+    r = req("POST", "/v1/animations", {"rig_task_id": s[n]["rig"], "action_id": aid})
+    t = wait("/v1/animations/" + r["result"], label=f"{n} test {aid}")
+    if t["status"] == "SUCCEEDED":
+        download(t["result"]["animation_glb_url"], os.path.join(OUT, n, f"test_{aid}.glb"))
+
+
 def status():
     print(json.dumps(load_state(), indent=1))
     print(req("GET", "/v1/balance"))
@@ -195,4 +226,4 @@ def status():
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     names = sys.argv[2:] or list(FIGHTERS)
-    {"preview": preview, "refine": refine, "rig": rig, "animate": animate, "status": lambda _=None: status()}[cmd](names)
+    {"preview": preview, "refine": refine, "rig": rig, "animate": animate, "anim_test": anim_test, "status": lambda _=None: status()}[cmd](names)

@@ -7,6 +7,8 @@ extends Node3D
 const PXU := 48.0          # game pixels per metre
 const TURN := 62.0         # how far fighters turn toward the camera (degrees)
 const ROOT := "res://assets/meshy/%s/"
+## Which Meshy model each fighter uses (the "_w" models hold their weapons in a closed fist).
+const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w"}
 
 static var _scenes := {}
 static var _libs := {}
@@ -71,14 +73,15 @@ var trail_pts: Array = []
 
 
 static func available() -> bool:
-	return ResourceLoader.exists(ROOT % "kai" + "rigged.glb")
+	return ResourceLoader.exists(ROOT % MODEL_DIRS.kai + "rigged.glb")
 
 
 static func _load(fid: String) -> void:
 	if _scenes.has(fid):
 		return
-	_scenes[fid] = load(ROOT % fid + "rigged.glb")
-	_libs[fid] = load(ROOT % fid + "anims.res")
+	var dir: String = MODEL_DIRS.get(fid, fid)
+	_scenes[fid] = load(ROOT % dir + "rigged.glb")
+	_libs[fid] = load(ROOT % dir + "anims.res")
 	if _info.is_empty() and FileAccess.file_exists("res://assets/meshy/clipinfo.json"):
 		_info = JSON.parse_string(FileAccess.get_file_as_string("res://assets/meshy/clipinfo.json"))
 
@@ -88,7 +91,7 @@ func setup(fighter) -> void:
 	id = f.data.id
 	accent = f.data.accent
 	_load(id)
-	info = _info.get(id, {})
+	info = _info.get(MODEL_DIRS.get(id, id), {})
 	pivot = Node3D.new()
 	add_child(pivot)
 	model = (_scenes[id] as PackedScene).instantiate() as Node3D
@@ -102,11 +105,11 @@ func setup(fighter) -> void:
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		meshes.append(mi)
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		WeaponSkin.apply(MODEL_DIRS.get(id, id), mi)
 	overlay = StandardMaterial3D.new()
 	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	overlay.albedo_color = Color(1, 1, 1, 0)
-	Weapons.attach(model, f.data.weapon, accent)
 	# personal rim light in the fighter's colour, Smash-style
 	var rim := OmniLight3D.new()
 	rim.light_color = accent
@@ -201,12 +204,19 @@ func update_view(intro_off: float) -> void:
 			var k := clampf(absf(f.vel.x) / float(f.data.run), 0.35, 1.3)
 			_loop("Running", k * 1.1, 0.1)
 		S.CROUCH:
-			_play("Stand_Dodge", _cinfo("Stand_Dodge").impact, 0.1)
-		S.AIR, S.HELPLESS, S.AIRDODGE:
-			var u := clampf((f.vel.y + 14.0) / 28.0, 0.0, 1.0)
-			_play("Basic_Jump", lerpf(1.55, 2.7, u), 0.12)
-			if st == S.AIRDODGE:
-				_play("Stand_Dodge", 0.3, 0.06)
+			_play("Cautious_Crouch_Walk_Forward", 0.15, 0.1)
+		S.AIR, S.HELPLESS:
+			if f.flip_t > 0:
+				# double jump: a real backflip, timed to the jump
+				var L: float = _cinfo("Backflip").len
+				_play("Backflip", L * (0.22 + 0.5 * (1.0 - f.flip_t / 22.0)), 0.05)
+			elif f.vel.y < -2.0:
+				var L2: float = _cinfo("Regular_Jump").len
+				_play("Regular_Jump", L2 * clampf(0.35 + f.sframe / 60.0 * 0.6, 0.35, 0.55), 0.1)
+			else:
+				_loop("Fall1", 1.0, 0.18)
+		S.AIRDODGE:
+			_play("Stand_Dodge", clampf(f.sframe / 60.0 * 1.6, 0.0, 1.2), 0.06)
 		S.ATTACK:
 			var mid: String = f.mv.get("id", "")
 			var c := _clip_for_move(mid)
@@ -226,8 +236,10 @@ func update_view(intro_off: float) -> void:
 			_play("Roll_Dodge", clampf(0.3 + f.sframe / 60.0 * 2.2, 0.3, 1.8), 0.05)
 		S.SPOT:
 			_play("Stand_Dodge", clampf(f.sframe / 60.0 * 1.6, 0.0, 1.3), 0.05)
-		S.LEDGE, S.CLIMB:
-			_play("Basic_Jump", 1.7, 0.1)
+		S.LEDGE:
+			_loop("Bar_Hang_Idle", 1.0, 0.1)
+		S.CLIMB:
+			_play("Regular_Jump", _cinfo("Regular_Jump").len * clampf(0.3 + f.sframe / 20.0 * 0.4, 0.3, 0.7), 0.08)
 		S.DIZZY, S.GRABBED:
 			_loop("Hit_Reaction", 0.7)
 		S.GRABBING:
@@ -236,9 +248,8 @@ func update_view(intro_off: float) -> void:
 			_loop("Combat_Stance", 1.0)
 
 	# whole-body rotation from the gameplay pose: flips, spins and tumbling
-	spin = -float(f.cur[Rig.ROT]) * face
-	if st == S.ROLL:
-		spin = 0.0
+	if st == S.HITSTUN and f.tumble:
+		spin = -float(f.cur[Rig.ROT]) * face
 	var feet := Vector3(f.pos.x / PXU, -(f.pos.y + intro_off) / PXU, 0.0)
 	var shake: Vector2 = f.shake
 	position = feet + Vector3(shake.x / PXU, -shake.y / PXU, 0)
@@ -287,8 +298,11 @@ func _update_trail(active: bool) -> void:
 		var limb: String = ci.get("limb", "RightHand")
 		if limb == "":
 			limb = "RightHand"
-		var tip := Weapons.tip(model, limb)
 		var base := sk.global_transform * sk.get_bone_global_pose(sk.find_bone(limb)).origin
+		var tip := Vector3.INF
+		var wt := WeaponSkin.tip(MODEL_DIRS.get(id, id), limb)
+		if wt != Vector3.INF:
+			tip = sk.global_transform * (sk.get_bone_global_pose(sk.find_bone(limb)) * wt)
 		if tip == Vector3.INF:
 			tip = base
 			var par := sk.get_bone_parent(sk.find_bone(limb))

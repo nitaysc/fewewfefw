@@ -3,7 +3,7 @@ extends SubViewport
 ## A live 3D render of one fighter for menus (select cards, lobby, results).
 ## Each portrait is its own little lit world rendered to a transparent texture.
 
-const VICTORY := {"kai": "Combat_Stance", "bruno": "Chest_Pound_Taunt", "nyx": "Combat_Stance", "sol": "Charged_Spell_Cast_1"}
+const VICTORY := {"kai": "victory", "bruno": "Chest_Pound_Taunt", "nyx": "victory", "sol": "victory"}
 const SHOWCASE := {"kai": "Charged_Slash", "bruno": "Right_Uppercut_from_Guard", "nyx": "Lunge_Spin_Kick", "sol": "Charged_Spell_Cast"}
 
 var idx := -1
@@ -11,10 +11,11 @@ var clip := ""
 var model: Node3D
 var ap: AnimationPlayer
 var cam: Camera3D
+var head_shot := false
 
 
 ## Returns (and creates on first use) the portrait texture `key` living under `owner`.
-static func texture(owner: Node, key: String, fighter_idx: int, clip_name: String, px := 512) -> Texture2D:
+static func texture(owner: Node, key: String, fighter_idx: int, clip_name: String, px := 512, head := false) -> Texture2D:
 	if not FighterView3D.available():
 		return null
 	var p: Portrait3D = owner.get_node_or_null(NodePath("pt_" + key))
@@ -26,6 +27,7 @@ static func texture(owner: Node, key: String, fighter_idx: int, clip_name: Strin
 		p.own_world_3d = true
 		p.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		owner.add_child(p)
+		p.head_shot = head
 		p._build_world()
 	p.show_fighter(fighter_idx, clip_name)
 	return p.get_texture()
@@ -75,14 +77,20 @@ func show_fighter(fighter_idx: int, clip_name: String) -> void:
 			model.add_child(ap)
 		ap.add_animation_library("m", FighterView3D._libs[id])
 		ap.animation_finished.connect(func(_n): if clip != "": ap.play("m/" + clip))
-		Weapons.attach(model, d.weapon, d.accent)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			WeaponSkin.apply(FighterView3D.MODEL_DIRS.get(id, id), mi)
 		var accent := OmniLight3D.new()
 		accent.light_color = d.accent
 		accent.light_energy = 2.0
 		accent.omni_range = 3.0
 		accent.position = Vector3(-0.8, 1.6, -1.0)
 		model.add_child(accent)
-		if id == "bruno":
+		var tall := 1.11 if id == "bruno" else 1.0
+		if head_shot:
+			model.rotation_degrees = Vector3(0, 20, 0)
+			cam.position = Vector3(0, 1.56 * tall, 1.25)
+			cam.look_at(Vector3(0, 1.53 * tall, 0))
+		elif id == "bruno":
 			cam.position = Vector3(0, 1.05, 4.7)
 		else:
 			cam.position = Vector3(0, 0.98, 4.3)

@@ -5,7 +5,7 @@ const LIMBS := ["RightHand", "LeftHand", "RightFoot", "LeftFoot"]
 
 func _initialize() -> void:
 	var info := {}
-	for id in ["kai", "bruno", "nyx", "sol"]:
+	for id in FighterView3D.MODEL_DIRS.values():
 		var inst := (load("res://assets/meshy/%s/rigged.glb" % id) as PackedScene).instantiate() as Node3D
 		root.add_child(inst)
 		var ap := AnimationPlayer.new()

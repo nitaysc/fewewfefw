@@ -7,7 +7,7 @@ stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v1.3.N` release on the repo's Releases page.
+newest `strikeline-v1.4.N` release on the repo's Releases page.
 
 ## The game
 
@@ -44,7 +44,10 @@ motion-capture clips). Gameplay is still the 2D simulation; each `Fighter` gets 
 mapped so the clip's measured moment of impact (`assets/meshy/clipinfo.json`, from
 `tools/analyze_clips.gd`) lands on the move's first active hitbox frame. Horizontal root
 motion is stripped from the clips so physics stays in charge (`tools/extract_anims.gd`).
-Tumbling uses the gameplay spin for a ragdoll feel. Weapons are mesh props on the hand bones.
+Tumbling uses the gameplay spin for a ragdoll feel. Kai, Nyx and Sol were generated holding
+their weapons in a closed fist (`*_w` models); `scripts/weapon_skin.gd` re-binds each weapon's
+vertices rigidly to the hand (Meshy's auto-rig spreads them over nearby bones) and cuts the few
+triangles welding a weapon to the body. The double jump is a motion-captured backflip.
 
 Layering: background and stage are canvas layers below 3D (`Environment.BG_CANVAS`); the 3D
 camera is synced to the 2D camera so models sit exactly on their hitboxes; effects, HUD and

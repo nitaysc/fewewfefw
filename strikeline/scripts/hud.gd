@@ -104,10 +104,10 @@ func _draw() -> void:
 		var pc := Vector2(x + 46, y + 42)
 		draw_circle(pc, 27, Color(acc.r, acc.g, acc.b, 0.25 * a))
 		draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
-		draw_circle(pc + Vector2(0, -3), 11, Color(f.data.body.r, f.data.body.g, f.data.body.b, a))
-		draw_arc(pc + Vector2(0, -3), 11, 0, TAU, 24, Color(acc.r, acc.g, acc.b, a), 2.0, true)
-		draw_line(pc + Vector2(-1, -5), pc + Vector2(8, -5), Color(1, 1, 1, a), 3.0, true)
-		draw_line(pc + Vector2(0, 8), pc + Vector2(0, 22), Color(acc.r, acc.g, acc.b, a), 4.0, true)
+		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true)
+		if head != null:
+			draw_texture_rect(head, Rect2(pc - Vector2(30, 30), Vector2(60, 60)), false, Color(1, 1, 1, a))
+			draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
 		# name
 		draw_string(fb, Vector2(x + 80, y + 24), f.data.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.85 * a))
 		var tag := "CPU %d" % f.brain.level if f.is_cpu else "P%d" % (i + 1)

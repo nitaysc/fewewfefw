@@ -14,7 +14,6 @@ func layout() -> void:
 	var y := vs.y * 0.56
 	add_btn("fight", Rect2(x, y, 340, 78), "FIGHT", "primary")
 	add_btn("online", Rect2(x - 120, y + 94, 180, 56), "ONLINE", "gold")
-	add_btn("gfx", Rect2(vs.x - 230, 24, 200, 56), "GRAPHICS", "chip", "3D MODELS" if Game.settings.get("models3d", true) else "CLASSIC")
 	add_btn("training", Rect2(x + 72, y + 94, 180, 56), "TRAINING", "secondary")
 	add_btn("help", Rect2(x + 264, y + 94, 180, 56), "HOW TO PLAY", "secondary")
 
@@ -30,10 +29,6 @@ func on_button(id: String) -> void:
 			main.show_select("training")
 		"online":
 			main.show_online()
-		"gfx":
-			Game.settings.models3d = not Game.settings.get("models3d", true)
-			Game.save()
-			main.show_title()
 		"help":
 			help = true
 		"close", "back":
@@ -72,9 +67,9 @@ func _draw() -> void:
 	if gx > 0.0 and gx < 1.0:
 		var gxx := p.x + tw * gx
 		draw_colored_polygon(PackedVector2Array([Vector2(gxx, ly - 70), Vector2(gxx + 22, ly - 70), Vector2(gxx - 8, ly + 48), Vector2(gxx - 30, ly + 48)]), Color(1, 1, 1, 0.22))
-	text("STICK  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
+	text("PLATFORM  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
 	draw_buttons()
-	text("v1.3  ·  3D fighters  ·  online  ·  3 stages  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
+	text("v1.4  ·  3D fighters  ·  online  ·  3 stages  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
 
 
 func _draw_help(vs: Vector2) -> void:
