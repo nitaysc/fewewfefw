@@ -218,6 +218,9 @@ func hit_core(by: Fighter, dmg: float, dir: Vector2) -> void:
 
 # ---------------------------------------------------------------- drawing
 func _draw() -> void:
+	if arena.stage3d != null:
+		_draw_glows()
+		return
 	for it in list:
 		var p: Vector2 = it.p
 		match it.kind:
@@ -253,3 +256,32 @@ func _draw() -> void:
 		for k in 4:
 			var a: float = core.t * 0.05 + k * TAU / 4.0
 			draw_circle(c + Vector2(cos(a), sin(a)) * 34.0 * pulse, 2.5, Color(1, 1, 1, 0.8))
+
+
+## With 3D item models: only the glowing bits on top (fuse spark, danger blink, core aura).
+func _draw_glows() -> void:
+	var gt: Texture2D = FX.tex_glow
+	for it in list:
+		var p: Vector2 = it.p
+		match it.kind:
+			"bomb":
+				var blink: bool = it.get("armed", false) or (it.t > 700 and (it.t / 6) % 2 == 0)
+				if blink:
+					draw_texture_rect(gt, Rect2(p - Vector2(30, 34), Vector2(60, 60)), false, Color(1, 0.2, 0.15, 0.55))
+				var sp := p + Vector2(4, -22)
+				var fl := 9.0 + sin(t * 0.8) * 3.0
+				draw_texture_rect(gt, Rect2(sp - Vector2(fl, fl), Vector2(fl, fl) * 2.0), false, Color(1, 0.7, 0.25, 0.9))
+				draw_circle(sp, 2.0, Color(1, 1, 0.8))
+			"food":
+				var r := 30.0 + sin(t * 0.1) * 3.0
+				draw_texture_rect(gt, Rect2(p - Vector2(r, r + 10), Vector2(r, r) * 2.0), false, Color(0.4, 1.0, 0.5, 0.22))
+	if not core.is_empty():
+		var c: Vector2 = core.p
+		var pulse := 1.0 + 0.1 * sin(core.t * 0.2)
+		var hue := fmod(core.t * 0.01, 1.0)
+		var r := 70.0 * pulse
+		draw_texture_rect(gt, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color.from_hsv(hue, 0.5, 1.0, 0.3 + core.flash * 0.5))
+		for k in 4:
+			var a: float = core.t * 0.05 + k * TAU / 4.0
+			var q := c + Vector2(cos(a), sin(a)) * 40.0 * pulse
+			draw_texture_rect(gt, Rect2(q - Vector2(7, 7), Vector2(14, 14)), false, Color(1, 0.9, 0.6, 0.9))

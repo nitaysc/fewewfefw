@@ -50,6 +50,7 @@ var menu_open := false
 var use3d := false
 var world3d: Node3D
 var cam3d: Camera3D
+var stage3d: Stage3D
 
 
 func setup(config: Dictionary) -> void:
@@ -713,6 +714,16 @@ func _setup_3d() -> void:
 		world3d.add_child(v)
 		v.setup(f)
 		f.view3d = v
+	if Stage3D.has_props():
+		env.fog_enabled = true
+		env.fog_light_color = [Color(0.35, 0.12, 0.4), Color(1.0, 0.68, 0.55), Color(0.06, 0.05, 0.14)][cfg.stage % 3]
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_density = 0.85
+		env.fog_sky_affect = 0.0
+		stage3d = Stage3D.new()
+		world3d.add_child(stage3d)
+		stage3d.setup(self, stage)
+		stage.flat = false
 
 
 func _sync_3d(c: Vector2, zoom: float) -> void:
@@ -726,6 +737,12 @@ func _sync_3d(c: Vector2, zoom: float) -> void:
 			var u: float = f.intro_t / 70.0
 			off = -u * u * 650.0
 		f.view3d.update_view(off)
+	if stage3d:
+		# haze only the scenery behind the fighters, wherever the camera is
+		var e: Environment = (world3d.get_child(0) as WorldEnvironment).environment
+		e.fog_depth_begin = d + 10.0
+		e.fog_depth_end = d + 80.0
+		stage3d.update(get_process_delta_time())
 
 
 

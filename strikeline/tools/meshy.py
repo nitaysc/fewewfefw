@@ -218,6 +218,64 @@ def anim_test(names):
         download(t["result"]["animation_glb_url"], os.path.join(OUT, n, f"test_{aid}.glb"))
 
 
+# Stage pieces and items (static props, no rig). name -> (ai model, prompt)
+PROP_STYLE = (" Stylized 3D game asset for a modern Nintendo platform fighter, hand-painted PBR materials, "
+              "bold readable shapes, clean silhouette, isolated object, no base, no ground plane.")
+PROPS = {
+    "island": ("meshy-6", "Wide flat floating sky island, a lush flat grass top surface with small flowers and a stone "
+               "shrine path, jagged rocky cliffs underneath tapering to a point, hanging vines and roots, small glowing "
+               "orange crystals in the rock. Very wide and flat, like a fighting game main stage."),
+    "island2": ("meshy-6", "One single floating sky island seen from the front, much wider left to right than front to back, "
+                "a perfectly flat level grass top with a stone path running left to right and small flowers, a thick "
+                "layer of earth and stone cliffs underneath tapering to one rocky point, short hanging vines, small "
+                "glowing orange crystals. One object only, nothing else, no rocks or ground beneath it."),
+    "plank": ("meshy-6-lite", "Long thin floating wooden plank platform, red lacquered japanese shrine wood with gold caps "
+              "at both ends, flat top, very wide and thin, like a ledge."),
+    "hover": ("meshy-6", "Long sleek futuristic hovering arena platform, very wide, flat and thin, dark gunmetal "
+              "panels with glowing cyan energy lines along the edges, tapered bottom with a glowing cyan thruster core "
+              "underneath. Sci-fi fighting game final stage."),
+    "bomb": ("meshy-6-lite", "Classic round cartoon bomb, glossy black iron sphere with a red band, brass fuse cap on top "
+             "and a short curled fuse."),
+    "food": ("meshy-6-lite", "Juicy cartoon roasted meat on the bone, golden brown glossy meat with a white bone sticking out "
+             "both ends, appetizing video game health pickup."),
+    "core": ("meshy-6-lite", "Floating magical power orb, a glowing golden crystal sphere inside a spinning gold ring frame "
+             "with a red slash emblem in the center, fighting game final smash item."),
+}
+
+
+def props(names):
+    s = load_state()
+    names = [n for n in names if n in PROPS]
+    for n in names:
+        st = s.setdefault("prop_" + n, {})
+        if "preview" not in st:
+            m, pr = PROPS[n]
+            r = req("POST", "/v2/text-to-3d", {"mode": "preview", "prompt": (pr + PROP_STYLE)[:800], "ai_model": m,
+                                               "target_formats": ["glb"], "should_remesh": True, "topology": "triangle",
+                                               "target_polycount": 12000 if m == "meshy-6-lite" else 30000})
+            st["preview"] = r["result"]
+            save_state(s)
+            print(n, "preview", r["result"], flush=True)
+    for n in names:
+        st = s["prop_" + n]
+        if "refine" not in st:
+            t = wait("/v2/text-to-3d/" + st["preview"], label=n + " preview")
+            if t["status"] != "SUCCEEDED":
+                continue
+            r = req("POST", "/v2/text-to-3d", {"mode": "refine", "preview_task_id": st["preview"], "enable_pbr": True,
+                                              "texture_resolution": "2k", "target_formats": ["glb"]})
+            st["refine"] = r["result"]
+            save_state(s)
+    for n in names:
+        st = s["prop_" + n]
+        dest = os.path.join(OUT, "props", n + ".glb")
+        if "refine" in st and not os.path.exists(dest):
+            t = wait("/v2/text-to-3d/" + st["refine"], label=n + " refine")
+            if t["status"] == "SUCCEEDED":
+                download(t["model_urls"]["glb"], dest)
+                download(t["thumbnail_url"], os.path.join(OUT, "props", n + "_thumb.png"))
+
+
 def status():
     print(json.dumps(load_state(), indent=1))
     print(req("GET", "/v1/balance"))
@@ -226,4 +284,4 @@ def status():
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     names = sys.argv[2:] or list(FIGHTERS)
-    {"preview": preview, "refine": refine, "rig": rig, "animate": animate, "anim_test": anim_test, "status": lambda _=None: status()}[cmd](names)
+    {"preview": preview, "refine": refine, "rig": rig, "animate": animate, "anim_test": anim_test, "props": props, "status": lambda _=None: status()}[cmd](names)

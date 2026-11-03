@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://5lnxftk3hcym"
+path="res://.godot/imported/hover_1.jpg-4f083820ef2f65612cfa1338ecb75e52.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "f424b33189d1039d2736af7b42d5f097"
+}
+
+[deps]
+
+source_file="res://assets/meshy/props/hover_1.jpg"
+dest_files=["res://.godot/imported/hover_1.jpg-4f083820ef2f65612cfa1338ecb75e52.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1

@@ -10,8 +10,15 @@ var sel := 0
 var sel_t := 0.0
 
 
+var stage_tex: Array = []
+
+
 func _ready() -> void:
 	sel = Game.settings.fighter
+	# textures must be loaded before drawing (loading inside _draw shows up blank)
+	for i in Stage.STAGES.size():
+		var path := "res://assets/stages/stage_%d.png" % i
+		stage_tex.append(load(path) if ResourceLoader.exists(path) else null)
 
 
 func layout() -> void:
@@ -96,6 +103,42 @@ func _draw() -> void:
 		if b.kind == "card":
 			_card(b)
 	draw_buttons_except_cards()
+	_stage_thumb()
+
+
+## The STAGE chip shows a picture of the chosen stage behind its label.
+func _stage_thumb() -> void:
+	var sid := int(Game.settings.stage)
+	if sid >= stage_tex.size() or stage_tex[sid] == null:
+		return
+	var tex: Texture2D = stage_tex[sid]
+	for b in btns:
+		if b.id != "stage":
+			continue
+		var r: Rect2 = b.r
+		if pressed_id == "stage":
+			r = r.grow(-3)
+		var sl := minf(18.0, r.size.y * 0.35)
+		var pts := PackedVector2Array([r.position + Vector2(sl, 0), Vector2(r.end.x, r.position.y), r.end - Vector2(sl, 0), Vector2(r.position.x, r.end.y)])
+		# crop the 16:9 picture to the chip's shape, centred
+		var ar := r.size.x / r.size.y / (16.0 / 9.0)
+		var uvs := PackedVector2Array()
+		for p in pts:
+			var u := (p - r.position) / r.size
+			uvs.append(Vector2(u.x, 0.5 + (u.y - 0.5) / ar))
+		draw_colored_polygon(pts, Color(1, 1, 1, 0.95), uvs, tex)
+		var shade := PackedColorArray([Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6)])
+		draw_polygon(pts, shade)
+		var acc: Color = [Color(1.0, 0.3, 0.85), Color(1.0, 0.6, 0.3), Color(0.3, 0.9, 1.0)][sid % 3]
+		draw_polyline(pts + PackedVector2Array([pts[0]]), acc, 2.5, true)
+		var size := int(clampf(r.size.y * 0.42, 14, 40))
+		draw_string(Game.font_body, Vector2(r.position.x, r.position.y + r.size.y * 0.38), b.label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, int(size * 0.55), Color(1, 1, 1, 0.8))
+		var fsz := int(size * 0.8)
+		while fsz > 12 and Game.font_display.get_string_size(b.sub, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x > r.size.x - sl * 2.0:
+			fsz -= 1
+		var tp := Vector2(r.position.x, r.position.y + r.size.y * 0.8)
+		draw_string(Game.font_display, tp + Vector2(2, 3), b.sub, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, Color(0, 0, 0, 0.6))
+		draw_string(Game.font_display, tp, b.sub, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, Color(1, 1, 1))
 
 
 func draw_buttons_except_cards() -> void:

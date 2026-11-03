@@ -3,7 +3,11 @@ extends Node2D
 ## World-space particles: hit sparks, impact stars, shockwave rings, dust, smoke, KO blasts.
 ## Glowing things go to an additive child layer, dust and smoke draw normally.
 
-enum { SPARK, DOT, RING, FLASH, STAR, DUST, SMOKE, BEAM, SHARD, SLASH, STARKO, PLUS }
+enum { SPARK, DOT, RING, FLASH, STAR, DUST, SMOKE, BEAM, SHARD, SLASH, STARKO, PLUS, LINES, FIRE }
+
+static var tex_glow: Texture2D    # soft radial glow
+static var tex_puff: Texture2D    # cloudy smoke puff
+static var tex_flare: Texture2D   # thin horizontal lens streak
 
 var parts: Array = []
 var glow: Node2D
@@ -11,7 +15,56 @@ var recording := false   # host of an online match: emitters are recorded for gu
 var rec: Array = []
 
 
+static func _make_textures() -> void:
+	if tex_glow != null:
+		return
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.18, 0.5, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.75), Color(1, 1, 1, 0.18), Color(1, 1, 1, 0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 64
+	gt.height = 64
+	tex_glow = gt
+	# cloudy puff: fractal noise inside a soft round falloff
+	var n := FastNoiseLite.new()
+	n.seed = 3
+	n.frequency = 0.09
+	n.fractal_octaves = 3
+	var sz := 64
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	for y in sz:
+		for x in sz:
+			var d := Vector2(x - sz * 0.5 + 0.5, y - sz * 0.5 + 0.5).length() / (sz * 0.5)
+			var fall := clampf(1.0 - d, 0.0, 1.0)
+			fall = fall * fall * (3.0 - 2.0 * fall)
+			var v := 0.55 + 0.45 * n.get_noise_2d(x, y)
+			var shade := 0.82 + 0.18 * (1.0 - float(y) / sz)
+			img.set_pixel(x, y, Color(shade, shade, shade, clampf(fall * v * 1.6, 0.0, 1.0)))
+	tex_puff = ImageTexture.create_from_image(img)
+	var fl := Image.create(64, 8, false, Image.FORMAT_RGBA8)
+	for y in 8:
+		for x in 64:
+			var u := absf(x - 31.5) / 32.0
+			var w := absf(y - 3.5) / 4.0
+			fl.set_pixel(x, y, Color(1, 1, 1, pow(1.0 - u, 2.0) * (1.0 - w * w)))
+	tex_flare = ImageTexture.create_from_image(fl)
+
+
+func _soft(ci: CanvasItem, tex: Texture2D, p: Vector2, r: float, c: Color, rot := 0.0, sx := 1.0) -> void:
+	if rot != 0.0:
+		ci.draw_set_transform(p, rot, Vector2(sx, 1.0))
+		ci.draw_texture_rect(tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2.0), false, c)
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		ci.draw_texture_rect(tex, Rect2(p - Vector2(r * sx, r), Vector2(r * sx, r) * 2.0), false, c)
+
+
 func _ready() -> void:
+	_make_textures()
 	glow = Node2D.new()
 	var m := CanvasItemMaterial.new()
 	m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
@@ -51,6 +104,10 @@ func step() -> void:
 				q.v.y -= 0.03
 			SMOKE:
 				q.v *= 0.93
+				q.v.y -= 0.025
+			FIRE:
+				q.v *= 0.9
+				q.v.y -= 0.06
 		i += 1
 	queue_redraw()
 	glow.queue_redraw()
@@ -62,12 +119,12 @@ func _draw() -> void:
 		match q.k:
 			DUST:
 				var c: Color = q.c
-				c.a *= u * 0.8
-				draw_circle(q.p, q.s * (1.6 - u * 0.6), c)
+				c.a *= u * 0.9
+				_soft(self, tex_puff, q.p, q.s * (2.2 - u * 0.9), c, q.x + (1.0 - u) * 0.8)
 			SMOKE:
 				var c: Color = q.c
-				c.a *= u * 0.55
-				draw_circle(q.p, q.s * (2.0 - u), c)
+				c.a *= minf(1.0, u * 1.6) * 0.75
+				_soft(self, tex_puff, q.p, q.s * (2.6 - u * 1.2), c, q.x + (1.0 - u) * 1.2)
 
 
 func _draw_glow() -> void:
@@ -106,6 +163,7 @@ func _draw_glow() -> void:
 				c.a = u
 				var d: Vector2 = q.v
 				var tail: Vector2 = q.p - d * (2.0 + q.s * 0.25)
+				glow.draw_line(tail, q.p, Color(c.r, c.g, c.b, u * 0.3), maxf(2.0, q.s * 0.7 * u + 2.0), true)
 				glow.draw_line(tail, q.p, c, maxf(1.0, q.s * 0.22 * u + 1.0), true)
 				glow.draw_line(tail.lerp(q.p, 0.5), q.p, Color(1, 1, 1, u), maxf(1.0, q.s * 0.1 * u), true)
 			SHARD:
@@ -115,16 +173,35 @@ func _draw_glow() -> void:
 				glow.draw_colored_polygon(PackedVector2Array([q.p + d, q.p + n, q.p - d, q.p - n]), c)
 			DOT:
 				c.a = u
-				glow.draw_circle(q.p, q.s * u + 0.5, c)
+				_soft(glow, tex_glow, q.p, q.s * 3.2 * (0.5 + 0.5 * u), c)
+				glow.draw_circle(q.p, q.s * 0.5 * u + 0.4, Color(1, 1, 1, u))
 			RING:
 				c.a = u * 0.9
 				var r: float = q.s * (1.0 - u * u * 0.85)
 				var w: float = q.x if q.x > 0.0 else 4.0
-				glow.draw_arc(q.p, r, 0, TAU, 48, c, w * u + 1.0, true)
+				glow.draw_arc(q.p, r, 0, TAU, 56, Color(c.r, c.g, c.b, c.a * 0.25), (w * u + 1.0) * 4.0, true)
+				glow.draw_arc(q.p, r, 0, TAU, 56, c, w * u + 1.0, true)
+				glow.draw_arc(q.p, r, 0, TAU, 56, Color(1, 1, 1, c.a * 0.7), maxf(1.0, w * u * 0.35), true)
 			FLASH:
-				c.a = u * 0.9
-				glow.draw_circle(q.p, q.s * (1.2 - u * 0.4), c)
-				glow.draw_circle(q.p, q.s * 0.55 * u, Color(1, 1, 1, u))
+				var e := 1.0 - u
+				_soft(glow, tex_glow, q.p, q.s * (1.6 + e * 0.8), Color(c.r, c.g, c.b, u * 0.95))
+				_soft(glow, tex_glow, q.p, q.s * 0.7 * (0.4 + u), Color(1, 1, 1, u))
+				_soft(glow, tex_flare, q.p, q.s * 0.5, Color(1, 1, 1, u * 0.9), 0.0, 6.0 * (0.5 + e))
+			LINES:
+				# manga impact lines bursting out from the hit
+				var e := 1.0 - u
+				for k in 14:
+					var a: float = q.x + k * TAU / 14.0 + sin(k * 7.3) * 0.15
+					var d := Vector2(cos(a), sin(a))
+					var r0: float = q.s * (0.35 + e * 0.9) * (0.8 + 0.4 * absf(sin(k * 3.1)))
+					var r1: float = r0 + q.s * (0.55 + 0.3 * absf(sin(k * 5.7))) * u
+					var nn := Vector2(-d.y, d.x) * (3.5 * u + 0.5)
+					glow.draw_colored_polygon(PackedVector2Array([q.p + d * r0 - nn, q.p + d * r1, q.p + d * r0 + nn]), Color(c.r, c.g, c.b, u))
+			FIRE:
+				var e := 1.0 - u
+				var col := Color(1.0, 0.85, 0.45).lerp(Color(1.0, 0.3, 0.08), clampf(e * 1.6, 0.0, 1.0))
+				col.a = u * u
+				_soft(glow, tex_puff, q.p, q.s * (0.8 + e * 1.2), col, q.x + e)
 			STAR:
 				c.a = u
 				var pts := PackedVector2Array()
@@ -160,6 +237,8 @@ func hit(p: Vector2, dir: Vector2, power: float, col: Color) -> void:
 	_add(FLASH, p, Vector2.ZERO, 7, 18 + power * 1.8, col)
 	_add(STAR, p, Vector2.ZERO, 6 + power * 0.15, 26 + power * 2.4, Color(1, 1, 1), randf() * TAU)
 	_add(RING, p, Vector2.ZERO, 14, 40 + power * 3.0, col, 5.0)
+	if power > 9:
+		_add(LINES, p, Vector2.ZERO, 10 + power * 0.2, 36 + power * 2.2, col.lerp(Color(1, 1, 1), 0.5), randf() * TAU)
 	if power > 20:
 		_add(RING, p, Vector2.ZERO, 22, 90 + power * 3.0, Color(1, 1, 1), 3.0)
 		_add(STAR, p, Vector2.ZERO, 10, 60 + power * 3.0, col, randf() * TAU)
@@ -205,13 +284,13 @@ func dust(p: Vector2, dir: float, size: float) -> void:
 	for i in n:
 		var d := dir if dir != 0.0 else (1.0 if i % 2 == 0 else -1.0)
 		var v := Vector2(d * randf_range(1.0, 4.0) * size, -randf_range(0.3, 1.6))
-		_add(DUST, p + Vector2(randf_range(-6, 6), -3), v, randf_range(18, 30), randf_range(4, 8) * size, Color(0.85, 0.85, 0.9, 0.7))
+		_add(DUST, p + Vector2(randf_range(-6, 6), -3), v, randf_range(20, 34), randf_range(4, 8) * size, Color(0.92, 0.9, 0.88, 0.8), randf() * TAU)
 
 
 func launch_smoke(p: Vector2, speed: float) -> void:
 	if recording:
 		rec.append([&"launch_smoke", p, speed])
-	_add(SMOKE, p + Vector2(randf_range(-4, 4), randf_range(-4, 4)), Vector2.ZERO, 40, 7 + speed * 0.2, Color(0.9, 0.9, 0.95, 0.9))
+	_add(SMOKE, p + Vector2(randf_range(-4, 4), randf_range(-4, 4)), Vector2.ZERO, 40, 7 + speed * 0.2, Color(0.95, 0.95, 1.0, 0.85), randf() * TAU)
 	if speed > 24:
 		_add(DOT, p, Vector2(randf_range(-1, 1), randf_range(-1, 1)), 18, 3.0, Color(1, 0.6, 0.3))
 
@@ -221,7 +300,7 @@ func smoke(p: Vector2, col: Color) -> void:
 		rec.append([&"smoke", p, col])
 	for i in 10:
 		var a := randf() * TAU
-		_add(SMOKE, p, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(20, 32), randf_range(6, 12), col.darkened(0.4))
+		_add(SMOKE, p, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(20, 32), randf_range(6, 12), col.darkened(0.4), randf() * TAU)
 	_add(RING, p, Vector2.ZERO, 14, 50, col, 3.0)
 
 
@@ -273,9 +352,12 @@ func explosion(p: Vector2) -> void:
 	for i in 30:
 		var a := randf() * TAU
 		_add(SPARK, p, Vector2(cos(a), sin(a)) * randf_range(6, 18), randf_range(14, 26), randf_range(8, 16), Color(1.0, randf_range(0.4, 0.8), 0.2))
+	for i in 12:
+		var a := randf() * TAU
+		_add(FIRE, p + Vector2(cos(a), sin(a)) * randf_range(0, 24), Vector2(cos(a), sin(a)) * randf_range(1.5, 5), randf_range(22, 36), randf_range(26, 40), Color.WHITE, randf() * TAU)
 	for i in 14:
 		var a := randf() * TAU
-		_add(SMOKE, p + Vector2(cos(a), sin(a)) * 20.0, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(30, 50), randf_range(14, 24), Color(0.25, 0.22, 0.22, 1))
+		_add(SMOKE, p + Vector2(cos(a), sin(a)) * 20.0, Vector2(cos(a), sin(a)) * randf_range(1, 3), randf_range(40, 64), randf_range(14, 24), Color(0.3, 0.26, 0.26, 1), randf() * TAU)
 
 
 func core_break(p: Vector2) -> void:

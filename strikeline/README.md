@@ -7,7 +7,7 @@ stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v1.5.N` release on the repo's Releases page.
+newest `strikeline-v1.6.N` release on the repo's Releases page.
 
 ## The game
 

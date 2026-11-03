@@ -20,6 +20,7 @@ var deco: Array = []
 var frame := 0
 var arena
 var drops: Array = []
+var flat := true   # false when Stage3D draws the platforms
 
 
 func setup(stage_id: int) -> void:
@@ -128,6 +129,8 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if not flat:
+		return
 	match id:
 		0: _draw_rooftop()
 		1: _draw_island()
