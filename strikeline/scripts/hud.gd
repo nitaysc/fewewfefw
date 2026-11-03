@@ -37,7 +37,7 @@ func game_set(txt := "GAME!") -> void:
 
 func fs_banner(f: Fighter) -> void:
 	arena.net_rec([&"hud_fs", f.port])
-	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON"}
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON", "pip": "BLOOM STORM"}
 	banner = {"name": f.data.name, "move": names.get(f.data.id, "FINAL STRIKE"), "c": f.data.accent, "t": 0.0}
 
 
@@ -45,7 +45,7 @@ var cine_card: Dictionary = {}
 
 
 func cine_title(f: Fighter) -> void:
-	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON"}
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON", "pip": "BLOOM STORM"}
 	cine_card = {"move": names.get(f.data.id, "FINAL STRIKE"), "name": f.data.name, "c": f.data.accent, "t": 0.0}
 
 

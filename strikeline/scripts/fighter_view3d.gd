@@ -8,7 +8,7 @@ const PXU := 48.0          # game pixels per metre
 const TURN := 62.0         # how far fighters turn toward the camera (degrees)
 const ROOT := "res://assets/meshy/%s/"
 ## Which Meshy model each fighter uses (the "_w" models hold their weapons in a closed fist).
-const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w", "bolt": "bolt"}
+const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w", "bolt": "bolt", "pip": "pip"}
 
 ## Locomotion: an athletic forward-lean sprint and a calm, tucked fall.
 const RUN_CLIP := "Lean_Forward_Sprint_inplace"
@@ -53,13 +53,20 @@ const CLIPS := {
 		"nyx_nb": "Right_Jab_from_Guard", "nyx_sb": "Lunge_Roundhouse_Kick", "nyx_ub": "Stand_Dodge",
 		"nyx_db": "Lunge_Spin_Kick", "final": "Counterstrike",
 	},
+	"pip": {
+		"jab3": "Step_in_High_Kick", "ftilt": "Elbow_Strike", "utilt": "Step_in_High_Kick", "dtilt": "Sweeping_Kick",
+		"dash": "Lunge_Roundhouse_Kick", "fsmash": "Lunge_Spin_Kick", "usmash": "Step_in_High_Kick",
+		"dsmash": "Sweeping_Kick", "nair": "Lunge_Spin_Kick", "fair": "Lunge_Roundhouse_Kick",
+		"pip_nb": "Right_Jab_from_Guard", "pip_sb": "Lunge_Spin_Kick", "pip_ub": "Stand_Dodge",
+		"pip_db": "Lunge_Roundhouse_Kick", "final": "Counterstrike",
+	},
 	"bolt": {
 		"jab3": "Left_Hook_from_Guard", "ftilt": "Left_Hook_from_Guard", "utilt": "Right_Uppercut_from_Guard",
 		"dash": "Spartan_Kick", "fsmash": "Punch_Forward_with_Both_Fists", "usmash": "Right_Uppercut_from_Guard",
 		"dsmash": "Charged_Ground_Slam", "fair": "Left_Hook_from_Guard", "nair": "Boxing_Guard_Step_Knee_Strike",
 		"uair": "Right_Uppercut_from_Guard", "dair": "Charged_Ground_Slam",
 		"bolt_nb": "Charged_Spell_Cast", "bolt_sb": "Punch_Forward_with_Both_Fists", "bolt_ub": "Right_Uppercut_from_Guard",
-		"bolt_db": "Charged_Ground_Slam", "bolt_plunge": "Charged_Ground_Slam", "final": "Charged_Spell_Cast_1",
+		"bolt_db": "Charged_Ground_Slam", "final": "Charged_Spell_Cast_1",
 		"throw_u": "Right_Uppercut_from_Guard", "pummel": "Boxing_Guard_Step_Knee_Strike",
 	},
 	"sol": {

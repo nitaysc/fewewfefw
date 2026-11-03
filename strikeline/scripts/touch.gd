@@ -229,6 +229,8 @@ func _draw() -> void:
 		if flash[k] > 0.0:
 			draw_arc(c, rr + 14.0 * (1.0 - flash[k]), 0, TAU, 56, Color(col.r, col.g, col.b, flash[k]), 3.0, true)
 		_icon(k, c, rr, Color(1, 1, 1, 0.95 if on else 0.75))
+		if k == "spc":
+			_cooldown_ring(c, rr)
 		var lbl: String = lay[k][2]
 		draw_string(small, c + Vector2(-60, rr + 20), lbl, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, Color(1, 1, 1, 0.55))
 	# pause
@@ -237,6 +239,34 @@ func _draw() -> void:
 	draw_arc(pc, 26, 0, TAU, 40, Color(1, 1, 1, 0.6), 2.0, true)
 	draw_rect(Rect2(pc + Vector2(-8, -10), Vector2(5, 20)), Color(1, 1, 1, 0.85))
 	draw_rect(Rect2(pc + Vector2(3, -10), Vector2(5, 20)), Color(1, 1, 1, 0.85))
+
+
+## Special on cooldown: a dark sweep that empties as it recharges, then a flash when ready.
+func _cooldown_ring(c: Vector2, r: float) -> void:
+	var me = _me()
+	if me == null:
+		return
+	var left := 0.0
+	for mv in me.cd:
+		left = maxf(left, float(me.cd[mv]) / maxf(float(me.cd_total.get(mv, 1)), 1.0))
+	if left <= 0.0:
+		return
+	var pts := PackedVector2Array([c])
+	var n := 32
+	for i in n + 1:
+		var a := -PI / 2.0 + TAU * left * float(i) / n
+		pts.append(c + Vector2(cos(a), sin(a)) * r)
+	draw_colored_polygon(pts, Color(0, 0, 0, 0.45))
+	draw_arc(c, r + 4.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - left), 40, Color(1, 1, 1, 0.8), 3.0, true)
+
+
+func _me():
+	if arena == null:
+		return null
+	for f in arena.fighters:
+		if not f.is_cpu and (arena.net_role == "" or f.peer == arena.my_peer):
+			return f
+	return null
 
 
 func _icon(k: String, c: Vector2, r: float, col: Color) -> void:

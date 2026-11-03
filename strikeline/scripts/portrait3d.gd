@@ -3,8 +3,8 @@ extends SubViewport
 ## A live 3D render of one fighter for menus (select cards, lobby, results).
 ## Each portrait is its own little lit world rendered to a transparent texture.
 
-const VICTORY := {"kai": "victory", "bruno": "Chest_Pound_Taunt", "nyx": "victory", "sol": "victory", "bolt": "victory"}
-const SHOWCASE := {"kai": "Charged_Slash", "bruno": "Right_Uppercut_from_Guard", "nyx": "Lunge_Spin_Kick", "sol": "Charged_Spell_Cast", "bolt": "Punch_Forward_with_Both_Fists"}
+const VICTORY := {"kai": "victory", "bruno": "Chest_Pound_Taunt", "nyx": "victory", "sol": "victory", "bolt": "victory", "pip": "victory"}
+const SHOWCASE := {"kai": "Charged_Slash", "bruno": "Right_Uppercut_from_Guard", "nyx": "Lunge_Spin_Kick", "sol": "Charged_Spell_Cast", "bolt": "Punch_Forward_with_Both_Fists", "pip": "Lunge_Spin_Kick"}
 
 var idx := -1
 var clip := ""
@@ -91,7 +91,7 @@ func show_fighter(fighter_idx: int, clip_name: String, costume := 0) -> void:
 		accent.omni_range = 3.0
 		accent.position = Vector3(-0.8, 1.6, -1.0)
 		model.add_child(accent)
-		var tall := 1.11 if id == "bruno" else (1.08 if id == "bolt" else 1.0)
+		var tall: float = {"bruno": 1.11, "bolt": 1.08, "pip": 0.66}.get(id, 1.0)
 		skel = model.find_child("*", true, false) as Skeleton3D
 		for sk in model.find_children("*", "Skeleton3D", true, false):
 			skel = sk

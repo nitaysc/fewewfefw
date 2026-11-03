@@ -81,6 +81,12 @@ so guests see it.
   5-credit preview model), run `preview`, `refine`, `rig` only, then list the fighters to
   borrow from in `BORROW` in `tools/extract_anims.gd`. Moves can reuse existing logic by
   duplicating another fighter's special (see the BOLT block in `roster.gd`).
+  For very different body shapes add the fighter to `RETARGET` too (Pip, a chibi, uses it:
+  rotations become rest-relative and hip height is scaled). Best value: also buy the
+  fighter's own `common`, `move` and `move2` animation groups (~57 credits, see how Pip was
+  made); its own clips win over borrowed ones.
+- **Special cooldowns**: a move can have `"cd": frames` and `"limit": [projectile kind, max]`
+  (Sol's orb: one on screen, short cooldown). The SPECIAL touch button shows the cooldown.
 - **Costumes**: `scripts/costume.gd` (8 colour sets, a shader that recolours the outfit and
   keeps skin). Picked on the select screen; duplicate fighters get different colours.
 - **A new stage**: add rects/spawns in `stage.gd` `setup()`, a builder in `stage3d.gd`,

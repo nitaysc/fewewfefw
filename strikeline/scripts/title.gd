@@ -76,7 +76,7 @@ func _draw() -> void:
 	text("PLATFORM  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_buttons()
-	text("v2.0  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
+	text("v2.1  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
 
 
 func _draw_help(vs: Vector2) -> void:

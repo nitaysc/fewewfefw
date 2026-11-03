@@ -66,15 +66,27 @@ const FIGHTERS := [
 	},
 	{
 		"id": "bolt", "name": "BOLT", "title": "THE IRON COMET",
-		"blurb": "Battle robot. Charged blaster shots, a rocket fist and thruster boots.",
+		"blurb": "Battle robot. Homing missiles, a rocket fist that comes back and shock mines.",
 		"weapon": "fists", "wlen": 0.0,
 		"dims": {"torso": 34.0, "ua": 19.0, "la": 18.5, "th": 23.0, "sh": 23.0, "head": 11.5},
 		"w": 8.5, "accent": Color(0.25, 0.95, 0.8), "body": Color(0.08, 0.1, 0.1), "scarf": Color(1.0, 0.55, 0.15),
 		"run": 8.6, "air": 5.9, "air_acc": 0.52, "jump": 16.0, "djump": 15.0, "grav": 0.92, "fall": 15.0,
 		"weight": 1.18, "jumps": 2, "dmg": 1.1, "spd": 1.05, "reach": 1.2,
 		"specials": {"nb": "bolt_nb", "sb": "bolt_sb", "ub": "bolt_ub", "db": "bolt_db"},
-		"special_names": ["Charge Blaster", "Rocket Fist", "Thruster Boost", "Gravity Slam"],
+		"special_names": ["Micro Missiles", "Rocket Fist", "Rocket Launch", "Shock Mine"],
 		"stats": [4, 2, 4, 4],
+	},
+	{
+		"id": "pip", "name": "PIP", "title": "THE SKY SPROUT",
+		"blurb": "Tiny forest sprite. Five jumps, floaty, bouncing seeds and a leaf copter.",
+		"weapon": "fists", "wlen": 0.0,
+		"dims": {"torso": 22.0, "ua": 12.5, "la": 12.5, "th": 15.0, "sh": 15.0, "head": 13.0},
+		"w": 6.5, "accent": Color(0.5, 0.95, 0.35), "body": Color(0.08, 0.1, 0.06), "scarf": Color(0.9, 0.2, 0.15),
+		"run": 9.0, "air": 6.4, "air_acc": 0.7, "jump": 15.0, "djump": 12.5, "grav": 0.62, "fall": 10.5,
+		"weight": 0.72, "jumps": 5, "dmg": 0.88, "spd": 0.9, "reach": 0.85,
+		"specials": {"nb": "pip_nb", "sb": "pip_sb", "ub": "pip_ub", "db": "pip_db"},
+		"special_names": ["Seed Shot", "Whirl Dash", "Leaf Copter", "Thorn Dive"],
+		"stats": [2, 4, 5, 2],
 	},
 ]
 
@@ -235,7 +247,8 @@ static func _build() -> void:
 
 	# ---- KAI ----
 	m.kai_nb = {"anim": [[0, g], [5, ft_w], [9, ft_s, E_OUT], [14, ft_f], [32, g]], "len": 32,
-		"spawn": [9, "crescent"], "sfx": [[8, "swing_h"]], "trail": [8, 14, "hf"], "special": true}
+		"spawn": [9, "crescent"], "sfx": [[8, "swing_h"]], "trail": [8, 14, "hf"], "special": true,
+		"cd": 28, "limit": ["crescent", 2]}
 	m.kai_sb = {"anim": [[0, g], [6, dsl_w], [8, dsl_s, E_OUT], [18, dsl_s], [24, dsl_f], [36, g]], "len": 36,
 		"logic": "flash_step", "air_once": "sb", "special": true,
 		"hits": [{"f": [8, 18], "j": "core", "r": 30, "d": 10, "b": 6, "g": 12, "a": 35}],
@@ -275,7 +288,7 @@ static func _build() -> void:
 
 	# ---- NYX ----
 	m.nyx_nb = {"anim": [[0, g], [5, th_w], [8, th_s, E_OUT], [26, g]], "len": 26, "special": true,
-		"spawn": [8, "kunai"], "sfx": [[7, "throw"]]}
+		"spawn": [8, "kunai"], "sfx": [[7, "throw"]], "cd": 22}
 	m.nyx_sb = {"anim": [[0, g], [5, dsl_w], [7, dsl_s, E_OUT], [16, dsl_s], [22, dsl_f], [34, g]], "len": 34,
 		"logic": "shadow", "air_once": "sb", "special": true,
 		"hits": [{"f": [14, 17], "j": "core", "r": 32, "d": 9, "b": 6, "g": 11, "a": 45}],
@@ -291,9 +304,10 @@ static func _build() -> void:
 
 	# ---- SOL ----
 	m.sol_nb = {"anim": [[0, g], [6, c_w], [10, c_s, E_OUT], [22, c_s], [32, g]], "len": 32, "charge": 6,
-		"charge_max": 60, "charge_btn": "spc", "special": true, "spawn": [10, "orb"], "sfx": [[9, "orb"]]}
+		"charge_max": 60, "charge_btn": "spc", "special": true, "spawn": [10, "orb"], "sfx": [[9, "orb"]],
+		"cd": 55, "limit": ["orb", 1]}
 	m.sol_sb = {"anim": [[0, g], [6, ln_w], [9, ln_s, E_OUT], [24, ln_s], [36, g]], "len": 36,
-		"logic": "lance", "air_once": "sb", "special": true,
+		"logic": "lance", "air_once": "sb", "special": true, "cd": 30,
 		"hits": [{"f": [9, 20], "j": "wt", "r": 16, "d": 2, "b": 3, "g": 0, "a": 20, "rehit": 3},
 			{"f": [21, 23], "j": "wt", "r": 21, "d": 6, "b": 7, "g": 10, "a": 35}],
 		"sfx": [[8, "zap"], [20, "zap"]], "trail": [9, 23, "wt"]}
@@ -302,20 +316,36 @@ static func _build() -> void:
 		"hits": [{"f": [5, 45], "j": "ff", "r": 15, "d": 2, "b": 4, "g": 2, "a": 80, "rehit": 8}],
 		"sfx": [[4, "jet"]]}
 	m.sol_db = {"anim": [[0, g], [6, fd_w], [9, fd_s, E_OUT], [20, fd_s], [36, g]], "len": 36,
-		"logic": "static", "special": true,
+		"logic": "static", "special": true, "cd": 50,
 		"hits": [{"f": [9, 13], "j": "core", "r": 74, "d": 8, "b": 9, "g": 8, "a": 60, "radial": true}],
 		"sfx": [[8, "zap"]]}
 
-	# ---- BOLT (robot): blaster, rocket fist, thrusters, gravity slam ----
-	m.bolt_nb = (m.sol_nb as Dictionary).duplicate(true)
-	m.bolt_nb.charge_max = 75
-	m.bolt_nb.sfx = [[9, "zap"]]
-	m.bolt_sb = (m.bruno_sb as Dictionary).duplicate(true)
-	m.bolt_sb.sfx = [[5, "jet"]]
-	m.bolt_ub = (m.sol_ub as Dictionary).duplicate(true)
-	m.bolt_ub.hits = [{"f": [5, 45], "j": "ff", "r": 17, "d": 3, "b": 5, "g": 3, "a": 80, "rehit": 7}]
-	m.bolt_db = (m.bruno_db as Dictionary).duplicate(true)
-	m.bolt_plunge = (m.bruno_plunge as Dictionary).duplicate(true)
+	# ---- BOLT (robot): missiles, a returning rocket fist, a rocket launch and a shock mine ----
+	m.bolt_nb = {"anim": [[0, g], [6, c_w], [10, c_s, E_OUT], [24, c_s], [34, g]], "len": 34, "special": true,
+		"spawn": [10, "missile"], "sfx": [[9, "jet"]], "cd": 70, "limit": ["missile", 1]}
+	m.bolt_sb = {"anim": [[0, g], [7, ft_w], [10, ft_s, E_OUT], [22, ft_s], [34, g]], "len": 34, "special": true,
+		"spawn": [10, "fist"], "sfx": [[9, "dash"]], "cd": 40, "limit": ["fist", 1]}
+	m.bolt_ub = {"anim": [[0, ps.crouch], [5, jt_p, E_OUT], [44, jt_p]], "len": 44,
+		"logic": "rocket", "helpless": true, "special": true,
+		"hits": [{"f": [5, 9], "j": "core", "r": 46, "d": 9, "b": 7, "g": 8, "a": 80, "radial": true},
+			{"f": [10, 26], "j": "hf", "r": 16, "d": 4, "b": 5, "g": 4, "a": 85}],
+		"sfx": [[4, "explosion"]]}
+	m.bolt_db = {"anim": [[0, g], [5, ps.crouch, E_OUT], [16, ps.crouch], [26, g]], "len": 26, "special": true,
+		"spawn": [9, "mine"], "sfx": [[8, "pickup"]], "cd": 45, "limit": ["mine", 1]}
+
+	# ---- PIP (sky sprout): seeds, whirl dash, leaf copter, thorn dive ----
+	m.pip_nb = {"anim": [[0, g], [5, th_w], [8, th_s, E_OUT], [24, g]], "len": 24, "special": true,
+		"spawn": [8, "seed"], "sfx": [[7, "throw"]], "cd": 26, "limit": ["seed", 2]}
+	m.pip_sb = (m.nyx_sb as Dictionary).duplicate(true)
+	m.pip_sb.hits = [{"f": [12, 20], "j": "core", "r": 28, "d": 3, "b": 4, "g": 2, "a": 40, "rehit": 4},
+		{"f": [21, 23], "j": "core", "r": 30, "d": 6, "b": 7, "g": 9, "a": 45}]
+	m.pip_sb.sfx = [[5, "dash"], [12, "swing_l"], [17, "swing_l"], [21, "swing_m"]]
+	m.pip_ub = (m.sol_ub as Dictionary).duplicate(true)
+	m.pip_ub.len = 64
+	m.pip_ub.anim = [[0, ps.crouch], [5, jt_p, E_OUT], [64, jt_p]]
+	m.pip_ub.hits = [{"f": [5, 50], "j": "core", "r": 22, "d": 2, "b": 4, "g": 2, "a": 80, "rehit": 6}]
+	m.pip_ub.sfx = [[4, "jet"], [20, "swing_l"], [36, "swing_l"]]
+	m.pip_db = (m.nyx_db as Dictionary).duplicate(true)
 
 	# ---- grabs & throws ----
 	var gr_p := P.call([0.35, -0.1, 1.5, 0.1, 1.4, 0.25, 0.85, 0.6, -0.6, 0.25, 0, 0, 0.6])

@@ -43,6 +43,10 @@ FIGHTERS = {
            "and shins.",
     "sol": "Young storm mage. Long flowing cyan and white robes with gold trim, short hooded cloak, glowing "
            "cyan rune patterns on the sleeves, silver hair, calm focused face, sandals.",
+    "pip": "Small chubby round forest sprite hero, a big round head with huge bright eyes and a cheerful "
+           "grin, a single large green leaf sprouting from the top of the head, cream and moss-green body with "
+           "a short brown acorn-cap hood and a tiny red scarf, short stubby arms with little three-fingered "
+           "hands and short stubby legs with round feet, chibi proportions, cute but brave.",
     "bolt": "Original heroic robot brawler, chunky rounded armor plates in white and teal with orange "
             "accents, a glowing cyan visor for a face, big round shoulder pads, thick mechanical forearms "
             "and three-fingered metal hands, sturdy legs with small rocket thrusters on the boots, friendly "
@@ -170,7 +174,7 @@ def refine(names):
 def rig(names):
     s = load_state()
     for n in names:
-        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": {"bruno": 1.95, "bolt": 1.9}.get(base(n), 1.75)})
+        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": {"bruno": 1.95, "bolt": 1.9, "pip": 1.15}.get(base(n), 1.75)})
         s[n]["rig"] = r["result"]
         save_state(s)
         print(n, "rig task", r["result"])

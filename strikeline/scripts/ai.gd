@@ -258,7 +258,7 @@ func _ground_decision(out: Dictionary, tgt: Fighter, dx: float, dy: float, adx: 
 			_press(out, "jmp", 8)
 			jump_cd = 25
 		return
-	if adx > 320.0 and r < 0.35 and me.data.id in ["kai", "nyx", "sol", "bolt"]:
+	if adx > 320.0 and r < 0.35 and me.data.id in ["kai", "nyx", "sol", "bolt", "pip"]:
 		out.x = 0.0
 		out.y = 0.0
 		me.facing = face
@@ -269,7 +269,7 @@ func _ground_decision(out: Dictionary, tgt: Fighter, dx: float, dy: float, adx: 
 		dir_hold = Vector2(face, 0)
 		dir_t = 18
 		return
-	if adx > 120.0 and adx < 260.0 and r < 0.18 and me.data.id in ["kai", "nyx", "bruno", "bolt"] and not tgt_off:
+	if adx > 120.0 and adx < 260.0 and r < 0.18 and me.data.id in ["kai", "nyx", "bruno", "bolt", "pip"] and not tgt_off:
 		out.x = face
 		_press(out, "spc")
 		return

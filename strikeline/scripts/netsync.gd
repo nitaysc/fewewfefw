@@ -3,7 +3,7 @@ extends RefCounted
 ## Packs the host's match state into a compact snapshot and applies it on guests,
 ## plus the guest input packet. Pack and unpack must stay in the same order.
 
-const PROJ_KINDS := ["crescent", "kunai", "orb", "shockwave"]
+const PROJ_KINDS := ["crescent", "kunai", "orb", "shockwave", "missile", "fist", "mine", "seed"]
 const ITEM_KINDS := ["bomb", "food"]
 
 static var _names: Array = []
@@ -126,7 +126,7 @@ static func unpack(m: Match, data: PackedByteArray) -> void:
 	var pl: Array = []
 	for i in b.get_u8():
 		var k := b.get_u8()
-		var p := {"kind": PROJ_KINDS[clampi(k, 0, 3)], "p": Vector2(b.get_float(), b.get_float()), "v": Vector2(b.get_float(), b.get_float()),
+		var p := {"kind": PROJ_KINDS[clampi(k, 0, PROJ_KINDS.size() - 1)], "landed": true, "back": false, "bounced": 0, "p": Vector2(b.get_float(), b.get_float()), "v": Vector2(b.get_float(), b.get_float()),
 			"r": b.get_float()}
 		var owner: int = b.get_u8()
 		p.owner = m.fighters[owner]

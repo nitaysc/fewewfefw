@@ -60,6 +60,16 @@
     "refine": "01a19fa4-7fa2-739a-bd47-775e29c7e0f6",
     "rig": "01a19fa5-30eb-7165-8aed-b82303c9dfc7"
   },
+  "pip": {
+    "anims": {
+      "common": "01a1a2ea-7c13-74f6-bfb1-9d3f4d1f7074",
+      "move": "01a1a2ea-7e6a-75ec-87c3-e36181962c13",
+      "move2": "01a1a2ea-804a-770a-bc80-36739fad0d19"
+    },
+    "preview": "01a1a2e5-7824-718c-b9f4-633a4917de9c",
+    "refine": "01a1a2e6-49f0-76dd-9f11-abe1576962d6",
+    "rig": "01a1a2e6-f504-728f-b9cf-ab7e471ab811"
+  },
   "prop_bomb": {
     "preview": "01a19feb-f65b-74e9-8226-2a4c2331f456",
     "refine": "01a19fec-d927-7482-a2f9-28d1b1a02aa0"

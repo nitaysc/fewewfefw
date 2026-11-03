@@ -30,6 +30,8 @@ var jumps_left := 2
 var fastfall := false
 var drop_timer := 0
 var costume := 0   # alternate colours (see Costume)
+var cd := {}        # special move -> frames until it can be used again
+var cd_total := {}  # special move -> full cooldown (for the button's ring)
 var no_grav := false
 var hw := 15.0
 var hh := 82.0
@@ -208,6 +210,10 @@ func tick(i: Dictionary) -> void:
 	for k in buf:
 		if buf[k] > 0:
 			buf[k] -= 1
+	for k in cd.keys():
+		cd[k] -= 1
+		if cd[k] <= 0:
+			cd.erase(k)
 	if i.get("atk", false): buf.atk = 6
 	if i.get("spc", false): buf.spc = 6
 	if i.get("jmp", false): buf.jmp = 6
@@ -674,13 +680,29 @@ func _start_special() -> void:
 			m = Roster.move(name)
 		else:
 			air_once[once] = true
-	if (name == "bruno_db" or name == "bolt_db") and not grounded:
-		name = name.replace("_db", "_plunge")
+	if name == "bruno_db" and not grounded:
+		name = "bruno_plunge"
+	if not special_ready(name):
+		return
 	_begin(name)
+
+
+## Cooldowns and "one at a time" limits keep projectile specials from being spammed.
+func special_ready(name: String) -> bool:
+	if cd.has(name):
+		return false
+	var m := Roster.move(name)
+	var lim: Array = m.get("limit", [])
+	if lim.size() == 2 and arena.proj.count(self, lim[0]) >= int(lim[1]):
+		return false
+	return true
 
 
 func _begin(name: String) -> void:
 	mv = Roster.move(name)
+	if mv.has("cd"):
+		cd[name] = int(mv.cd) + int(mv.get("len", 0))
+		cd_total[name] = cd[name]
 	_set_state(S.ATTACK)
 	mf = 0.0
 	mf_prev = -1.0
@@ -945,6 +967,26 @@ func _special_logic() -> void:
 				_try_ledge()
 			else:
 				no_grav = false
+		"rocket":
+			# Bolt: a blast under the boots, then a straight, fast climb that tapers off
+			if _crossed(5):
+				arena.fx.explosion(pos + Vector2(0, -6))
+				arena.camera_shake(6.0)
+				vel = Vector2(inp.x * 4.0, -23.0)
+				grounded = false
+				plat = -1
+			if f >= 5 and f < 28:
+				vel.x = move_toward(vel.x, inp.x * 6.0, 0.5)
+				vel.y = minf(vel.y + 0.55, -6.0)
+				no_grav = true
+				grounded = false
+				plat = -1
+				arena.fx.jet(pos + Vector2(-facing * 6.0, -4.0), Color(1.0, 0.55, 0.2))
+				if t % 3 == 0:
+					arena.fx.launch_smoke(pos, 20.0)
+				_try_ledge()
+			else:
+				no_grav = false
 		"static":
 			if grounded:
 				vel.x = move_toward(vel.x, 0, 1.0)
@@ -1085,7 +1127,7 @@ func _final_logic(f: float) -> void:
 					arena.fx.ring(pos, data.accent, 500.0, 0.6, 12.0)
 					arena.camera_shake(26.0)
 					_sfx("slam", 0)
-		"nyx":
+		"nyx", "pip":
 			no_grav = true
 			if _crossed(64):
 				arena.final_catch(self, Rect2(pos.x - 1100, pos.y - 900, 2200, 1400))

@@ -1,6 +1,6 @@
 # Strikeline: platform brawl
 
-A native Android platform fighter built with **Godot 4.4** (not a web wrapper). Five 3D
+A native Android platform fighter built with **Godot 4.4** (not a web wrapper). Six 3D
 fighters (each with 8 costumes), three 3D stages, CPU opponents, online and Wi-Fi play, and touch controls. Knock
 rivals off the stage: the more damage they've taken, the further they fly.
 
@@ -9,13 +9,14 @@ rivals off the stage: the more damage they've taken, the further they fly.
 ## Download
 
 Every push that touches `strikeline/` builds a signed APK. Grab `strikeline.apk` from the
-newest `strikeline-v2.0.N` release on the repo's Releases page.
+newest `strikeline-v2.1.N` release on the repo's Releases page.
 
 ## The game
 
 - **Fighters** (`scripts/roster.gd`): Kai (sword, counter), Bruno (heavy fists, armor
   rush, ground pound), Nyx (fast, triple jump, kunai, teleport), Sol (staff, charged
-  orbs, jet recovery), Bolt (robot: charge blaster, rocket fist, thrusters, gravity slam).
+  orbs, jet recovery), Bolt (robot: homing missiles, a returning rocket fist, rocket launch,
+  shock mines), Pip (tiny floaty sprite: five jumps, bouncing seeds, whirl dash, leaf copter).
   Each has jab combo, tilts, a dash attack, chargeable smash
   attacks, five aerials and four specials.
 - **Mechanics** (`scripts/fighter.gd`, `scripts/match.gd`): damage %, knockback that

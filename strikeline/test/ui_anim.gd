@@ -15,7 +15,7 @@ func _process(_d: float) -> void:
 	if f in [82, 86, 90, 96, 104]:
 		get_viewport().get_texture().get_image().save_png(out + "/w_%03d.png" % f)
 	if f == 120:
-		main_node.screen.on_button("f4")
+		main_node.screen.on_button("f5")
 		main_node.screen.on_button("cos3")
 	if f == 135:
 		get_viewport().get_texture().get_image().save_png(out + "/costume.png")
