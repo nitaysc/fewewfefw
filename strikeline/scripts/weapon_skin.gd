@@ -8,10 +8,9 @@ extends RefCounted
 ## "seg": [hand, Vector2 a, Vector2 b, radius in the front view, AABB filter (min, max)].
 ## "box": [hand, AABB min, AABB max].
 const RULES := {
-	"kai_w": [
-		["seg", "RightHand", Vector2(-0.50, 1.33), Vector2(-0.25, 1.37), 0.03, Vector3(-0.6, 1.2, -0.4), Vector3(-0.24, 1.5, 0.4)],
-		["seg", "LeftHand", Vector2(0.27, 1.09), Vector2(0.50, 0.81), 0.028, Vector3(0.30, 0.7, -0.4), Vector3(0.55, 1.15, 0.4)],
-	],
+	# Kai's swords are already bound to his hand and forearm; only his left hand needs
+	# the stretch fix (tools/find_stretch.gd).
+	"kai_w": [],
 	"nyx_w": [
 		["seg", "LeftHand", Vector2(0.275, 1.44), Vector2(0.357, 1.66), 0.024, Vector3(0.2, 1.43, -0.2), Vector3(0.45, 1.7, 0.45)],
 	],
@@ -32,10 +31,8 @@ static func tip(model_id: String, hand: String) -> Vector3:
 
 
 ## Fixes the weights of `mesh_instance`'s mesh in place (cached per model id).
-static func apply(model_id: String, mi: MeshInstance3D) -> void:
-	if not RULES.has(model_id):
-		return
-	if _done.has(model_id):
+static func apply(model_id: String, mi: MeshInstance3D, raw := false) -> void:
+	if _done.has(model_id) and not raw:
 		mi.mesh = _done[model_id]
 		return
 	var mesh: ArrayMesh = mi.mesh
@@ -60,7 +57,11 @@ static func apply(model_id: String, mi: MeshInstance3D) -> void:
 	var weapon := PackedByteArray()
 	weapon.resize(v.size())
 	var arm_bones := {}
-	for rule in RULES[model_id]:
+	for side in ["Left", "Right"]:
+		for bn in [side + "Hand", side + "ForeArm", side + "Arm"]:
+			if bind.has(bn):
+				arm_bones[bind[bn]] = true
+	for rule in RULES.get(model_id, []):
 		var hand: int = bind.get(rule[1], -1)
 		if hand < 0:
 			continue
@@ -106,13 +107,48 @@ static func apply(model_id: String, mi: MeshInstance3D) -> void:
 			kept.append(b)
 			kept.append(c)
 		arr[Mesh.ARRAY_INDEX] = kept
+		# hand fixes and triangles that stretch badly in some animation (tools/find_stretch.gd)
+		var cut_path := "res://assets/meshy/%s/cut.json" % model_id
+		if not raw and FileAccess.file_exists(cut_path):
+			var data = JSON.parse_string(FileAccess.get_file_as_string(cut_path))
+			if data is Dictionary:
+				var rb: Dictionary = data.get("rebind", {})
+				for key in rb:
+					var vi := int(key)
+					var side: String = rb[key]
+					var to_arm := not side.begins_with("body:")
+					side = side.trim_prefix("body:")
+					var arm := {}
+					for bn in [side + "Arm", side + "ForeArm", side + "Hand"]:
+						if bind.has(bn):
+							arm[bind[bn]] = true
+					var sum := 0.0
+					for k in per:
+						if arm.has(bones[vi * per + k]) != to_arm:
+							w[vi * per + k] = 0.0
+						sum += w[vi * per + k]
+					if sum > 0.0:
+						for k in per:
+							w[vi * per + k] /= sum
+				arr[Mesh.ARRAY_WEIGHTS] = w
+				var drop := {}
+				for tri in data.get("cut", []):
+					drop[int(tri)] = true
+				var kept2 := PackedInt32Array()
+				for t in range(0, kept.size(), 3):
+					if not drop.has(t / 3):
+						kept2.append(kept[t])
+						kept2.append(kept[t + 1])
+						kept2.append(kept[t + 2])
+				arr[Mesh.ARRAY_INDEX] = kept2
 	arr[Mesh.ARRAY_BONES] = bones
 	arr[Mesh.ARRAY_WEIGHTS] = w
 	var out := ArrayMesh.new()
 	var flags := mesh.surface_get_format(0)
 	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, flags)
 	out.surface_set_material(0, mesh.surface_get_material(0))
-	_done[model_id] = out
+	if not raw:
+		_done[model_id] = out
 	mi.mesh = out
 
 
