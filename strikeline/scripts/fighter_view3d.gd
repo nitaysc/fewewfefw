@@ -8,7 +8,7 @@ const PXU := 48.0          # game pixels per metre
 const TURN := 62.0         # how far fighters turn toward the camera (degrees)
 const ROOT := "res://assets/meshy/%s/"
 ## Which Meshy model each fighter uses (the "_w" models hold their weapons in a closed fist).
-const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w"}
+const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w", "bolt": "bolt"}
 
 ## Locomotion: an athletic forward-lean sprint and a calm, tucked fall.
 const RUN_CLIP := "Lean_Forward_Sprint_inplace"
@@ -52,6 +52,15 @@ const CLIPS := {
 		"dsmash": "Sweeping_Kick", "nair": "Lunge_Spin_Kick", "fair": "Lunge_Roundhouse_Kick",
 		"nyx_nb": "Right_Jab_from_Guard", "nyx_sb": "Lunge_Roundhouse_Kick", "nyx_ub": "Stand_Dodge",
 		"nyx_db": "Lunge_Spin_Kick", "final": "Counterstrike",
+	},
+	"bolt": {
+		"jab3": "Left_Hook_from_Guard", "ftilt": "Left_Hook_from_Guard", "utilt": "Right_Uppercut_from_Guard",
+		"dash": "Spartan_Kick", "fsmash": "Punch_Forward_with_Both_Fists", "usmash": "Right_Uppercut_from_Guard",
+		"dsmash": "Charged_Ground_Slam", "fair": "Left_Hook_from_Guard", "nair": "Boxing_Guard_Step_Knee_Strike",
+		"uair": "Right_Uppercut_from_Guard", "dair": "Charged_Ground_Slam",
+		"bolt_nb": "Charged_Spell_Cast", "bolt_sb": "Punch_Forward_with_Both_Fists", "bolt_ub": "Right_Uppercut_from_Guard",
+		"bolt_db": "Charged_Ground_Slam", "bolt_plunge": "Charged_Ground_Slam", "final": "Charged_Spell_Cast_1",
+		"throw_u": "Right_Uppercut_from_Guard", "pummel": "Boxing_Guard_Step_Knee_Strike",
 	},
 	"sol": {
 		"ftilt": "mage_soell_cast", "utilt": "mage_soell_cast_1", "fsmash": "Charged_Spell_Cast_1",
@@ -114,6 +123,7 @@ func setup(fighter) -> void:
 		meshes.append(mi)
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		WeaponSkin.apply(MODEL_DIRS.get(id, id), mi)
+	Costume.apply(model, f.costume)
 	overlay = StandardMaterial3D.new()
 	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

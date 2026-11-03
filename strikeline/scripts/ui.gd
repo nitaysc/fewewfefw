@@ -215,8 +215,8 @@ func dim(a: float) -> void:
 
 ## Draws a live 3D portrait with its feet at `feet`, about `height` pixels tall.
 ## Returns false when the 3D models aren't available (callers fall back to the stickman).
-func draw_portrait(key: String, idx: int, clip: String, feet: Vector2, height: float, alpha := 1.0) -> bool:
-	var tex := Portrait3D.texture(self, key, idx, clip)
+func draw_portrait(key: String, idx: int, clip: String, feet: Vector2, height: float, alpha := 1.0, costume := 0) -> bool:
+	var tex := Portrait3D.texture(self, key, idx, clip, 512, false, costume)
 	if tex == null:
 		return false
 	var s := height / 0.76

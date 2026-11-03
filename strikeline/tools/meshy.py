@@ -43,6 +43,10 @@ FIGHTERS = {
            "and shins.",
     "sol": "Young storm mage. Long flowing cyan and white robes with gold trim, short hooded cloak, glowing "
            "cyan rune patterns on the sleeves, silver hair, calm focused face, sandals.",
+    "bolt": "Original heroic robot brawler, chunky rounded armor plates in white and teal with orange "
+            "accents, a glowing cyan visor for a face, big round shoulder pads, thick mechanical forearms "
+            "and three-fingered metal hands, sturdy legs with small rocket thrusters on the boots, friendly "
+            "determined look.",
     # armed versions: the weapon is part of the model, gripped in the hand
     "kai_w": "Samurai warrior HOLDING A DRAWN KATANA SWORD IN HIS RIGHT HAND, closed fist around the hilt, blade "
              "pointing down and out to the side. Young heroic ronin in crimson and black samurai armor with layered "
@@ -54,6 +58,9 @@ FIGHTERS = {
              "glowing cyan orb inside a gold crescent. Young storm mage in long flowing cyan and white robes with "
              "gold trim, short hooded cloak, glowing cyan runes on the sleeves, silver hair, calm focused face.",
 }
+
+# fighters made with the cheaper model (5 credits instead of 20 for the preview)
+LITE = {"bolt": "meshy-6-lite"}
 
 # Meshy animation library ids (https://api.meshy.ai/web/public/animations/resources)
 ANIMS = {
@@ -132,7 +139,7 @@ def download(url: str, dest: str) -> None:
 def preview(names):
     s = load_state()
     for n in names:
-        body = {"mode": "preview", "prompt": ((FIGHTERS[n] + " " + STYLE_ARMED) if n.endswith("_w") else (STYLE + " " + FIGHTERS[n]))[:800], "ai_model": "meshy-7.1",
+        body = {"mode": "preview", "prompt": ((FIGHTERS[n] + " " + STYLE_ARMED) if n.endswith("_w") else (STYLE + " " + FIGHTERS[n]))[:800], "ai_model": LITE.get(n, "meshy-7.1"),
                 "pose_mode": "" if n.endswith("_w") else "a-pose", "target_formats": ["glb"], "should_remesh": True, "topology": "triangle",
                 "target_polycount": 40000}
         r = req("POST", "/v2/text-to-3d", body)
@@ -163,7 +170,7 @@ def refine(names):
 def rig(names):
     s = load_state()
     for n in names:
-        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": 1.75 if base(n) != "bruno" else 1.95})
+        r = req("POST", "/v1/rigging", {"input_task_id": s[n]["refine"], "height_meters": {"bruno": 1.95, "bolt": 1.9}.get(base(n), 1.75)})
         s[n]["rig"] = r["result"]
         save_state(s)
         print(n, "rig task", r["result"])

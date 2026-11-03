@@ -1,8 +1,30 @@
 extends SceneTree
 ## Pulls the animation clips out of Meshy's per-batch GLBs (each one repeats the whole
 ## character mesh) into one small AnimationLibrary per fighter: assets/meshy/<id>/anims.res
+## Fighters without their own animation batches borrow clips from others (all Meshy rigs
+## share one skeleton): later sources only add clips the earlier ones don't have.
+const BORROW := {"bolt": ["bruno", "sol_w"]}
+
+
 func _initialize() -> void:
 	for id in FighterView3D.MODEL_DIRS.values():
+		if BORROW.has(id):
+			continue
+		_extract(id)
+	for id in BORROW:
+		var lib := AnimationLibrary.new()
+		for src in BORROW[id]:
+			var sl: AnimationLibrary = load("res://assets/meshy/%s/anims.res" % src)
+			for n in sl.get_animation_list():
+				if not lib.has_animation(n):
+					lib.add_animation(n, sl.get_animation(n).duplicate(true))
+		ResourceSaver.save(lib, "res://assets/meshy/%s/anims.res" % id)
+		print(id, ": ", lib.get_animation_list().size(), " clips borrowed from ", BORROW[id])
+	quit()
+
+
+func _extract(id: String) -> void:
+	if true:
 		var lib := AnimationLibrary.new()
 		for f in ["anim_common", "anim_common2", "anim_" + id.get_slice("_", 0), "anim_move", "anim_move2", "anim_run"]:
 			var path := "res://assets/meshy/%s/%s.glb" % [id, f]
@@ -22,7 +44,6 @@ func _initialize() -> void:
 		var out := "res://assets/meshy/%s/anims.res" % id
 		ResourceSaver.save(lib, out)
 		print(id, ": ", lib.get_animation_list().size(), " clips -> ", out)
-	quit()
 
 
 ## The game moves the fighters; keep the hips over the feet by removing the clip's

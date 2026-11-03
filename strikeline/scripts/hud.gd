@@ -37,7 +37,7 @@ func game_set(txt := "GAME!") -> void:
 
 func fs_banner(f: Fighter) -> void:
 	arena.net_rec([&"hud_fs", f.port])
-	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER"}
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON"}
 	banner = {"name": f.data.name, "move": names.get(f.data.id, "FINAL STRIKE"), "c": f.data.accent, "t": 0.0}
 
 
@@ -45,7 +45,7 @@ var cine_card: Dictionary = {}
 
 
 func cine_title(f: Fighter) -> void:
-	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER"}
+	var names := {"kai": "CRIMSON ECLIPSE", "bruno": "TITAN'S WRATH", "nyx": "THOUSAND SHADOWS", "sol": "STORMBREAKER", "bolt": "OVERDRIVE CANNON"}
 	cine_card = {"move": names.get(f.data.id, "FINAL STRIKE"), "name": f.data.name, "c": f.data.accent, "t": 0.0}
 
 
@@ -116,7 +116,7 @@ func _draw() -> void:
 		var pc := Vector2(x + 46, y + 42)
 		draw_circle(pc, 27, Color(acc.r, acc.g, acc.b, 0.25 * a))
 		draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
-		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true)
+		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true, f.costume)
 		if head != null:
 			_circle_tex(head, pc, 26.0, Color(1, 1, 1, a), 0.92)
 			draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
@@ -307,7 +307,7 @@ func _draw_bubbles(vs: Vector2) -> void:
 		draw_circle(bp + Vector2(3, 4), r + 3.0, Color(0, 0, 0, 0.35))
 		draw_circle(bp, r + 3.0, col)
 		draw_circle(bp, r, Color(0.06, 0.06, 0.12, 0.92))
-		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true)
+		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true, f.costume)
 		if head != null:
 			_circle_tex(head, bp, r - 2.0, Color.WHITE, 1.1)
 		var dmg := "%d%%" % int(round(f.damage))

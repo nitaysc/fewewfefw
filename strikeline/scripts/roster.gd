@@ -64,6 +64,18 @@ const FIGHTERS := [
 		"special_names": ["Pulse Orb", "Arc Lance", "Updraft", "Static Field"],
 		"stats": [3, 3, 5, 4],
 	},
+	{
+		"id": "bolt", "name": "BOLT", "title": "THE IRON COMET",
+		"blurb": "Battle robot. Charged blaster shots, a rocket fist and thruster boots.",
+		"weapon": "fists", "wlen": 0.0,
+		"dims": {"torso": 34.0, "ua": 19.0, "la": 18.5, "th": 23.0, "sh": 23.0, "head": 11.5},
+		"w": 8.5, "accent": Color(0.25, 0.95, 0.8), "body": Color(0.08, 0.1, 0.1), "scarf": Color(1.0, 0.55, 0.15),
+		"run": 8.6, "air": 5.9, "air_acc": 0.52, "jump": 16.0, "djump": 15.0, "grav": 0.92, "fall": 15.0,
+		"weight": 1.18, "jumps": 2, "dmg": 1.1, "spd": 1.05, "reach": 1.2,
+		"specials": {"nb": "bolt_nb", "sb": "bolt_sb", "ub": "bolt_ub", "db": "bolt_db"},
+		"special_names": ["Charge Blaster", "Rocket Fist", "Thruster Boost", "Gravity Slam"],
+		"stats": [4, 2, 4, 4],
+	},
 ]
 
 
@@ -293,6 +305,17 @@ static func _build() -> void:
 		"logic": "static", "special": true,
 		"hits": [{"f": [9, 13], "j": "core", "r": 74, "d": 8, "b": 9, "g": 8, "a": 60, "radial": true}],
 		"sfx": [[8, "zap"]]}
+
+	# ---- BOLT (robot): blaster, rocket fist, thrusters, gravity slam ----
+	m.bolt_nb = (m.sol_nb as Dictionary).duplicate(true)
+	m.bolt_nb.charge_max = 75
+	m.bolt_nb.sfx = [[9, "zap"]]
+	m.bolt_sb = (m.bruno_sb as Dictionary).duplicate(true)
+	m.bolt_sb.sfx = [[5, "jet"]]
+	m.bolt_ub = (m.sol_ub as Dictionary).duplicate(true)
+	m.bolt_ub.hits = [{"f": [5, 45], "j": "ff", "r": 17, "d": 3, "b": 5, "g": 3, "a": 80, "rehit": 7}]
+	m.bolt_db = (m.bruno_db as Dictionary).duplicate(true)
+	m.bolt_plunge = (m.bruno_plunge as Dictionary).duplicate(true)
 
 	# ---- grabs & throws ----
 	var gr_p := P.call([0.35, -0.1, 1.5, 0.1, 1.4, 0.25, 0.85, 0.6, -0.6, 0.25, 0, 0, 0.6])

@@ -430,7 +430,7 @@ func hello(name: String, fighter: int) -> void:
 		used.append(p.name)
 	if used.has(name):
 		name = name + " " + str(id)
-	lobby.players.append({"peer": id, "name": name, "fighter": clampi(fighter, 0, 3)})
+	lobby.players.append({"peer": id, "name": name, "fighter": clampi(fighter, 0, Roster.FIGHTERS.size() - 1)})
 	var s: Dictionary = lobby.settings
 	s.cpus = mini(int(s.cpus), 4 - lobby.players.size())
 	_broadcast_lobby()
@@ -465,7 +465,7 @@ func pick(idx: int) -> void:
 func _set_fighter(peer: int, idx: int) -> void:
 	for p in lobby.players:
 		if int(p.peer) == peer:
-			p.fighter = clampi(idx, 0, 3)
+			p.fighter = clampi(idx, 0, Roster.FIGHTERS.size() - 1)
 	_broadcast_lobby()
 
 
@@ -484,7 +484,7 @@ func host_start() -> void:
 	for p in lobby.players:
 		players.append({"fighter": int(p.fighter), "cpu": false, "peer": int(p.peer), "name": p.name})
 	var taken := players.map(func(x): return x.fighter)
-	var pool := [0, 1, 2, 3]
+	var pool := range(Roster.FIGHTERS.size())
 	pool.shuffle()
 	for i in mini(int(s.cpus), 4 - players.size()):
 		var f: int = pool[i]
@@ -495,7 +495,7 @@ func host_start() -> void:
 		taken.append(f)
 		players.append({"fighter": f, "cpu": true, "level": int(s.level), "peer": 0})
 	if players.size() < 2:
-		players.append({"fighter": (int(players[0].fighter) + 1) % 4, "cpu": true, "level": int(s.level), "peer": 0})
+		players.append({"fighter": (int(players[0].fighter) + 1) % Roster.FIGHTERS.size(), "cpu": true, "level": int(s.level), "peer": 0})
 	var cfg := {"mode": "versus", "online": true, "stage": int(s.stage), "stocks": int(s.stocks), "items": bool(s.items), "players": players}
 	begin.rpc(cfg)
 

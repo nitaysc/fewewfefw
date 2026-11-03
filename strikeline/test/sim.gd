@@ -15,7 +15,7 @@ func _ready() -> void:
 func _start() -> void:
 	var players := []
 	for i in 4:
-		players.append({"fighter": (i + stage) % 4, "cpu": true, "level": 3})
+		players.append({"fighter": (i + stage) % Roster.FIGHTERS.size(), "cpu": true, "level": 3})
 	m = Match.new()
 	add_child(m)
 	m.setup({"mode": "versus", "stage": stage, "stocks": 2, "players": players})

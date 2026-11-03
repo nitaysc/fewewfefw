@@ -117,7 +117,8 @@ func on_button(id: String) -> void:
 			var me := _my_slot()
 			if me >= 0:
 				var f: int = Net.lobby.players[me].fighter
-				f = (f + (3 if id == "prev" else 1)) % 4
+				var nf := Roster.FIGHTERS.size()
+				f = (f + (nf - 1 if id == "prev" else 1)) % nf
 				Game.settings.fighter = f
 				Net.pick_fighter(f)
 		"cpus":

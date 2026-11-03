@@ -83,7 +83,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var vp := "victory_" + str(d.id)
 	var pose := Rig.blend(Roster.pose("guard"), Roster.pose(vp), clampf(rt * 2.0, 0.0, 1.0))
-	if not draw_portrait("winner", wf.fighter, Portrait3D.VICTORY[str(d.id)], c + Vector2(0, 10), 360.0, e):
+	if not draw_portrait("winner", wf.fighter, Portrait3D.VICTORY[str(d.id)], c + Vector2(0, 10), 360.0, e, int(wf.get("costume", 0))):
 		UiScreen.draw_fighter(self, wf.fighter, c, 2.6, pose, 1.0, e)
 	# title
 	var label := "YOU WIN!" if not wf.cpu else "%s WINS!" % d.name
@@ -119,7 +119,7 @@ func _draw() -> void:
 		text_shadow(str(k + 1), Vector2(rr.position.x + 14, rr.position.y + 44), 40, Color(pc, fa))
 		# head
 		var hc := rr.position + Vector2(76, 27)
-		var head := Portrait3D.texture(self, "res%d" % k, f.fighter, "Combat_Stance", 160, true)
+		var head := Portrait3D.texture(self, "res%d" % k, f.fighter, "Combat_Stance", 160, true, int(f.get("costume", 0)))
 		draw_circle(hc, 23, Color(fdd.accent.r * 0.4, fdd.accent.g * 0.4, fdd.accent.b * 0.4, fa))
 		if head != null:
 			_circle_tex(head, hc, 22.0, Color(1, 1, 1, fa))

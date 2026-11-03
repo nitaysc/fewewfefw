@@ -29,6 +29,7 @@ var plat := -1
 var jumps_left := 2
 var fastfall := false
 var drop_timer := 0
+var costume := 0   # alternate colours (see Costume)
 var no_grav := false
 var hw := 15.0
 var hh := 82.0
@@ -673,8 +674,8 @@ func _start_special() -> void:
 			m = Roster.move(name)
 		else:
 			air_once[once] = true
-	if name == "bruno_db" and not grounded:
-		name = "bruno_plunge"
+	if (name == "bruno_db" or name == "bolt_db") and not grounded:
+		name = name.replace("_db", "_plunge")
 	_begin(name)
 
 
@@ -1089,7 +1090,7 @@ func _final_logic(f: float) -> void:
 			if _crossed(64):
 				arena.final_catch(self, Rect2(pos.x - 1100, pos.y - 900, 2200, 1400))
 				arena.fx.smoke(core_world(), data.accent)
-		"sol":
+		"sol", "bolt":
 			no_grav = true
 			vel = Vector2.ZERO
 			if f < 120:

@@ -42,7 +42,7 @@ func _clear() -> void:
 func _ensure_demo() -> void:
 	if demo != null and is_instance_valid(demo):
 		return
-	var fighters := [0, 1, 2, 3]
+	var fighters := range(Roster.FIGHTERS.size())
 	fighters.shuffle()
 	var players := []
 	for i in 4:

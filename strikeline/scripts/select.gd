@@ -29,6 +29,12 @@ func layout() -> void:
 	var x0 := (vs.x - total) * 0.5
 	for i in n:
 		btns.append({"id": "f%d" % i, "r": Rect2(x0 + i * (cw + 16), 92, cw, 360), "label": "", "kind": "card", "sub": ""})
+	# costume dots across the top of the chosen card
+	var nc := Costume.count()
+	var sp := minf(24.0, (cw - 30.0) / nc)
+	var cx0 := x0 + sel * (cw + 16) + cw * 0.5 - sp * (nc - 1) * 0.5
+	for k in nc:
+		btns.append({"id": "cos%d" % k, "r": Rect2(cx0 + k * sp - 10, 100, 20, 20), "label": "", "kind": "dot", "sub": ""})
 	var by := vs.y - 106
 	add_btn("back", Rect2(28, by + 18, 120, 56), "BACK", "secondary")
 	var s: Dictionary = Game.settings
@@ -47,13 +53,21 @@ func layout() -> void:
 
 func on_button(id: String) -> void:
 	var s: Dictionary = Game.settings
+	if id.begins_with("cos"):
+		s.costume = int(id.substr(3))
+		sel_t = 0.0
+		return
 	if id.begins_with("f"):
 		var i := int(id.substr(1))
 		if i == sel:
+			# tapping your fighter again tries the next costume
+			s.costume = (int(s.get("costume", 0)) + 1) % Costume.count()
+			sel_t = 0.0
 			return
 		sel = i
 		sel_t = 0.0
 		s.fighter = i
+		s.costume = 0
 		Sfx.play("swing_m", -6)
 		return
 	match id:
@@ -77,15 +91,15 @@ func on_button(id: String) -> void:
 
 func _config() -> Dictionary:
 	var s: Dictionary = Game.settings
-	var players := [{"fighter": sel, "cpu": false}]
+	var players := [{"fighter": sel, "cpu": false, "costume": int(s.get("costume", 0))}]
 	if mode == "training":
-		players.append({"fighter": (sel + 1) % 4, "cpu": true, "level": 0})
+		players.append({"fighter": (sel + 1) % Roster.FIGHTERS.size(), "cpu": true, "level": 0})
 	else:
-		var pool := [0, 1, 2, 3]
+		var pool := range(Roster.FIGHTERS.size())
 		pool.erase(sel)
 		pool.shuffle()
 		for i in int(s.cpus):
-			var f: int = pool[i % pool.size()] if i < 3 else randi() % 4
+			var f: int = pool[i % pool.size()]
 			players.append({"fighter": f, "cpu": true, "level": int(s.level)})
 	return {"mode": mode, "stage": int(s.stage), "stocks": int(s.stocks), "items": s.get("items", true) and mode != "training", "players": players}
 
@@ -146,7 +160,7 @@ func _stage_thumb() -> void:
 
 func draw_buttons_except_cards() -> void:
 	for b in btns:
-		if b.kind != "card":
+		if b.kind != "card" and b.kind != "dot":
 			draw_btn(b)
 
 
@@ -187,7 +201,8 @@ func _card(b: Dictionary) -> void:
 	var pose := _preview_pose(i, on)
 	var did: String = d.id
 	var clip3: String = Portrait3D.SHOWCASE[did] if on else "Combat_Stance"
-	if not draw_portrait("card%d" % i, i, clip3, feet + Vector2(0, 4), 190.0, a):
+	var cos := int(Game.settings.get("costume", 0)) if on else 0
+	if not draw_portrait("card%d" % i, i, clip3, feet + Vector2(0, 4), 190.0, a, cos):
 		UiScreen.draw_fighter(self, i, feet, 1.45, pose, 1.0, a)
 	# name & title
 	text(d.name, Vector2(r.position.x, r.position.y + 268), 34, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
@@ -202,6 +217,17 @@ func _card(b: Dictionary) -> void:
 			var cr := Rect2(r.position.x + 110 + s * 22, y + 1, 18, 8)
 			draw_rect(cr, Color(acc.r, acc.g, acc.b, a) if s < int(st[k]) else Color(1, 1, 1, 0.12 * a))
 	if on:
+		var cur := int(Game.settings.get("costume", 0))
+		for db in btns:
+			if db.kind != "dot":
+				continue
+			var k := int((db.id as String).substr(3))
+			var dc: Vector2 = (db.r as Rect2).get_center() + Vector2(0, r.position.y + 6 - 92)
+			var rad := 8.0 if k != cur else 10.0 + sin(t * 6.0) * 1.0
+			draw_circle(dc + Vector2(1, 2), rad + 1.5, Color(0, 0, 0, 0.5 * a))
+			draw_circle(dc, rad, Costume.swatch(acc, k))
+			draw_arc(dc, rad + 1.5, 0, TAU, 20, Color(1, 1, 1, (1.0 if k == cur else 0.35) * a), 2.0 if k == cur else 1.0, true)
+		text(Costume.name_for(acc, cur), Vector2(r.position.x, r.position.y + 48), 12, Color(1, 1, 1, 0.6 * a), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, false)
 		var vs := get_viewport_rect().size
 		var blurb: String = d.blurb
 		text(blurb, Vector2(0, r.end.y + 34), 16, Color(1, 1, 1, 0.8), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)

@@ -245,7 +245,7 @@ func _ground_decision(out: Dictionary, tgt: Fighter, dx: float, dy: float, adx: 
 			_press(out, "atk")
 		else:
 			# special up close
-			out.y = 1.0 if me.data.id in ["sol", "kai"] else 0.0
+			out.y = 1.0 if me.data.id in ["sol", "kai", "bolt"] else 0.0
 			out.x = 0.0 if out.y != 0.0 else face
 			_press(out, "spc", rng.randi_range(1, 20))
 		return
@@ -258,18 +258,18 @@ func _ground_decision(out: Dictionary, tgt: Fighter, dx: float, dy: float, adx: 
 			_press(out, "jmp", 8)
 			jump_cd = 25
 		return
-	if adx > 320.0 and r < 0.35 and me.data.id in ["kai", "nyx", "sol"]:
+	if adx > 320.0 and r < 0.35 and me.data.id in ["kai", "nyx", "sol", "bolt"]:
 		out.x = 0.0
 		out.y = 0.0
 		me.facing = face
-		_press(out, "spc", rng.randi_range(1, 30) if me.data.id == "sol" else 1)
+		_press(out, "spc", rng.randi_range(1, 30) if me.data.id in ["sol", "bolt"] else 1)
 		return
 	if adx > 160.0 and adx < 300.0 and r < 0.2:
 		# dash attack approach
 		dir_hold = Vector2(face, 0)
 		dir_t = 18
 		return
-	if adx > 120.0 and adx < 260.0 and r < 0.18 and me.data.id in ["kai", "nyx", "bruno"] and not tgt_off:
+	if adx > 120.0 and adx < 260.0 and r < 0.18 and me.data.id in ["kai", "nyx", "bruno", "bolt"] and not tgt_off:
 		out.x = face
 		_press(out, "spc")
 		return
@@ -321,7 +321,7 @@ func _recover(out: Dictionary, main: Rect2) -> void:
 				out.y = d.y
 				dir_hold = d
 				dir_t = 12
-			elif far > 260.0 and not me.air_once.get("sb", false) and me.data.id in ["kai", "bruno", "sol"] and not need_up:
+			elif far > 260.0 and not me.air_once.get("sb", false) and me.data.id in ["kai", "bruno", "sol", "bolt"] and not need_up:
 				out.y = 0.0
 				out.x = dir
 				_press(out, "spc")

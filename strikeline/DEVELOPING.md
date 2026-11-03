@@ -76,6 +76,13 @@ so guests see it.
   `preview`, `refine`, `rig`, `animate`), run `tools/extract_anims.gd` and
   `tools/analyze_clips.gd`, add the entry to `MODEL_DIRS`, `roster.gd` (stats, moves) and
   the Final Smash name in `hud.gd`. Costs roughly 100 Meshy credits.
+  **Cheap way (~20 credits, how Bolt was made):** all Meshy rigs share one 24-bone skeleton,
+  so a new fighter can borrow clips. Add the prompt to `FIGHTERS` (and to `LITE` for the
+  5-credit preview model), run `preview`, `refine`, `rig` only, then list the fighters to
+  borrow from in `BORROW` in `tools/extract_anims.gd`. Moves can reuse existing logic by
+  duplicating another fighter's special (see the BOLT block in `roster.gd`).
+- **Costumes**: `scripts/costume.gd` (8 colour sets, a shader that recolours the outfit and
+  keeps skin). Picked on the select screen; duplicate fighters get different colours.
 - **A new stage**: add rects/spawns in `stage.gd` `setup()`, a builder in `stage3d.gd`,
   a backdrop in `stage_bg.gd`, then regenerate thumbnails with `stage_shots -- x thumbs`.
 - **Props/items models**: `python3 tools/meshy.py props <name>` (prompts in `PROPS`).

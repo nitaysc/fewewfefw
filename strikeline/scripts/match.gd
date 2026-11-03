@@ -103,6 +103,15 @@ func setup(config: Dictionary) -> void:
 		var pl: Dictionary = players[i]
 		var f := Fighter.new()
 		f.setup(self, i, pl.fighter, pl.cpu, pl.get("level", 2))
+		# same fighter twice? everyone gets their own colours, like Smash
+		var cos := int(pl.get("costume", 0))
+		var used: Array = []
+		for g in fighters:
+			if g.data == f.data:
+				used.append(g.costume)
+		while used.has(cos):
+			cos = (cos + 1) % Costume.count()
+		f.costume = cos
 		f.stocks = 99 if (training or timed) else int(cfg.get("stocks", 3))
 		if not demo:
 			f.intro_t = 70 + i * 10
@@ -736,7 +745,7 @@ func _finish() -> void:
 	var res := {"winner": winner, "fighters": [], "cfg": cfg}
 	for f in fighters:
 		res.fighters.append({"port": f.port, "fighter": Roster.FIGHTERS.find(f.data), "cpu": f.is_cpu,
-			"kos": f.st_kos, "falls": f.st_falls, "dealt": f.st_dealt, "stocks": maxi(f.stocks, 0), "score": f.score})
+			"costume": f.costume, "kos": f.st_kos, "falls": f.st_falls, "dealt": f.st_dealt, "stocks": maxi(f.stocks, 0), "score": f.score})
 	finished.emit(res)
 
 

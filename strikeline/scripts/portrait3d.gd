@@ -3,8 +3,8 @@ extends SubViewport
 ## A live 3D render of one fighter for menus (select cards, lobby, results).
 ## Each portrait is its own little lit world rendered to a transparent texture.
 
-const VICTORY := {"kai": "victory", "bruno": "Chest_Pound_Taunt", "nyx": "victory", "sol": "victory"}
-const SHOWCASE := {"kai": "Charged_Slash", "bruno": "Right_Uppercut_from_Guard", "nyx": "Lunge_Spin_Kick", "sol": "Charged_Spell_Cast"}
+const VICTORY := {"kai": "victory", "bruno": "Chest_Pound_Taunt", "nyx": "victory", "sol": "victory", "bolt": "victory"}
+const SHOWCASE := {"kai": "Charged_Slash", "bruno": "Right_Uppercut_from_Guard", "nyx": "Lunge_Spin_Kick", "sol": "Charged_Spell_Cast", "bolt": "Punch_Forward_with_Both_Fists"}
 
 var idx := -1
 var clip := ""
@@ -12,13 +12,14 @@ var model: Node3D
 var ap: AnimationPlayer
 var cam: Camera3D
 var head_shot := false
+var cos := 0
 var skel: Skeleton3D
 var head_bone := -1
 var head_at := Vector3.INF
 
 
 ## Returns (and creates on first use) the portrait texture `key` living under `owner`.
-static func texture(owner: Node, key: String, fighter_idx: int, clip_name: String, px := 512, head := false) -> Texture2D:
+static func texture(owner: Node, key: String, fighter_idx: int, clip_name: String, px := 512, head := false, costume := 0) -> Texture2D:
 	if not FighterView3D.available():
 		return null
 	var p: Portrait3D = owner.get_node_or_null(NodePath("pt_" + key))
@@ -32,7 +33,7 @@ static func texture(owner: Node, key: String, fighter_idx: int, clip_name: Strin
 		owner.add_child(p)
 		p.head_shot = head
 		p._build_world()
-	p.show_fighter(fighter_idx, clip_name)
+	p.show_fighter(fighter_idx, clip_name, costume)
 	return p.get_texture()
 
 
@@ -63,9 +64,10 @@ func _build_world() -> void:
 	cam.look_at(Vector3(0, 0.95, 0))
 
 
-func show_fighter(fighter_idx: int, clip_name: String) -> void:
-	if fighter_idx != idx:
+func show_fighter(fighter_idx: int, clip_name: String, costume := 0) -> void:
+	if fighter_idx != idx or costume != cos:
 		idx = fighter_idx
+		cos = costume
 		if model != null:
 			model.queue_free()
 		var d: Dictionary = Roster.fighter(idx)
@@ -82,13 +84,14 @@ func show_fighter(fighter_idx: int, clip_name: String) -> void:
 		ap.animation_finished.connect(func(_n): if clip != "": ap.play("m/" + clip))
 		for mi in model.find_children("*", "MeshInstance3D", true, false):
 			WeaponSkin.apply(FighterView3D.MODEL_DIRS.get(id, id), mi)
+		Costume.apply(model, cos)
 		var accent := OmniLight3D.new()
 		accent.light_color = d.accent
 		accent.light_energy = 2.0
 		accent.omni_range = 3.0
 		accent.position = Vector3(-0.8, 1.6, -1.0)
 		model.add_child(accent)
-		var tall := 1.11 if id == "bruno" else 1.0
+		var tall := 1.11 if id == "bruno" else (1.08 if id == "bolt" else 1.0)
 		skel = model.find_child("*", true, false) as Skeleton3D
 		for sk in model.find_children("*", "Skeleton3D", true, false):
 			skel = sk
@@ -98,7 +101,7 @@ func show_fighter(fighter_idx: int, clip_name: String) -> void:
 			model.rotation_degrees = Vector3(0, 20, 0)
 			cam.position = Vector3(0, 1.56 * tall, 1.25)
 			cam.look_at(Vector3(0, 1.53 * tall, 0))
-		elif id == "bruno":
+		elif id == "bruno" or id == "bolt":
 			cam.position = Vector3(0, 1.05, 4.7)
 		else:
 			cam.position = Vector3(0, 0.98, 4.3)
