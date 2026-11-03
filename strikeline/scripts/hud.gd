@@ -106,7 +106,7 @@ func _draw() -> void:
 		draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
 		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true)
 		if head != null:
-			draw_texture_rect(head, Rect2(pc - Vector2(30, 30), Vector2(60, 60)), false, Color(1, 1, 1, a))
+			_circle_tex(head, pc, 26.0, Color(1, 1, 1, a), 0.92)
 			draw_arc(pc, 27, 0, TAU, 40, Color(acc.r, acc.g, acc.b, 0.9 * a), 2.5, true)
 		# name
 		draw_string(fb, Vector2(x + 80, y + 24), f.data.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.85 * a))
@@ -133,9 +133,13 @@ func _draw() -> void:
 				draw_string(fb, Vector2(x + 26, y + 96), "SCORE %+d" % f.score, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.8))
 			elif not arena.training:
 				for s in mini(f.stocks, 8):
-					var sc := Vector2(x + 26 + s * 14, y + 90)
-					draw_circle(sc, 5.5, Color(acc.r, acc.g, acc.b))
-					draw_arc(sc, 5.5, 0, TAU, 14, Color(1, 1, 1, 0.8), 1.2, true)
+					var sc := Vector2(x + 28 + s * 19, y + 92)
+					draw_circle(sc, 8.5, Color(acc.r * 0.4, acc.g * 0.4, acc.b * 0.4, 0.9))
+					if head != null:
+						_circle_tex(head, sc, 8.0, Color.WHITE, 1.25)
+					else:
+						draw_circle(sc, 5.5, Color(acc.r, acc.g, acc.b))
+					draw_arc(sc, 8.5, 0, TAU, 18, Color(acc.r, acc.g, acc.b, 0.95), 1.5, true)
 		else:
 			draw_string(fd, Vector2(x + 80, y + 64), "OUT", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.7, 0.7, 0.75, 0.6))
 
@@ -155,6 +159,9 @@ func _draw() -> void:
 		var nm: String = f.data.name
 		var nw := fb.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
 		draw_string(fb, c + Vector2(-nw * 0.5, 34), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1, aa * 0.8))
+
+	_draw_bubbles(vs)
+	_draw_szoom(vs)
 
 	# countdown
 	if arena.countdown > 0:
@@ -245,6 +252,77 @@ func _draw() -> void:
 
 	if flash_a > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 1, 1, flash_a * 0.6))
+
+
+## A texture clipped to a circle (zoom > 1 crops into the middle).
+func _circle_tex(tex: Texture2D, c: Vector2, r: float, mod := Color.WHITE, zoom := 1.0) -> void:
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for k in 24:
+		var a := k * TAU / 24.0
+		var d := Vector2(cos(a), sin(a))
+		pts.append(c + d * r)
+		uvs.append(Vector2(0.5, 0.5) + d * 0.5 / zoom)
+	draw_colored_polygon(pts, mod, uvs, tex)
+
+
+## Smash-style magnifier bubbles for fighters outside the camera.
+func _draw_bubbles(vs: Vector2) -> void:
+	var cam: Camera2D = arena.cam
+	if cam == null or arena.szoom_t > 0:
+		return
+	var z: float = cam.zoom.x
+	for i in arena.fighters.size():
+		var f: Fighter = arena.fighters[i]
+		if not f.alive() or f.state == Fighter.S.RESPAWN or f.state == Fighter.S.DEAD or not f.visible:
+			continue
+		var sp: Vector2 = (f.core_world() - cam.position) * z + vs * 0.5
+		var inner := Rect2(Vector2(0, 0), vs).grow(-6)
+		if inner.has_point(sp):
+			continue
+		var lo := Vector2(62, 150)
+		var hi := vs - Vector2(62, 62)
+		var bp := sp.clamp(lo, hi)
+		var dist := (sp - bp).length()
+		var r := clampf(50.0 - dist / 22.0, 28.0, 50.0)
+		var col: Color = arena.PORT_COLORS[i % 4]
+		var dir := (sp - bp).normalized()
+		# pointer toward the fighter
+		var tip := bp + dir * (r + 14.0)
+		var nn := Vector2(-dir.y, dir.x)
+		draw_colored_polygon(PackedVector2Array([tip, bp + dir * (r - 2.0) + nn * 11.0, bp + dir * (r - 2.0) - nn * 11.0]), col)
+		draw_circle(bp + Vector2(3, 4), r + 3.0, Color(0, 0, 0, 0.35))
+		draw_circle(bp, r + 3.0, col)
+		draw_circle(bp, r, Color(0.06, 0.06, 0.12, 0.92))
+		var head := Portrait3D.texture(self, "hud%d" % i, Roster.FIGHTERS.find(f.data), "Combat_Stance", 160, true)
+		if head != null:
+			_circle_tex(head, bp, r - 2.0, Color.WHITE, 1.1)
+		var dmg := "%d%%" % int(round(f.damage))
+		var fb: Font = Game.font_display
+		draw_string(fb, bp + Vector2(-r, r + 2), dmg, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 15, dmg_color(f.damage))
+
+
+## KO special zoom: letterbox bars and speed lines over the frozen moment.
+func _draw_szoom(vs: Vector2) -> void:
+	var st: int = arena.szoom_t
+	if st <= 0:
+		return
+	var u := float(arena.SZOOM_LEN - st)
+	var k := minf(1.0, u / 4.0) * minf(1.0, st / 6.0)
+	var bar := vs.y * 0.11 * k
+	draw_rect(Rect2(0, 0, vs.x, bar), Color(0, 0, 0, 0.92))
+	draw_rect(Rect2(0, vs.y - bar, vs.x, bar), Color(0, 0, 0, 0.92))
+	var c := vs * 0.5
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(u / 2.0) + 7
+	for n in 46:
+		var a := rng.randf() * TAU
+		var d := Vector2(cos(a), sin(a))
+		var r0 := vs.length() * rng.randf_range(0.36, 0.48)
+		var r1 := vs.length() * 0.75
+		var w := rng.randf_range(2.0, 7.0)
+		var nn := Vector2(-d.y, d.x) * w
+		draw_colored_polygon(PackedVector2Array([c + d * r0, c + d * r1 + nn, c + d * r1 - nn]), Color(1, 1, 1, 0.55 * k))
 
 
 func _big_text(txt: String, c: Vector2, u: float, col: Color) -> void:

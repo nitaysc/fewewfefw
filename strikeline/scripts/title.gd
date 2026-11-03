@@ -69,7 +69,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(gxx, ly - 70), Vector2(gxx + 22, ly - 70), Vector2(gxx - 8, ly + 48), Vector2(gxx - 30, ly + 48)]), Color(1, 1, 1, 0.22))
 	text("PLATFORM  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
 	draw_buttons()
-	text("v1.6  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
+	text("v1.7  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
 
 
 func _draw_help(vs: Vector2) -> void:

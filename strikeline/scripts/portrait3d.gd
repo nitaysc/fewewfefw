@@ -12,6 +12,9 @@ var model: Node3D
 var ap: AnimationPlayer
 var cam: Camera3D
 var head_shot := false
+var skel: Skeleton3D
+var head_bone := -1
+var head_at := Vector3.INF
 
 
 ## Returns (and creates on first use) the portrait texture `key` living under `owner`.
@@ -86,6 +89,11 @@ func show_fighter(fighter_idx: int, clip_name: String) -> void:
 		accent.position = Vector3(-0.8, 1.6, -1.0)
 		model.add_child(accent)
 		var tall := 1.11 if id == "bruno" else 1.0
+		skel = model.find_child("*", true, false) as Skeleton3D
+		for sk in model.find_children("*", "Skeleton3D", true, false):
+			skel = sk
+		head_bone = skel.find_bone("Head") if skel else -1
+		head_at = Vector3.INF
 		if head_shot:
 			model.rotation_degrees = Vector3(0, 20, 0)
 			cam.position = Vector3(0, 1.56 * tall, 1.25)
@@ -99,3 +107,14 @@ func show_fighter(fighter_idx: int, clip_name: String) -> void:
 		clip = clip_name
 		if ap.has_animation("m/" + clip):
 			ap.play("m/" + clip, 0.2)
+
+
+## Head shots follow the head bone, so a crouched or leaning stance stays centred.
+func _process(_d: float) -> void:
+	if not head_shot or skel == null or head_bone < 0 or not is_instance_valid(skel):
+		return
+	var hp: Vector3 = skel.global_transform * skel.get_bone_global_pose(head_bone).origin
+	hp += Vector3(0, 0.06, 0)
+	head_at = hp if head_at == Vector3.INF else head_at.lerp(hp, 0.25)
+	cam.position = head_at + Vector3(0.12, 0.04, 1.05)
+	cam.look_at(head_at)

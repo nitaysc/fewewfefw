@@ -51,6 +51,12 @@ var use3d := false
 var world3d: Node3D
 var cam3d: Camera3D
 var stage3d: Stage3D
+# KO special zoom: the world freezes on the hit that will KO, the camera snaps to the victim
+const SZOOM_LEN := 44
+var szoom_t := 0
+var szoom_v: Fighter = null
+var szoom_a: Fighter = null
+var szoom_quad: MeshInstance3D
 
 
 func setup(config: Dictionary) -> void:
@@ -158,6 +164,17 @@ func _physics_process(_delta: float) -> void:
 		if slowmo_t <= 0.0:
 			Engine.time_scale = 1.0
 
+	if szoom_t > 0:
+		szoom_t -= 1
+		if szoom_t == 0:
+			_szoom_end()
+		elif net_role != "guest":
+			# everything holds still while the camera punches in
+			if pad != null:
+				pad.poll()
+			_update_camera()
+			_net_send()
+			return
 	if net_role == "guest":
 		_guest_tick()
 		return
@@ -277,6 +294,8 @@ func _replay(ev: Array) -> void:
 			if hud: hud.fs_banner(fighters[int(ev[1])])
 		&"hud_sudden":
 			if hud: hud.sudden_death()
+		&"szoom":
+			special_zoom(fighters[int(ev[1])], fighters[int(ev[2])])
 		_:
 			if fx.has_method(name):
 				fx.callv(name, ev.slice(1))
@@ -404,7 +423,9 @@ func apply_hit(a: Fighter, v: Fighter, h: Dictionary, c: Vector2, dirx: float, m
 			var power := dmg + kb * 0.5
 			fx.hit(c, Vector2(dirx, -0.4).normalized(), power, a.data.accent)
 			camera_shake(minf(3.0 + kb * 0.35, 16.0))
-			if strong:
+			if strong and not demo and szoom_t <= 0 and not over and _will_ko(v):
+				special_zoom(a, v)
+			elif strong:
 				zoom_punch = 0.08
 				net_rec([&"punch", 0.08])
 				Sfx.play("hit_crit", 0)
@@ -424,6 +445,56 @@ func apply_hit(a: Fighter, v: Fighter, h: Dictionary, c: Vector2, dirx: float, m
 					Input.vibrate_handheld(vib)
 				else:
 					net_rec([&"vibrate", g.port, vib])
+
+
+## Rough flight of a launched fighter (no DI, no platforms but the main one): will it leave the blast zone?
+func _will_ko(v: Fighter) -> bool:
+	var b: Rect2 = stage.blast
+	var main: Rect2 = stage.main_rect()
+	var p: Vector2 = v.pos
+	var kv: Vector2 = v.kvel
+	var vel := Vector2.ZERO
+	var g: float = v.data.grav
+	var cap: float = v.data.fall
+	for i in 150:
+		kv = kv.move_toward(Vector2.ZERO, 0.5)
+		vel.y = minf(vel.y + g * (0.3 if kv.length() > 4.0 else 1.0), cap)
+		var np := p + vel + kv
+		if p.y <= main.position.y and np.y >= main.position.y and np.x > main.position.x and np.x < main.end.x:
+			return false
+		p = np
+		if p.x < b.position.x or p.x > b.end.x or p.y > b.end.y:
+			return true
+		if p.y < b.position.y and i < v.hitstun:
+			return true
+		if kv.length() < 0.5 and vel.y > 0.0 and p.y < b.end.y - 400.0:
+			return false
+	return false
+
+
+func special_zoom(a: Fighter, v: Fighter) -> void:
+	net_rec([&"szoom", a.port, v.port])
+	szoom_t = SZOOM_LEN
+	szoom_a = a
+	szoom_v = v
+	Sfx.play("hit_crit", 4)
+	Sfx.play("ko", -6)
+	camera_shake(8.0)
+	if hud:
+		hud.flash(0.55)
+	if szoom_quad:
+		var m := szoom_quad.material_override as StandardMaterial3D
+		var c: Color = a.data.accent
+		m.albedo_color = Color(c.r * 0.5 + 0.25, c.g * 0.5 + 0.3, c.b * 0.5 + 0.5, 0.0)
+
+
+func _szoom_end() -> void:
+	szoom_v = null
+	szoom_a = null
+	zoom_punch = 0.1
+	if not over:
+		Engine.time_scale = 0.45
+		slowmo_t = 26.0
 
 
 func _counter(kai: Fighter, att: Fighter, dmg: float) -> void:
@@ -662,8 +733,13 @@ func _update_camera() -> void:
 	if focus != null and is_instance_valid(focus):
 		center = focus.core_world()
 		z = 1.5
-	cam_center = cam_center.lerp(center, 0.07 if focus == null else 0.15)
-	cam_zoom = lerpf(cam_zoom, z, 0.045 if focus == null else 0.12)
+	var snap := 0.0
+	if szoom_t > 0 and szoom_v != null:
+		center = szoom_v.core_world().lerp(szoom_a.core_world(), 0.25)
+		z = 1.85
+		snap = 0.35
+	cam_center = cam_center.lerp(center, snap if snap > 0.0 else (0.07 if focus == null else 0.15))
+	cam_zoom = lerpf(cam_zoom, z, snap if snap > 0.0 else (0.045 if focus == null else 0.12))
 	zoom_punch = move_toward(zoom_punch, 0.0, 0.006)
 	shake = move_toward(shake, 0.0, 0.9)
 	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
@@ -714,6 +790,19 @@ func _setup_3d() -> void:
 		world3d.add_child(v)
 		v.setup(f)
 		f.view3d = v
+	szoom_quad = MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(34, 34)
+	szoom_quad.mesh = qm
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.albedo_texture = _sunburst()
+	sm.disable_fog = true
+	sm.render_priority = 2
+	szoom_quad.material_override = sm
+	szoom_quad.visible = false
+	world3d.add_child(szoom_quad)
 	if Stage3D.has_props():
 		env.fog_enabled = true
 		env.fog_light_color = [Color(0.35, 0.12, 0.4), Color(1.0, 0.68, 0.55), Color(0.06, 0.05, 0.14)][cfg.stage % 3]
@@ -737,6 +826,18 @@ func _sync_3d(c: Vector2, zoom: float) -> void:
 			var u: float = f.intro_t / 70.0
 			off = -u * u * 650.0
 		f.view3d.update_view(off)
+	if szoom_quad:
+		var k := 0.0
+		if szoom_t > 0:
+			var u := float(SZOOM_LEN - szoom_t)
+			k = minf(1.0, u / 4.0) * minf(1.0, szoom_t / 6.0)
+		szoom_quad.visible = k > 0.0
+		if k > 0.0:
+			var tgt := szoom_v.core_world() if szoom_v else c
+			szoom_quad.position = Vector3(tgt.x / FighterView3D.PXU, -tgt.y / FighterView3D.PXU, -1.2)
+			szoom_quad.rotation.z = (SZOOM_LEN - szoom_t) * 0.01
+			var m := szoom_quad.material_override as StandardMaterial3D
+			m.albedo_color.a = 0.93 * k
 	if stage3d:
 		# haze only the scenery behind the fighters, wherever the camera is
 		var e: Environment = (world3d.get_child(0) as WorldEnvironment).environment
@@ -744,6 +845,31 @@ func _sync_3d(c: Vector2, zoom: float) -> void:
 		e.fog_depth_end = d + 80.0
 		stage3d.update(get_process_delta_time())
 
+
+
+## Speed-line burst behind the fighters during the KO zoom.
+static func _sunburst() -> Texture2D:
+	var sz := 256
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4
+	var rays := PackedFloat32Array()
+	for i in 72:
+		rays.append(rng.randf())
+	for y in sz:
+		for x in sz:
+			var d := Vector2(x - sz * 0.5, y - sz * 0.5)
+			var r := d.length() / (sz * 0.5)
+			var a := fposmod(d.angle() / TAU, 1.0) * 72.0
+			var ray := rays[int(a) % 72]
+			var edge := absf(fposmod(a, 1.0) - 0.5) * 2.0
+			var line := 1.0 if (ray > 0.55 and edge < ray - 0.45) else 0.0
+			var v := 0.22 + line * clampf(r * 1.6 - 0.15, 0.0, 1.0) * 0.6
+			var core := clampf(1.0 - r * 2.6, 0.0, 1.0)
+			v = clampf(v + core * core * 0.7, 0.0, 1.0)
+			img.set_pixel(x, y, Color(v, v, v, 1.0))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 # ------------------------------------------------------------------ pause
