@@ -1,0 +1,74 @@
+name: Test Red Eclipse on an Android emulator
+
+# Builds an x86_64 copy of the Red Eclipse port, runs it on an emulator, taps through
+# the menus and publishes screenshots and the log as a "redeclipse-test-N" pre-release,
+# so the game can be checked without a phone.
+on:
+  push:
+    paths:
+      - 'redeclipse-android/**'
+      - '.github/workflows/test-redeclipse.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Fetch Red Eclipse and SDL, apply the Android patch, pack game data
+        working-directory: redeclipse-android
+        run: scripts/prepare.sh
+
+      - name: Build x86_64 APK
+        working-directory: redeclipse-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -Pabi=x86_64 -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../../re-x86.apk
+          rm -rf ../build app/build/intermediates
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disk-size: 8G
+          ram-size: 4096M
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: bash .github/scripts/redeclipse-smoke.sh
+
+      - name: Publish screenshots and log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la shots || true
+          [ -d shots ] || exit 0
+          tail -n 150 shots/logcat.txt || true
+          gh release create "redeclipse-test-${{ github.run_number }}" shots/* \
+            --target "${{ github.sha }}" \
+            --title "Red Eclipse emulator test #${{ github.run_number }}" \
+            --notes "Automatic test run on an emulator (not for playing). Built from ${{ github.ref_name }}." \
+            --prerelease --latest=false
