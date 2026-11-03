@@ -1,8 +1,10 @@
-# Strikeline: stick brawl
+# Strikeline: platform brawl
 
-A native Android platform fighter built with **Godot 4.4** (not a web wrapper). Four
-stickman fighters, three stages, CPU opponents and touch controls. Knock rivals off the
-stage: the more damage they've taken, the further they fly.
+A native Android platform fighter built with **Godot 4.4** (not a web wrapper). Four 3D
+fighters, three 3D stages, CPU opponents, online and Wi-Fi play, and touch controls. Knock
+rivals off the stage: the more damage they've taken, the further they fly.
+
+**Continuing development (you, a friend or another AI): start with [DEVELOPING.md](DEVELOPING.md).**
 
 ## Download
 
@@ -25,18 +27,20 @@ newest `strikeline-v1.9.N` release on the repo's Releases page.
   (throwable bombs, healing food), parry, ledge and get-up attacks, star KOs, timed matches
   with scoring and sudden death, entrance animations, a training combo counter, and a
   moving platform on Sunset Shrine.
-- **Animation**: every fighter is a procedural skeleton (`scripts/rig.gd`). Attacks are
-  keyframed poses with easing; running, idling, jumping, flips, tumbling and ledge hangs
-  are procedural. Weapon smears, verlet scarves, afterimages and hit-flash on top.
+- **Animation**: the gameplay runs on a procedural 2D skeleton (`scripts/rig.gd`, hitboxes
+  and timing); what you see are the 3D models below playing motion-capture clips.
 - **Feel**: per-hit hitlag and victim shake, camera shake and zoom punch, impact stars,
   sparks, shockwave rings, launch smoke trails, KO light beams, slow-mo on the last KO,
   haptics on hits.
 - **CPU** (`scripts/ai.gd`): easy/normal/hard; spacing, shielding, smash at kill %,
   aerials by position, edge-guarding, ledge options and recovery with each special.
-- **Audio** (`tools/make_audio.py`): every sound effect and both music loops are
-  synthesized with numpy (`python3 tools/make_audio.py` regenerates `sfx/`).
+- **Audio**: sound effects are CC0 recordings mixed by `tools/build_sfx.py` (credits in
+  `sfx/CREDITS.txt`); the music loops are synthesized (`tools/make_audio.py`).
+- **Presentation**: 3D stages and items (`scripts/stage3d.gd`), KO special zoom, off-screen
+  bubbles, Final Smash cutscenes (`scripts/cinematic.gd`), Smash-style results, animated
+  menus with screen wipes.
 
-## 3D fighters (`scripts/fighter_view3d.gd`, `scripts/weapons.gd`, `scripts/portrait3d.gd`)
+## 3D fighters (`scripts/fighter_view3d.gd`, `scripts/weapon_skin.gd`, `scripts/portrait3d.gd`)
 
 The fighters are 3D models generated with **Meshy** (text to 3D, PBR textures, auto-rig,
 motion-capture clips). Gameplay is still the 2D simulation; each `Fighter` gets a
@@ -51,7 +55,7 @@ triangles welding a weapon to the body. The double jump is a motion-captured bac
 
 Layering: background and stage are canvas layers below 3D (`Environment.BG_CANVAS`); the 3D
 camera is synced to the 2D camera so models sit exactly on their hitboxes; effects, HUD and
-controls draw on top. The title screen's GRAPHICS chip switches to the classic stickmen.
+controls draw on top.
 
 Regenerating assets: `MESHY_API_KEY=... python3 tools/meshy.py preview|refine|rig|animate <fighters>`
 (task ids in `tools/meshy_tasks.json`), then `godot --headless -s tools/extract_anims.gd` and
