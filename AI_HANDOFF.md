@@ -15,6 +15,8 @@ an AI. Each project has its own notes:
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.
+- `fps-arms/README.md`: first-person shooter test build (GDQuest FPS arms demo, Godot 4.3)
+  with touch controls. Next step the owner wants: make it a multiplayer shooter.
 - `README.md` (root): "שיחקת אותה!", a Hebrew party guessing game (web code in `www/`).
 
 Ground rules:
