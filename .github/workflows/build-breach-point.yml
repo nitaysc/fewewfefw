@@ -1,0 +1,81 @@
+name: Build Breach Point APK
+
+on:
+  push:
+    paths:
+      - 'breach-point/**'
+      - '.github/workflows/build-breach-point.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: breach-point
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-android
+
+      - name: Download Godot and the Android export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -sL -o g.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q g.zip && rm g.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          curl -sL -o t.tpz https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q t.tpz && rm t.tpz
+          T=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p $T && cp templates/android_* templates/version.txt $T/ && rm -rf templates
+
+      - name: Point Godot at the Android SDK and Java
+        run: |
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-4.7.tres <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          SETTINGS
+
+      - name: Import and export the APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$PWD/android/debug.keystore
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
+          ~/godot/godot --headless --import --path . || true
+          mkdir -p build
+          ~/godot/godot --headless --path . --export-debug "Android" build/breach-point.apk
+          ls -la build/breach-point.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "breach-point-v0.1.${{ github.run_number }}" build/breach-point.apk \
+            --target "${{ github.sha }}" \
+            --title "Breach Point v0.1.${{ github.run_number }}" \
+            --notes "Download: tap breach-point.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false
