@@ -61,6 +61,7 @@ func _set_screen(s: UiScreen) -> void:
 	screen = s
 	s.main = self
 	ui_layer.add_child(s)
+	Wipe.play(self)
 
 
 func show_title() -> void:
@@ -88,6 +89,7 @@ func start_match(cfg: Dictionary) -> void:
 	add_child(m)
 	m.setup(cfg)
 	m.finished.connect(_on_finished)
+	Wipe.play(self, Color(1.0, 0.72, 0.15))
 
 
 func screen_cfg_hack() -> Dictionary:

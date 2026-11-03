@@ -10,6 +10,10 @@ const ROOT := "res://assets/meshy/%s/"
 ## Which Meshy model each fighter uses (the "_w" models hold their weapons in a closed fist).
 const MODEL_DIRS := {"kai": "kai_w", "bruno": "bruno", "nyx": "nyx_w", "sol": "sol_w"}
 
+## Locomotion: an athletic forward-lean sprint and a calm, tucked fall.
+const RUN_CLIP := "Lean_Forward_Sprint_inplace"
+const FALL_CLIP := "Fall2"
+
 static var _scenes := {}
 static var _libs := {}
 static var _info := {}
@@ -187,6 +191,10 @@ func _move_time(mv: Dictionary, c: String) -> float:
 	return imp + post * clampf((mf - hit_f) / maxf(mlen - hit_f, 1.0), 0.0, 1.0)
 
 
+func _has(c: String) -> bool:
+	return ap.has_animation("m/" + c)
+
+
 func update_view(intro_off: float) -> void:
 	var S = Fighter.S
 	visible = f.visible and f.state != S.DEAD and f.state != S.OUT
@@ -201,8 +209,8 @@ func update_view(intro_off: float) -> void:
 		S.IDLE, S.RESPAWN, S.SQUAT, S.LAND, S.GETUP:
 			_loop("Combat_Stance", 1.0)
 		S.RUN:
-			var k := clampf(absf(f.vel.x) / float(f.data.run), 0.35, 1.3)
-			_loop("Running", k * 1.1, 0.1)
+			var k := clampf(absf(f.vel.x) / float(f.data.run), 0.45, 1.25)
+			_loop(RUN_CLIP if _has(RUN_CLIP) else "Running", k * 0.95, 0.12)
 		S.CROUCH:
 			_play("Cautious_Crouch_Walk_Forward", 0.15, 0.1)
 		S.AIR, S.HELPLESS:
@@ -214,7 +222,7 @@ func update_view(intro_off: float) -> void:
 				var L2: float = _cinfo("Regular_Jump").len
 				_play("Regular_Jump", L2 * clampf(0.35 + f.sframe / 60.0 * 0.6, 0.35, 0.55), 0.1)
 			else:
-				_loop("Fall1", 1.0, 0.18)
+				_loop(FALL_CLIP if _has(FALL_CLIP) else "Fall1", 0.8, 0.22)
 		S.AIRDODGE:
 			_play("Stand_Dodge", clampf(f.sframe / 60.0 * 1.6, 0.0, 1.2), 0.06)
 		S.ATTACK:

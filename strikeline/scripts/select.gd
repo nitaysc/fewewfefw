@@ -115,9 +115,11 @@ func _stage_thumb() -> void:
 	for b in btns:
 		if b.id != "stage":
 			continue
-		var r: Rect2 = b.r
-		if pressed_id == "stage":
-			r = r.grow(-3)
+		var xf := btn_xform(b)
+		if xf[2] <= 0.0:
+			return
+		var r := Rect2(-(b.r as Rect2).size * 0.5, (b.r as Rect2).size)
+		draw_set_transform(xf[0], 0.0, Vector2(xf[1], xf[1]))
 		var sl := minf(18.0, r.size.y * 0.35)
 		var pts := PackedVector2Array([r.position + Vector2(sl, 0), Vector2(r.end.x, r.position.y), r.end - Vector2(sl, 0), Vector2(r.position.x, r.end.y)])
 		# crop the 16:9 picture to the chip's shape, centred
@@ -139,6 +141,7 @@ func _stage_thumb() -> void:
 		var tp := Vector2(r.position.x, r.position.y + r.size.y * 0.8)
 		draw_string(Game.font_display, tp + Vector2(2, 3), b.sub, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, Color(0, 0, 0, 0.6))
 		draw_string(Game.font_display, tp, b.sub, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, Color(1, 1, 1))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func draw_buttons_except_cards() -> void:
@@ -157,14 +160,21 @@ func _card(b: Dictionary) -> void:
 	r.position.y += (1.0 - e) * 60.0
 	var a := e
 	if on:
-		r = r.grow(6)
+		# picked: lift, springy pop and a flash
+		var bounce := exp(-sel_t * 7.0) * sin(sel_t * 22.0) * 12.0
+		r = r.grow(6 + bounce)
+		r.position.y -= 10.0 * minf(1.0, sel_t * 8.0)
 	# panel
 	var sl := 22.0
 	var pts := PackedVector2Array([r.position + Vector2(sl, 0), Vector2(r.end.x, r.position.y), r.end - Vector2(sl, 0), Vector2(r.position.x, r.end.y)])
 	var top := Color(acc.r * 0.35, acc.g * 0.35, acc.b * 0.35, 0.95 * a) if on else Color(0.08, 0.08, 0.13, 0.85 * a)
 	var bot := Color(0.03, 0.03, 0.06, 0.95 * a)
 	draw_polygon(pts, PackedColorArray([top, top, bot, bot]))
+	if on:
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(acc.r, acc.g, acc.b, 0.25 * (0.6 + 0.4 * sin(t * 4.0))), 12.0, true)
 	draw_polyline(pts + PackedVector2Array([pts[0]]), Color(acc.r, acc.g, acc.b, (1.0 if on else 0.45) * a), 3.0 if on else 2.0, true)
+	if on and sel_t < 0.25:
+		draw_colored_polygon(pts, Color(1, 1, 1, 0.45 * (1.0 - sel_t / 0.25)))
 	# big faded name behind the fighter
 	var fd: Font = Game.font_display
 	draw_string(fd, Vector2(r.position.x, r.position.y + 150), d.name, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 70, Color(acc.r, acc.g, acc.b, 0.12 * a))

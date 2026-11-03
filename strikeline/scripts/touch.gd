@@ -18,6 +18,7 @@ var smash_t := 0
 var prev_keys := {}
 var flash := {"atk": 0.0, "spc": 0.0, "jmp": 0.0, "shd": 0.0}
 var t := 0.0
+var spring := {"atk": [1.0, 0.0], "spc": [1.0, 0.0], "jmp": [1.0, 0.0], "shd": [1.0, 0.0]}
 
 
 func _layout() -> Dictionary:
@@ -180,6 +181,11 @@ func _process(delta: float) -> void:
 	t += delta
 	for k in flash:
 		flash[k] = maxf(0.0, flash[k] - delta * 4.0)
+		var sp: Array = spring[k]
+		var tg := 0.88 if held[k] else 1.0
+		sp[1] += (tg - sp[0]) * 520.0 * delta
+		sp[1] *= pow(0.0006, delta)
+		sp[0] += sp[1] * delta
 	queue_redraw()
 
 
@@ -210,10 +216,16 @@ func _draw() -> void:
 		var r: float = lay[k][1]
 		var col: Color = cols[k]
 		var on: bool = held[k]
-		var rr := r * (0.92 if on else 1.0)
-		draw_circle(c, rr + 6, Color(0, 0, 0, 0.25))
-		draw_circle(c, rr, Color(col.r, col.g, col.b, 0.42 if on else 0.2))
-		draw_arc(c, rr, 0, TAU, 56, Color(col.r, col.g, col.b, 0.95 if on else 0.65), 3.5, true)
+		var rr: float = r * spring[k][0]
+		draw_circle(c + Vector2(0, 5), rr + 5, Color(0, 0, 0, 0.28))
+		# glassy disc: darker rim, coloured body, glossy top, glow when held
+		draw_circle(c, rr, Color(col.r * 0.25, col.g * 0.25, col.b * 0.25, 0.55))
+		draw_circle(c, rr * 0.9, Color(col.r, col.g, col.b, 0.5 if on else 0.24))
+		if on:
+			draw_circle(c, rr * 0.62, Color(col.r, col.g, col.b, 0.35))
+			draw_arc(c, rr + 5, 0, TAU, 56, Color(col.r, col.g, col.b, 0.35), 8.0, true)
+		draw_arc(c, rr * 0.78, PI * 1.12, PI * 1.88, 24, Color(1, 1, 1, 0.22), rr * 0.18, true)
+		draw_arc(c, rr, 0, TAU, 56, Color(col.r, col.g, col.b, 1.0 if on else 0.7), 3.5, true)
 		if flash[k] > 0.0:
 			draw_arc(c, rr + 14.0 * (1.0 - flash[k]), 0, TAU, 56, Color(col.r, col.g, col.b, flash[k]), 3.0, true)
 		_icon(k, c, rr, Color(1, 1, 1, 0.95 if on else 0.75))

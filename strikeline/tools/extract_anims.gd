@@ -4,7 +4,7 @@ extends SceneTree
 func _initialize() -> void:
 	for id in FighterView3D.MODEL_DIRS.values():
 		var lib := AnimationLibrary.new()
-		for f in ["anim_common", "anim_common2", "anim_" + id.get_slice("_", 0), "anim_move", "anim_run"]:
+		for f in ["anim_common", "anim_common2", "anim_" + id.get_slice("_", 0), "anim_move", "anim_move2", "anim_run"]:
 			var path := "res://assets/meshy/%s/%s.glb" % [id, f]
 			if not ResourceLoader.exists(path):
 				continue

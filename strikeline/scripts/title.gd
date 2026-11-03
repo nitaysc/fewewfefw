@@ -47,7 +47,13 @@ func _draw() -> void:
 		return
 	var e := enter_t
 	var cx := vs.x * 0.5
-	var ly := vs.y * 0.3
+	var ly := vs.y * 0.3 + sin(t * 1.4) * 4.0
+	# logo pops in with an overshoot, then floats
+	var u := clampf(t / 0.55, 0.0, 1.0)
+	var ls := 1.0 + 2.7 * pow(u - 1.0, 3.0) + 1.7 * pow(u - 1.0, 2.0)
+	ls = maxf(ls, 0.01)
+	var piv := Vector2(cx, ly)
+	draw_set_transform(piv - piv * ls, 0.0, Vector2(ls, ls))
 	# logo slash
 	var sw := 560.0 * e
 	var slash := PackedVector2Array([Vector2(cx - sw, ly + 26), Vector2(cx + sw, ly - 30), Vector2(cx + sw, ly - 18), Vector2(cx - sw, ly + 34)])
@@ -68,8 +74,9 @@ func _draw() -> void:
 		var gxx := p.x + tw * gx
 		draw_colored_polygon(PackedVector2Array([Vector2(gxx, ly - 70), Vector2(gxx + 22, ly - 70), Vector2(gxx - 8, ly + 48), Vector2(gxx - 30, ly + 48)]), Color(1, 1, 1, 0.22))
 	text("PLATFORM  BRAWL", Vector2(0, ly + 82), 28, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_buttons()
-	text("v1.7  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
+	text("v1.8  ·  3D fighters & stages  ·  online  ·  Final Smashes", Vector2(0, vs.y - 18), 14, Color(1, 1, 1, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, false)
 
 
 func _draw_help(vs: Vector2) -> void:

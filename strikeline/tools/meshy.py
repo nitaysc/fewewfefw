@@ -65,6 +65,8 @@ ANIMS = {
     "sol": [125, 126, 129, 130, 131, 132, 127, 142],
     # movement: backflip (double jump), jump, falling, ledge hang, crouch, victory, jump with arms open
     "move": [452, 466, 502, 478, 524, 412, 461],
+    # smoother locomotion: athletic forward-lean sprint (in place) and a calm tucked fall
+    "move2": [644, 503],
 }
 
 
@@ -189,7 +191,7 @@ def animate(names):
                     download(t["result"]["animation_glb_url"], dest)
                 else:
                     print(json.dumps(t.get("task_error"), indent=1))
-        pending = [(n, g) for n in names for g in ("common", "common2", base(n), "move") if g not in s[n]["anims"]]
+        pending = [(n, g) for n in names for g in ("common", "common2", base(n), "move", "move2") if g not in s[n]["anims"]]
         if not pending:
             break
         for n, group in pending[:8]:
