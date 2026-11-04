@@ -17,6 +17,8 @@ an AI. Each project has its own notes:
   needs testing.
 - `third-person-controller/README.md`: NeonfireStudio's Godot 4.3 third-person controller demo
   (MIT) with on-screen touch controls added, exported to an APK by Godot in CI.
+- `tps-demo/README.md`: the Godot 3.5 TPS demo with touch controls. Only the changes are
+  kept here; `prepare.sh` fetches the 400 MB upstream project at a pinned commit.
 - `README.md` (root): "שיחקת אותה!", a Hebrew party guessing game (web code in `www/`).
 
 Ground rules:

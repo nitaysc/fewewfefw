@@ -1,0 +1,102 @@
+diff --git a/menu/settings.gd b/menu/settings.gd
+index ec80fb7..96f622b 100644
+--- a/menu/settings.gd
++++ b/menu/settings.gd
+@@ -42,9 +42,31 @@ var resolution = Resolution.NATIVE
+ var fullscreen = true
+ 
+ func _ready():
++	if OS.has_feature("mobile"):
++		# Phones: start from settings a phone GPU can cope with.
++		# They can still be raised in the Settings menu.
++		gi_quality = GIQuality.DISABLED
++		aa_quality = AAQuality.DISABLED
++		fxaa = false
++		ssao_quality = SSAOQuality.DISABLED
++		bloom_quality = BloomQuality.LOW
++		resolution = Resolution.RES_720
++		get_tree().set_quit_on_go_back(false)
+ 	load_settings()
+ 
+ 
++# True on phones/tablets (or when started with --touch to try the controls on a PC).
++func touch_mode():
++	return OS.has_feature("mobile") or OS.has_touchscreen_ui_hint() or "--touch" in OS.get_cmdline_args()
++
++
++# Android back button: the level handles it (back to the menu); on the menu it quits.
++func _notification(what):
++	if what == MainLoop.NOTIFICATION_WM_GO_BACK_REQUEST:
++		if get_tree().get_nodes_in_group("touch_controls").empty():
++			get_tree().quit()
++
++
+ func _input(event):
+ 	if event.is_action_pressed("toggle_fullscreen"):
+ 		OS.window_fullscreen = !OS.window_fullscreen
+diff --git a/player/player.gd b/player/player.gd
+index b6d30f5..7c53f80 100644
+--- a/player/player.gd
++++ b/player/player.gd
+@@ -57,8 +57,12 @@ onready var sound_effect_jump = sound_effects.get_node(@"Jump")
+ onready var sound_effect_land = sound_effects.get_node(@"Land")
+ onready var sound_effect_shoot = sound_effects.get_node(@"Shoot")
+ 
++# On-screen controls (phones and tablets only).
++var touch_controls = null
++
+ func _init():
+-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
++	if not Settings.touch_mode():
++		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+ 
+ 
+ func _ready():
+@@ -66,6 +70,15 @@ func _ready():
+ 	orientation = player_model.global_transform
+ 	orientation.origin = Vector3()
+ 
++	if Settings.touch_mode():
++		var layer = CanvasLayer.new()
++		layer.layer = 10
++		add_child(layer)
++		touch_controls = preload("res://mobile/touch_controls.gd").new()
++		touch_controls.player = self
++		touch_controls.add_to_group("touch_controls")
++		layer.add_child(touch_controls)
++
+ 
+ func _process(delta):
+ 	# Fade out to black if falling out of the map. -17 is lower than
+@@ -234,7 +247,9 @@ func _physics_process(delta):
+ 
+ 
+ func _input(event):
+-	if event is InputEventMouseMotion:
++	# Touch mode turns the camera from the touch controls instead, since Android
++	# also sends fake mouse motion for every finger drag.
++	if event is InputEventMouseMotion and touch_controls == null:
+ 		var camera_speed_this_frame = CAMERA_MOUSE_ROTATION_SPEED
+ 		if aiming:
+ 			camera_speed_this_frame *= 0.75
+diff --git a/project.godot b/project.godot
+index f9af81e..ed32c80 100644
+--- a/project.godot
++++ b/project.godot
+@@ -36,6 +36,7 @@ window/size/height=1080
+ window/size/fullscreen=true
+ window/stretch/mode="2d"
+ window/stretch/aspect="expand"
++window/handheld/orientation="sensor_landscape"
+ 
+ [input]
+ 
+@@ -218,7 +219,7 @@ common/physics_interpolation=true
+ 
+ [rendering]
+ 
+-vram_compression/import_etc2=false
++vram_compression/import_etc2=true
+ quality/shadow_atlas/size=2048
+ quality/shading/use_physical_light_attenuation=true
+ quality/filters/anisotropic_filter_level=8

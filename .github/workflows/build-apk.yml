@@ -11,6 +11,8 @@ on:
       - '.github/workflows/build-whiskers.yml'
       - 'third-person-controller/**'
       - '.github/workflows/build-third-person.yml'
+      - 'tps-demo/**'
+      - '.github/workflows/build-tps-demo.yml'
   workflow_dispatch:
 
 permissions:

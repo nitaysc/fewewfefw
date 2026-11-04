@@ -1,0 +1,49 @@
+name: Build TPS Demo APK
+
+on:
+  push:
+    paths:
+      - 'tps-demo/**'
+      - '.github/workflows/build-tps-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tps-demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Godot 3.5.3 and its Android export template
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -sSLfo godot.zip https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_linux_headless.64.zip
+          unzip -q godot.zip
+          curl -sSLfo tpl.tpz https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/templates/3.5.3.stable
+          unzip -q -j tpl.tpz 'templates/android_*' 'templates/version.txt' -d ~/.local/share/godot/templates/3.5.3.stable
+          rm tpl.tpz godot.zip
+
+      - name: Fetch the demo, add touch controls, export APK
+        run: |
+          GODOT=~/godot/Godot_v3.5.3-stable_linux_headless.64 VERSION_CODE=${{ github.run_number }} ./build-apk.sh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "tps-demo-v1.0.${{ github.run_number }}" tps-demo.apk \
+            --target "${{ github.sha }}" \
+            --title "TPS Demo v1.0.${{ github.run_number }}" \
+            --notes "Godot TPS demo with touch controls. Download: tap tps-demo.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false
