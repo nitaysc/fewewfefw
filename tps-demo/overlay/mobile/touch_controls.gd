@@ -9,10 +9,12 @@ extends Control
 # Left part of the screen: a floating joystick (put your thumb anywhere there).
 # Elsewhere: drag on anything that is not a button to turn the camera.
 
-const LOOK_SENSITIVITY = 0.0042    # radians per viewport pixel
+# Sizes are for a 1080 px tall view; `k` scales them to the real view height
+# (the game can render at 540/720/1080 or native resolution).
+const LOOK_SENSITIVITY = 0.0042    # radians per 1080p pixel
 const AIM_LOOK_FACTOR = 0.55       # slower camera while aiming
-const STICK_RADIUS = 150.0
-const KNOB_RADIUS = 62.0
+const STICK_RADIUS_1080 = 150.0
+const KNOB_RADIUS_1080 = 62.0
 const STICK_ZONE = 0.42            # left fraction of the screen used by the stick
 
 const COL_FILL = Color(0.05, 0.07, 0.10, 0.45)
@@ -32,6 +34,8 @@ var stick_vec = Vector2()
 var look_fingers = {}
 var safe = Rect2()
 var fonts = {}
+var k = 1.0
+var stick_radius = STICK_RADIUS_1080
 
 
 func _ready():
@@ -63,26 +67,28 @@ func _font(size):
 func _layout():
 	var vs = get_viewport_rect().size
 	rect_size = vs
-	var m = Vector2(40, 30)
+	k = vs.y / 1080.0
+	stick_radius = STICK_RADIUS_1080 * k
+	var m = Vector2(40, 30) * k
 	var win = OS.window_size
 	var sa = OS.get_window_safe_area()
 	if win.x > 0 and win.y > 0 and sa.size.x > 0:
-		var k = vs / win
-		var left = max(sa.position.x * k.x, 0.0)
-		var top = max(sa.position.y * k.y, 0.0)
-		var right = max((win.x - sa.end.x) * k.x, 0.0)
-		var bottom = max((win.y - sa.end.y) * k.y, 0.0)
+		var w2v = vs / win
+		var left = max(sa.position.x * w2v.x, 0.0)
+		var top = max(sa.position.y * w2v.y, 0.0)
+		var right = max((win.x - sa.end.x) * w2v.x, 0.0)
+		var bottom = max((win.y - sa.end.y) * w2v.y, 0.0)
 		safe = Rect2(Vector2(left, top) + m, vs - Vector2(left + right, top + bottom) - m * 2)
 	else:
 		safe = Rect2(m, vs - m * 2)
 
 	var br = safe.end
-	var shoot = br - Vector2(140, 150)
+	var shoot = br - Vector2(140, 150) * k
 	buttons = {}
-	_add("shoot", shoot, 110, "SHOOT", "shoot")
-	_add("jump", shoot + _arc(250, 180), 80, "JUMP", "jump")
-	_add("aim", shoot + _arc(250, 95), 80, "AIM", "aim")
-	_add("menu", safe.position + Vector2(50, 50), 46, "MENU", "")
+	_add("shoot", shoot, 110 * k, "SHOOT", "shoot")
+	_add("jump", shoot + _arc(250 * k, 180), 80 * k, "JUMP", "jump")
+	_add("aim", shoot + _arc(250 * k, 95), 80 * k, "AIM", "aim")
+	_add("menu", safe.position + Vector2(50, 50) * k, 46 * k, "MENU", "")
 	update()
 
 
@@ -135,7 +141,7 @@ func _touch_down(finger, p):
 			look_fingers[finger] = p
 		return
 
-	if p.x < rect_size.x * STICK_ZONE and p.y > safe.position.y + 110 and stick_finger == -1:
+	if p.x < rect_size.x * STICK_ZONE and p.y > safe.position.y + 110 * k and stick_finger == -1:
 		stick_finger = finger
 		stick_center = p
 		stick_vec = Vector2()
@@ -162,17 +168,17 @@ func _touch_up(finger):
 func _touch_drag(finger, p, rel):
 	if finger == stick_finger:
 		var d = p - stick_center
-		if d.length() > STICK_RADIUS:
+		if d.length() > stick_radius:
 			# Let the stick follow the thumb so it never gets stuck at the edge.
-			stick_center = p - d.clamped(STICK_RADIUS)
+			stick_center = p - d.clamped(stick_radius)
 			d = p - stick_center
-		stick_vec = d / STICK_RADIUS
+		stick_vec = d / stick_radius
 		_apply_stick()
 		update()
 	elif look_fingers.has(finger):
 		look_fingers[finger] = p
 		if player:
-			var s = LOOK_SENSITIVITY
+			var s = LOOK_SENSITIVITY / k
 			if player.aiming:
 				s *= AIM_LOOK_FACTOR
 			player.rotate_camera(rel * s)
@@ -223,15 +229,16 @@ func _notification(what):
 
 func _draw():
 	# Joystick
-	var base = stick_center if stick_finger != -1 else Vector2(safe.position.x + 210, safe.end.y - 200)
+	var base = stick_center if stick_finger != -1 else Vector2(safe.position.x + 210 * k, safe.end.y - 200 * k)
 	var a = 1.0 if stick_finger != -1 else 0.55
-	draw_circle(base, STICK_RADIUS, Color(COL_FILL.r, COL_FILL.g, COL_FILL.b, COL_FILL.a * a))
-	draw_arc(base, STICK_RADIUS, 0, TAU, 64, Color(1, 1, 1, COL_EDGE.a * a), 4.0, true)
-	var knob = base + stick_vec.clamped(1.0) * STICK_RADIUS
-	draw_circle(knob, KNOB_RADIUS, Color(1, 1, 1, 0.45 * a))
-	draw_arc(knob, KNOB_RADIUS, 0, TAU, 48, Color(1, 1, 1, 0.8 * a), 3.0, true)
+	var knob_r = KNOB_RADIUS_1080 * k
+	draw_circle(base, stick_radius, Color(COL_FILL.r, COL_FILL.g, COL_FILL.b, COL_FILL.a * a))
+	draw_arc(base, stick_radius, 0, TAU, 64, Color(1, 1, 1, COL_EDGE.a * a), max(4.0 * k, 1.5), true)
+	var knob = base + stick_vec.clamped(1.0) * stick_radius
+	draw_circle(knob, knob_r, Color(1, 1, 1, 0.45 * a))
+	draw_arc(knob, knob_r, 0, TAU, 48, Color(1, 1, 1, 0.8 * a), max(3.0 * k, 1.5), true)
 	if stick_finger == -1:
-		_label(base + Vector2(0, STICK_RADIUS + 30), "MOVE", 26, Color(1, 1, 1, 0.55))
+		_label(base + Vector2(0, stick_radius + 30 * k), "MOVE", int(26 * k), Color(1, 1, 1, 0.55))
 
 	# Buttons
 	for id in buttons:
@@ -242,8 +249,8 @@ func _draw():
 		if b.finger != -1:
 			fill = COL_FILL_DOWN
 		draw_circle(b.pos, b.r, fill)
-		draw_arc(b.pos, b.r, 0, TAU, 48, COL_EDGE, 3.0, true)
-		_label(b.pos, b.label, int(clamp(b.r * 0.4, 20, 40)), COL_TEXT)
+		draw_arc(b.pos, b.r, 0, TAU, 48, COL_EDGE, max(3.0 * k, 1.5), true)
+		_label(b.pos, b.label, int(clamp(b.r * 0.4, 10, 40)), COL_TEXT)
 
 
 func _process(_delta):
