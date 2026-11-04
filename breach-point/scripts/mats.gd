@@ -195,25 +195,8 @@ void fragment() {
 	m.set_shader_parameter("vm_fov", VM_FOV)
 	return m
 
-static func vm_gun_metal() -> ShaderMaterial:
-	return vm(_noise_tex("gm", 0.2, 3, Color(0.10, 0.10, 0.11), Color(0.17, 0.17, 0.18), 128, 2), Color.WHITE, 0.38, 0.85, 6.0, "metal")
-
-static func vm_gun_wood() -> ShaderMaterial:
-	return vm(_noise_tex("gw", 0.05, 4, Color(0.20, 0.08, 0.03), Color(0.36, 0.16, 0.06), 256, 4), Color.WHITE, 0.45, 0.0, 3.0, "wood")
-
-static func vm_gun_mag() -> ShaderMaterial:
-	return vm(_noise_tex("gmag", 0.1, 3, Color(0.13, 0.12, 0.11), Color(0.2, 0.19, 0.17), 128, 6), Color.WHITE, 0.5, 0.7, 5.0, "mag")
-
-static func vm_sleeve() -> ShaderMaterial:
-	return vm(_noise_tex("camo", 0.06, 3, Color(0.75, 0.75, 0.75), Color(1.05, 1.05, 1.0), 128, 8, FastNoiseLite.TYPE_CELLULAR), Color(0.36, 0.38, 0.28), 0.95, 0.0, 9.0, "sleeve")
-
-static func vm_glove() -> ShaderMaterial:
-	return vm(null, Color(0.09, 0.09, 0.08), 0.75, 0.0, 1.0, "glove")
-
-static func vm_arms() -> ShaderMaterial:
-	if _cache.has("vm_arms"):
-		return _cache["vm_arms"]
-	var m := vm(load("res://assets/models/arms_kit.png"), Color.WHITE, 0.85, 0.0, 1.0, "arms_base").duplicate()
-	m.set_shader_parameter("use_uv", true)
-	_cache["vm_arms"] = m
+static func vm_textured(tex: Texture2D, key: String) -> ShaderMaterial:
+	var m := vm(tex, Color.WHITE, 0.6, 0.15, 1.0, "tex_" + key).duplicate()
+	m.set_shader_parameter("use_uv", tex != null)
+	m.set_shader_parameter("use_tex", tex != null)
 	return m

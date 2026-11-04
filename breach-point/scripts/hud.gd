@@ -55,7 +55,7 @@ void fragment() {
 	Ui.place(_reserve, Vector2(1, 0), Vector2(-122, 28), Vector2(110, 50))
 	add_child(_reserve)
 	_wname = _label(20, HORIZONTAL_ALIGNMENT_RIGHT)
-	_wname.text = "AK  ·  AUTO"
+	_wname.text = "VECTOR  ·  AUTO"
 	_wname.modulate = Color(1, 1, 1, 0.6)
 	Ui.place(_wname, Vector2(1, 0), Vector2(-320, 84), Vector2(300, 30))
 	add_child(_wname)

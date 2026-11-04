@@ -178,6 +178,12 @@ func _build_menus(ui: CanvasLayer) -> void:
 	help.add_theme_font_size_override("font_size", 20)
 	help.modulate = Color(1, 1, 1, 0.7)
 	box.add_child(help)
+	var credit := Label.new()
+	credit.text = "Weapon and hands: \"Kriss Vector Animated (Free)\" by BarcodeGames, CC-BY 4.0"
+	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credit.add_theme_font_size_override("font_size", 14)
+	credit.modulate = Color(1, 1, 1, 0.45)
+	box.add_child(credit)
 
 	pause_menu = _panel(ui)
 	pause_menu.visible = false
@@ -298,7 +304,7 @@ func _autotest() -> void:
 	await _shot("06_reload_mag_out")
 	await _wait(0.55)
 	await _shot("07_reload_new_mag")
-	await _wait(1.4)
+	await _wait(2.0)
 	await _shot("08_after_reload")
 	controls.inspect_pressed = true
 	await _wait(0.8)
@@ -324,8 +330,9 @@ func _autotest() -> void:
 	for b in get_tree().get_nodes_in_group("bots"):
 		b.process_mode = Node.PROCESS_MODE_INHERIT
 	var bot: Bot = get_tree().get_nodes_in_group("bots")[0]
-	bot.global_position = player.global_position + Vector3(1.5, 0, -9)
+	bot.global_position = player.global_position + Vector3(-4.5, 0, -7)
 	bot.state = Bot.State.ENGAGE
+	bot.set_physics_process(false)
 	player.yaw = 0.0
 	player.pitch = -2.0
 	await _wait(1.2)
@@ -335,6 +342,12 @@ func _autotest() -> void:
 	var to := bot.global_position + Vector3(0, 1.3, 0) - player.camera.global_position
 	player.yaw = rad_to_deg(atan2(-to.x, -to.z))
 	player.pitch = rad_to_deg(atan2(to.y, Vector2(to.x, to.z).length()))
+	await _wait(0.1)
+	var cam := player.camera
+	var q := PhysicsRayQueryParameters3D.create(cam.global_position, cam.global_position - cam.global_basis.z * 50.0, 1 | 8)
+	q.collide_with_areas = true
+	var h := player.get_world_3d().direct_space_state.intersect_ray(q)
+	print("aim ray hits ", h.get("collider"), " at ", h.get("position"), " bot at ", bot.global_position, " cam ", cam.global_position, " fwd ", -cam.global_basis.z)
 	controls.touch_fire = true
 	await _wait(0.5)
 	controls.touch_fire = false
@@ -345,5 +358,5 @@ func _autotest() -> void:
 	player.pitch = 5
 	await _wait(1.0)
 	await _shot("15_map")
-	print("autotest done, health ", player.health, " kills ", hud.kills)
+	print("autotest done, health ", player.health, " kills ", hud.kills, " bot health ", bot.health if is_instance_valid(bot) else -1.0)
 	get_tree().quit()

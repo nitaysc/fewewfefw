@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ll1v8bvykia7"
-path="res://.godot/imported/arms_kit.png-07fd34388842673d97667eedd9a0d6cb.ctex"
+uid="uid://dfsqruj2omk73"
+path="res://.godot/imported/Glove_D_baseColor.png-f983e78059ac67c0366273d67977732c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/models/arms_kit.png"
-dest_files=["res://.godot/imported/arms_kit.png-07fd34388842673d97667eedd9a0d6cb.ctex"]
+source_file="res://assets/models/kriss/textures/Glove_D_baseColor.png"
+dest_files=["res://.godot/imported/Glove_D_baseColor.png-f983e78059ac67c0366273d67977732c.ctex"]
 
 [params]
 
