@@ -9,6 +9,8 @@ on:
       - '.github/workflows/build-redeclipse.yml'
       - 'whiskers-coffee/**'
       - '.github/workflows/build-whiskers.yml'
+      - 'sunset-rumble/**'
+      - '.github/workflows/build-sunset-rumble.yml'
   workflow_dispatch:
 
 permissions:

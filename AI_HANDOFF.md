@@ -11,6 +11,8 @@ an AI. Each project has its own notes:
   Read it before adding or changing any art; it explains the style, units, cameras,
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
+- `sunset-rumble/README.md`: 1v1 cartoon car brawl (online over PeerJS, vs bot, or same phone).
+  three.js, portrait. `npm test` in `sunset-rumble/`; `window.__sr` exposes the game.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
