@@ -15,6 +15,8 @@ an AI. Each project has its own notes:
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.
+- `third-person-controller/README.md`: NeonfireStudio's Godot 4.3 third-person controller demo
+  (MIT) with on-screen touch controls added, exported to an APK by Godot in CI.
 - `README.md` (root): "שיחקת אותה!", a Hebrew party guessing game (web code in `www/`).
 
 Ground rules:

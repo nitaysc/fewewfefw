@@ -1,0 +1,54 @@
+name: Build Third Person Controller APK
+
+on:
+  push:
+    paths:
+      - 'third-person-controller/**'
+      - '.github/workflows/build-third-person.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: third-person-controller
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Godot 4.3 and its Android export template
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -sSLfo godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          curl -sSLfo tpl.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          unzip -q -j tpl.tpz 'templates/android_*' 'templates/version.txt' -d ~/.local/share/godot/export_templates/4.3.stable
+          rm tpl.tpz godot.zip
+
+      - name: Export APK
+        run: |
+          GODOT=~/godot/Godot_v4.3-stable_linux.x86_64 VERSION_CODE=${{ github.run_number }} ./build-apk.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: third-person-controller-apk
+          path: third-person-controller/third-person-controller.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "third-person-v1.0.${{ github.run_number }}" third-person-controller.apk \
+            --target "${{ github.sha }}" \
+            --title "Third Person Controller v1.0.${{ github.run_number }}" \
+            --notes "Download: tap third-person-controller.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false

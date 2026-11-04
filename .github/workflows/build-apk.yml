@@ -9,6 +9,8 @@ on:
       - '.github/workflows/build-redeclipse.yml'
       - 'whiskers-coffee/**'
       - '.github/workflows/build-whiskers.yml'
+      - 'third-person-controller/**'
+      - '.github/workflows/build-third-person.yml'
   workflow_dispatch:
 
 permissions:
