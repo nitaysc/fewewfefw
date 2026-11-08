@@ -1,0 +1,23 @@
+{
+  "name": "great-lawn",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Great Lawn — a first-person ride-on mower simulator on an English country estate",
+  "scripts": {
+    "sync": "cap sync android",
+    "serve": "node tools/serve.mjs",
+    "test": "node test/logic.test.mjs",
+    "web": "node tools/build-web.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.10"
+  }
+}

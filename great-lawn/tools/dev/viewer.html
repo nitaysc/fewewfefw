@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<title>Model viewer (dev)</title>
+<style>html,body{margin:0;height:100%;background:#7d8a96;overflow:hidden}canvas{display:block;width:100%;height:100%}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from '/vendor/three.module.js';
+import { createSky } from '/js/world/sky.js';
+import { waitForTextures, setMaxAnisotropy } from '/js/core/textures.js';
+import { PRESETS } from '/js/core/quality.js';
+const q = new URLSearchParams(location.search);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+setMaxAnisotropy(8);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(+(q.get('fov') || 30), innerWidth / innerHeight, 0.005, 100);
+const Q = { ...PRESETS.high, shadowSpan: 3 };
+const sky = await createSky(renderer, scene, Q);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: '#4d5a3a', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const model = q.get('model') || 'hands';
+let obj;
+if (model === 'hands') {
+  const { Hands } = await import('/js/player/hands.js');
+  const t0 = performance.now();
+  const hands = new Hands({ quality: { handRes: +(q.get('res') || 0.0016) } });
+  window.__buildMs = performance.now() - t0;
+  obj = new THREE.Group();
+  const which = q.get('hand') || 'both';
+  if (which !== 'left') { hands.right.position.set(0.09, 0, 0); obj.add(hands.right); }
+  if (which !== 'right') { hands.left.position.set(-0.09, 0, 0); obj.add(hands.left); }
+  hands.update();
+  if (q.has('grips')) {
+    const gm = new THREE.MeshStandardMaterial({ color: '#888', transparent: true, opacity: 0.55, roughness: 0.4 });
+    const wp = hands.wheelPose.grip, bp = hands.bottleGrip;
+    const rc = new THREE.Mesh(new THREE.CylinderGeometry(wp.R, wp.R, 0.14, 24).rotateZ(Math.PI / 2), gm);
+    rc.position.set(...wp.c); hands.right.add(rc);
+    const lc = new THREE.Mesh(new THREE.CylinderGeometry(bp.R, bp.R, 0.2, 32).rotateZ(Math.PI / 2), gm);
+    lc.position.copy(bp.c); hands.left.add(lc);
+  }
+  obj.position.y = 0.25;
+} else if (model === 'mower') {
+  const { MowerModel } = await import('/js/player/mower.js');
+  obj = new MowerModel().group;
+}
+scene.add(obj);
+await waitForTextures();
+const yaw = +(q.get('yaw') || 0.6), pitch = +(q.get('pitch') || 0.35), dist = +(q.get('dist') || 0.5);
+const target = new THREE.Vector3(...(q.get('target') || '0,0.25,0').split(',').map(Number));
+cam.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * dist, target.y + Math.sin(pitch) * dist, target.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+cam.lookAt(target);
+sky.update(cam, target);
+renderer.render(scene, cam);
+window.__ready = true;
+</script>
+</body>
+</html>
