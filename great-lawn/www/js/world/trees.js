@@ -182,8 +182,11 @@ function cardGeometry(cards, center, half) {
     // ambient occlusion: leaves deep inside the crown and on its underside are darker
     const rx = (c.pos.x - center.x) / half.x, ry = (c.pos.y - center.y) / half.y, rz = (c.pos.z - center.z) / half.z;
     const depth = Math.min(1, Math.sqrt(rx * rx + ry * ry + rz * rz));
-    const ao = (0.42 + 0.58 * Math.pow(depth, 1.4)) * (0.8 + 0.2 * Math.min(1, Math.max(0, ry * 0.5 + 0.6)));
-    const j = 0.9 + rnd() * 0.2, warm = rnd() * 0.08;
+    const ao = (0.46 + 0.54 * Math.pow(depth, 1.4)) * (0.8 + 0.2 * Math.min(1, Math.max(0, ry * 0.5 + 0.6)));
+    // the crown grows in clumps: each clump a little lighter or darker than its neighbours
+    const ck = Math.sin(Math.floor(c.pos.x / 1.7) * 12.9898 + Math.floor(c.pos.y / 1.7) * 78.233 + Math.floor(c.pos.z / 1.7) * 37.719) * 43758.5453;
+    const clump = 0.86 + 0.3 * (ck - Math.floor(ck));
+    const j = (0.9 + rnd() * 0.2) * clump, warm = rnd() * 0.08;
     const b = pos.length / 3;
     for (const [x, y, u, w] of corners) {
       v.set(x * c.size, y * c.size, 0).applyQuaternion(q).add(c.pos);

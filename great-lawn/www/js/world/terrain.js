@@ -4,6 +4,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { MAP, heightAt, normalAt } from './layout.js';
 import { tex } from '../core/textures.js';
 import { shared, STATIC_SHADOW_GLSL } from '../core/shared.js';
+import { turfTextures } from './turf.js';
 
 // Half-float height texture covering the plan, sampled by the grass shader.
 export function makeHeightTexture(res = 512) {
@@ -56,8 +57,10 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
   const step = quality.groundStep;
   const g = gridGeometry(range(MAP.min, MAP.max, step), range(MAP.min, MAP.max, step));
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
+  const turf = turfTextures();
   const uniforms = {
     tMask: { value: maskTex }, tCut: { value: cutTex }, tNoise: { value: noiseTex },
+    tTurf: { value: turf.turf }, tTurfN: { value: turf.turfNormal }, tClip: { value: turf.clippings },
     tSoil: { value: tex('soil_diff') }, tSoilN: { value: tex('soil_nor') },
     tGravel: { value: tex('gravel_diff') }, tGravelN: { value: tex('gravel_nor') }, tGravelR: { value: tex('gravel_arm') },
     tPave: { value: tex('paving_diff') }, tPaveN: { value: tex('paving_nor') }, tPaveR: { value: tex('paving_arm') },
@@ -75,8 +78,10 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
       .replace('#include <common>', `#include <common>
         varying vec3 vWPos;
         uniform sampler2D tMask, tCut, tNoise, tSoil, tSoilN, tGravel, tGravelN, tGravelR, tPave, tPaveN, tPaveR;
+        uniform sampler2D tTurf, tTurfN, tClip;
         uniform vec4 uMapRect; uniform float uGrassFar; uniform vec3 uCamPos;
         vec4 gW; float gRough; vec3 gNormalW;
+        float gCutW; vec3 gTurfN; float gClipA;
         ${STATIC_SHADOW_GLSL}
         vec3 tri(sampler2D t, vec2 uv) { return texture2D(t, uv).rgb; }
       `)
@@ -108,7 +113,32 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
         // under standing blades near the camera the ground is shaded thatch
         vec3 thatch = mix(soil * vec3(0.6, 0.68, 0.42), meadow * 0.6, 0.55);
         vec3 tallGround = mix(meadow, thatch, nearBlades * 0.8);
-        vec3 cutGround = mix(lawn, soil * vec3(0.5, 0.6, 0.35) * 0.8 + lawn * 0.5, nearBlades * 0.35);
+        // mown: looking down into the cut sward, with depth (parallax), the thatch showing
+        // between the blades, and the cut tops lying on it in patches and clumps
+        gCutW = smoothstep(0.1, 0.9, ct.r) * gW.w;
+        gTurfN = vec3(0.0, 0.0, 1.0); gClipA = 0.0;
+        vec3 cutGround = lawn;
+        if (gCutW > 0.002) {
+          vec3 Vw = normalize(uCamPos - vWPos);
+          vec2 tuv = wxz / 0.42;
+          float h0 = texture2D(tTurf, tuv).a;
+          vec2 par = -Vw.xz / max(Vw.y, 0.18) * (h0 - 0.7) * (0.022 / 0.42);
+          vec4 tf = texture2D(tTurf, tuv + par);
+          gTurfN = texture2D(tTurfN, tuv + par).xyz * 2.0 - 1.0;
+          // patches: greener where it is damp, yellower where it is dry and thin
+          float patchG = texture2D(tNoise, wxz * 0.035).g, patchF = texture2D(tNoise, wxz * 0.31 + 0.5).b;
+          vec3 tintP = mix(vec3(0.95, 1.05, 1.0), vec3(1.22, 1.12, 0.82), smoothstep(0.35, 0.85, patchG));
+          vec3 sward = tf.rgb * tintP * (0.9 + 0.2 * patchF) * mix(0.6, 1.08, tf.a);
+          // the bases of long grass were shaded: a first cut leaves the low layers straw-pale
+          sward = mix(sward, sward * vec3(1.45, 1.3, 0.85), (1.0 - smoothstep(0.25, 0.6, tf.a)) * 0.45);
+          sward *= 1.0 + 0.3 * stripe;
+          // clippings: thicker in places, a few clumps, fresh green going to hay
+          float den = smoothstep(0.25, 0.7, texture2D(tNoise, wxz * 0.09 + 0.37).r) * 0.9 + 0.3;
+          vec4 kp = texture2D(tClip, wxz / 0.9 + par * (0.42 / 0.9));
+          gClipA = kp.a * den;
+          vec3 clipC = kp.rgb * mix(1.15, 1.35, patchG);
+          cutGround = mix(sward, clipC, gClipA);
+        }
         vec3 grassC = mix(tallGround, cutGround, smoothstep(0.1, 0.9, ct.r));
         vec3 albedo = grav * gW.x + pave * gW.y + soil * 0.8 * gW.z + grassC * gW.w;
         diffuseColor.rgb *= albedo;
@@ -121,7 +151,7 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
       .replace('#include <roughnessmap_fragment>', `
         float roughnessFactor = roughness;
         float rG = texture2D(tGravelR, uvG * 0.38).g, rP = texture2D(tPaveR, uvG * 0.31).g;
-        roughnessFactor = rG * gW.x + rP * gW.y + 0.95 * gW.z + 0.92 * gW.w;
+        roughnessFactor = rG * gW.x + rP * gW.y + 0.95 * gW.z + mix(0.92, mix(0.7, 0.82, gClipA), gCutW) * gW.w;
       `)
       .replace('#include <normal_fragment_maps>', `
         {
@@ -129,9 +159,11 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
           vec3 nP = texture2D(tPaveN, uvG * 0.31).xyz * 2.0 - 1.0;
           vec3 nS = texture2D(tSoilN, uvG * 0.42).xyz * 2.0 - 1.0;
           vec3 nT = nG * gW.x + nP * gW.y + nS * (gW.z + gW.w * 0.4) + vec3(0.0, 0.0, 1.0) * gW.w * 0.6;
-          nT.xy *= 1.0;
           // tangent frame for planar xz mapping: T = +x, B = -z, N = up
           vec3 nW = normalize(vec3(nT.x, nT.z, -nT.y));
+          // the mown sward has its own relief (its texture runs T = +x, B = +z)
+          vec3 nTurf = normalize(mix(vec3(gTurfN.x, gTurfN.z, gTurfN.y), vec3(0.0, 1.0, 0.0), gClipA * 0.6));
+          nW = normalize(mix(nW, nTurf, gCutW));
           normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz);
         }
       `);

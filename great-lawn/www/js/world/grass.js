@@ -9,9 +9,10 @@ import { shared, LIGHT_GLSL, STATIC_SHADOW_GLSL } from '../core/shared.js';
 import { GLSL_NOISE } from '../core/util.js';
 
 const TILE = 4;
-const SEGS = [4, 2, 1];
 
-function tileGeometry(count, segs) {
+// `total` is the full-detail blade count: ranks are global, so a coarser level (a prefix of
+// the same sequence) thins out at exactly the rate the finer one would have.
+function tileGeometry(count, segs, total = count) {
   // R2 low-discrepancy sequence: every prefix is evenly spread, so lower LODs are subsets.
   const g1 = 0.7548776662466927, g2 = 0.5698402909980532;
   const vpb = segs * 2 + 1;
@@ -20,7 +21,7 @@ function tileGeometry(count, segs) {
   const idx = [];
   for (let n = 0; n < count; n++) {
     const x = ((0.5 + g1 * (n + 1)) % 1) * TILE, z = ((0.5 + g2 * (n + 1)) % 1) * TILE;
-    const rank = (n + 0.5) / count;
+    const rank = (n + 0.5) / total;
     for (let v = 0; v < vpb; v++) {
       const o = (n * vpb + v);
       blade.set([x, z, rank, n % 997], o * 4);
@@ -80,7 +81,9 @@ void main() {
   vec2 muv = (root - uMapRect.xy) * uMapRect.w;
   float grassAmt = texture2D(tMask, muv).g;
   vec4 cutS = texture2D(tCut, muv);
-  float cut = smoothstep(0.15, 0.85, cutS.r);
+  // each blade has its own idea of where the cut ends, so the edge of a pass is ragged
+  float thr = 0.12 + 0.7 * hash12(root * 5.31 + 1.7);
+  float cut = smoothstep(thr - 0.07, thr + 0.07, cutS.r);
   float h0 = texture2D(tHeight, muv).r;
 
   // ---- level of detail: keep a rank-sorted subset that thins out with distance ----
@@ -96,12 +99,13 @@ void main() {
   float patchA = vnoise(root * 0.045) ;
   float patchB = vnoise(root * 0.21 + 17.0);
   float tallH = mix(0.30, 0.74, r1) * (0.72 + 0.55 * patchA);
-  float cutH = mix(0.045, 0.085, r1);
+  // stubble: uneven, and here and there a stalk the blades missed
+  float cutH = mix(0.03, 0.075, r1 * r1) * (r2 > 0.985 ? 2.6 : 1.0);
   bool seed = r2 > 0.97;                         // seed-head stems
   float flower = (r2 > 0.957 && r2 <= 0.97 && dist < uLod.x * 3.0) ? 1.0 : 0.0;  // buttercups, daisies, clover
   if (seed) tallH *= 1.3;
   float H = mix(tallH, cutH, cut) * vis;
-  float width = (seed ? 0.0035 : mix(0.0075, 0.0145, r3)) * (flower > 0.5 ? 1.0 : widthBoost) * mix(1.0, 1.25, cut);
+  float width = (seed ? 0.0035 : mix(0.0075, 0.0145, r3)) * (flower > 0.5 ? 1.0 : widthBoost) * mix(1.0, 0.62, cut);
   vFlower = flower * (1.0 - cut) * smoothstep(0.55, 0.74, aVert.y);
 
   // ---- shape: lean, wind, mower ----
@@ -113,7 +117,19 @@ void main() {
   float mowLen = length(mow);
   vec2 mowDir = mowLen > 0.05 ? mow / mowLen : rdir;
   vec2 leanDir = normalize(mix(rdir, mowDir, cut));
-  float lean = mix(0.18 + 0.45 * r2 * r2, 0.62 + 0.15 * r1, cut);
+  float lean = mix(0.18 + 0.45 * r2 * r2, 0.22 + 0.28 * r1, cut);
+  // long grass at the edge of a fresh cut has lost its neighbours' support: it flops over
+  // onto the mown side
+  if (cut < 0.5 && dist < 16.0) {
+    float e = 0.28 * uMapRect.w;
+    vec2 grad = vec2(texture2D(tCut, muv + vec2(e, 0.0)).r - texture2D(tCut, muv - vec2(e, 0.0)).r,
+                     texture2D(tCut, muv + vec2(0.0, e)).r - texture2D(tCut, muv - vec2(0.0, e)).r);
+    float edge = clamp(length(grad) * 1.6, 0.0, 1.0) * (1.0 - cut) * (0.55 + 0.45 * r2);
+    if (edge > 0.01) {
+      leanDir = normalize(mix(leanDir, normalize(grad), edge));
+      lean = mix(lean, 0.8, edge * 0.85);
+    }
+  }
   // wind gusts travel across the lawn
   vec2 wdir = uWind.xy;
   float gust = vnoise(root * 0.07 - wdir * uTime * 0.9) * 0.75 + vnoise(root * 0.23 - wdir * uTime * 2.1) * 0.25;
@@ -161,8 +177,11 @@ void main() {
   vec3 base = mix(vec3(0.035, 0.065, 0.014), vec3(0.075, 0.12, 0.026), r1);
   vec3 tipTall = mix(vec3(0.27, 0.31, 0.09), vec3(0.44, 0.4, 0.16), r2 * r2 + patchA * 0.35);
   tipTall = mix(tipTall, vec3(0.16, 0.25, 0.05), patchB * 0.5);
-  vec3 tipCut = mix(vec3(0.12, 0.25, 0.045), vec3(0.2, 0.32, 0.08), r2);
-  vec3 col = mix(base, mix(tipTall, tipCut, cut), smoothstep(0.0, 1.0, t));
+  // cut blades: green stubble, a shade paler at the fresh cut, the odd straw-coloured one
+  vec3 tipCut = mix(vec3(0.1, 0.19, 0.055), vec3(0.15, 0.25, 0.075), r2);
+  if (r3 > 0.93) tipCut = vec3(0.2, 0.19, 0.09);
+  vec3 baseCut = tipCut * 0.62;
+  vec3 col = mix(mix(base, baseCut, cut), mix(tipTall, tipCut, cut), smoothstep(0.0, 1.0, t));
   if (seed && t > 0.7) col = vec3(0.42, 0.36, 0.2);
   if (vFlower > 0.5) {
     float k = fract(r1 * 13.7);
@@ -170,7 +189,7 @@ void main() {
   }
   col *= 0.85 + 0.3 * patchA;
   vCol = col;
-  vAO = mix(mix(0.22, 1.0, smoothstep(0.0, 0.95, t)), mix(0.55, 1.0, t), cut);
+  vAO = mix(mix(0.22, 1.0, smoothstep(0.0, 0.95, t)), mix(0.75, 1.0, t), cut);
 
   vec4 worldPosition = vec4(wp, 1.0);
   vec4 mvPosition = viewMatrix * worldPosition;
@@ -256,9 +275,10 @@ export class Grass {
     });
     this.lods = [];
     const counts = [n0, Math.ceil(n0 / 4), Math.ceil(n0 / 16)];
+    const SEGS = quality.grassSegs || [4, 2, 1];
     const maxTiles = Math.ceil((2 * this.R[2] / TILE + 2) ** 2);
     for (let l = 0; l < 3; l++) {
-      const g = tileGeometry(counts[l], SEGS[l]);
+      const g = tileGeometry(counts[l], SEGS[l], n0);
       g.userData.blades = counts[l];
       const tiles = new THREE.InstancedBufferAttribute(new Float32Array(maxTiles * 3), 3);
       tiles.setUsage(THREE.DynamicDrawUsage);

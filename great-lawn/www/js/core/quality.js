@@ -3,28 +3,28 @@
 export const PRESETS = {
   low: {
     maxDpr: 1.0, renderScale: 0.8,
-    grassDensity: 70, grassR: [8, 22, 42], grassLodWidth: 1.25,
+    grassDensity: 95, grassR: [9, 24, 48], grassLodWidth: 1.25, grassSegs: [3, 2, 1],
     shadowMap: 1024, shadowSpan: 34, shadowFar: 0, msaa: 0, fxaa: true, bloom: false, grain: false,
     cutRes: 1024, groundStep: 1.0, leafDensity: 0.45, ivy: false, treeDetail: 0.55,
     hedgeLeaves: 0.45, farTrees: 120, particles: 0.5,
   },
   medium: {
     maxDpr: 1.35, renderScale: 0.9,
-    grassDensity: 120, grassR: [11, 32, 62], grassLodWidth: 1.15,
+    grassDensity: 160, grassR: [12, 34, 70], grassLodWidth: 1.15, grassSegs: [3, 2, 1],
     shadowMap: 2048, shadowSpan: 48, shadowFar: 0, msaa: 2, fxaa: false, bloom: true, grain: true,
     cutRes: 2048, groundStep: 0.75, leafDensity: 0.7, ivy: true, treeDetail: 0.75,
     hedgeLeaves: 0.7, farTrees: 220, particles: 0.8,
   },
   high: {
     maxDpr: 1.75, renderScale: 1.0,
-    grassDensity: 210, grassR: [15, 44, 90], grassLodWidth: 1.0,
+    grassDensity: 270, grassR: [16, 46, 100], grassLodWidth: 1.0, grassSegs: [4, 2, 1],
     shadowMap: 4096, shadowSpan: 70, shadowFar: 0, msaa: 4, fxaa: false, bloom: true, grain: true,
     cutRes: 2048, groundStep: 0.5, leafDensity: 1.0, ivy: true, treeDetail: 1.0,
     hedgeLeaves: 1.0, farTrees: 360, particles: 1.0,
   },
   ultra: {
     maxDpr: 2.0, renderScale: 1.0,
-    grassDensity: 320, grassR: [19, 56, 120], grassLodWidth: 0.95,
+    grassDensity: 400, grassR: [20, 60, 130], grassLodWidth: 0.95, grassSegs: [4, 2, 1],
     shadowMap: 4096, shadowSpan: 80, shadowFar: 0, msaa: 4, fxaa: false, bloom: true, grain: true,
     cutRes: 2048, groundStep: 0.5, leafDensity: 1.25, ivy: true, treeDetail: 1.0,
     hedgeLeaves: 1.25, farTrees: 480, particles: 1.0,

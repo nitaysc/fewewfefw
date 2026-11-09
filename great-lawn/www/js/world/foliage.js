@@ -32,8 +32,8 @@ function leafShape(ctx, kind, r) {
 }
 
 // A cluster of leaves on a transparent card.
-export function leafClusterTexture(kind = 'oak', { count = 46, seed = 1, palette } = {}) {
-  const pal = palette || (kind === 'oak' ? ['#3d5a1e', '#4d6b24', '#5b7a2a', '#36501a', '#6b8a34'] : kind === 'lime' ? ['#4f7024', '#5f822c', '#6f9234', '#46661f'] : ['#22381a', '#2c4520', '#365226', '#1d3016']);
+export function leafClusterTexture(kind = 'oak', { count = kind === 'ivy' ? 46 : 150, seed = 1, palette } = {}) {
+  const pal = palette || (kind === 'oak' ? ['#3a5a20', '#4a6a26', '#58782c', '#33501c', '#6a8a36', '#2c4719', '#7a9640'] : kind === 'lime' ? ['#4c6e26', '#5c802e', '#6c9036', '#44641f', '#7e9c40', '#3a5a1c'] : ['#22381a', '#2c4520', '#365226', '#1d3016']);
   return canvasTexture(512, 512, (ctx, w, h) => {
     const r = rng(seed);
     ctx.clearRect(0, 0, w, h);
@@ -43,18 +43,22 @@ export function leafClusterTexture(kind = 'oak', { count = 46, seed = 1, palette
       ctx.beginPath(); ctx.moveTo(w / 2, h * 0.95);
       ctx.quadraticCurveTo(w * (0.3 + r() * 0.4), h * 0.6, w * (0.12 + r() * 0.76), h * (0.1 + r() * 0.35)); ctx.stroke();
     }
+    // many smaller leaves, back ones darker, front ones catching the light, so a crown
+    // reads as foliage rather than a pattern of scales
     for (let i = 0; i < count; i++) {
-      const ang = r() * Math.PI * 2, rad = Math.sqrt(r()) * 0.4;
+      const ang = r() * Math.PI * 2, rad = Math.sqrt(r()) * 0.42;
       const x = w / 2 + Math.cos(ang) * rad * w, y = h / 2 + Math.sin(ang) * rad * h;
-      const s = (kind === 'ivy' ? 60 : 70) + r() * 40;
+      const s = kind === 'ivy' ? 60 + r() * 40 : 38 + r() * 26;
+      const front = i / count;
       ctx.save(); ctx.translate(x, y); ctx.rotate(r() * Math.PI * 2); ctx.scale(s, s);
       leafShape(ctx, kind, r);
       const c = pal[Math.floor(r() * pal.length)];
+      const k = 0.9 + front * 0.45 + (r() - 0.5) * 0.18;
       const g = ctx.createLinearGradient(-0.3, 0, 0.3, 1);
-      g.addColorStop(0, c); g.addColorStop(1, shade(c, 1.25));
+      g.addColorStop(0, shade(c, k)); g.addColorStop(1, shade(c, k * 1.22));
       ctx.fillStyle = g; ctx.fill();
-      ctx.lineWidth = 0.02; ctx.strokeStyle = shade(c, 0.6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, 0.02); ctx.lineTo(0, 0.95); ctx.strokeStyle = shade(c, 1.35); ctx.lineWidth = 0.025; ctx.stroke();
+      if (kind === 'ivy') { ctx.lineWidth = 0.02; ctx.strokeStyle = shade(c, 0.6); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0, 0.04); ctx.lineTo(0, 0.9); ctx.strokeStyle = shade(c, k * 1.3); ctx.lineWidth = 0.02; ctx.stroke();
       ctx.restore();
     }
   }, { mipmaps: true });
