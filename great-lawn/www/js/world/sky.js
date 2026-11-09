@@ -3,7 +3,6 @@
 // the environment map and handed to a shadow-casting directional light, so the light,
 // the shadows and the reflections all agree with the clouds you see.
 import * as THREE from '../../vendor/three.module.js';
-import { RGBELoader } from '../../vendor/RGBELoader.js';
 import { shared } from '../core/shared.js';
 
 const SUN_TARGET_INTENSITY = 3.4; // the sun's irradiance after scaling, in three.js units
@@ -67,10 +66,31 @@ function analyseHDR(tex) {
   return { sunDir, eSun, eUp, lGround, haze };
 }
 
+// The HDR sky ships as an RGBE PNG (left half: mantissas, right half: exponents) so that any
+// static host serves it; decode it back to floating point.
+async function loadRGBEPng(url) {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const W2 = img.naturalWidth, H = img.naturalHeight, W = W2 / 2;
+  const cv = document.createElement('canvas'); cv.width = W2; cv.height = H;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  const px = cx.getImageData(0, 0, W2, H).data;
+  const data = new Float32Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const m = (y * W2 + x) * 4, e = px[(y * W2 + W + x) * 4], o = (y * W + x) * 4;
+    if (e === 0) { data[o + 3] = 1; continue; }
+    const f = Math.pow(2, e - 128) / 256;
+    data[o] = (px[m] + 0.5) * f; data[o + 1] = (px[m + 1] + 0.5) * f; data[o + 2] = (px[m + 2] + 0.5) * f; data[o + 3] = 1;
+  }
+  return { image: { data, width: W, height: H } };
+}
+
 export async function createSky(renderer, scene, quality, base = 'assets/sky/') {
   const [bg, hdr] = await Promise.all([
     new THREE.TextureLoader().loadAsync(base + 'sky_bg.jpg'),
-    new RGBELoader().setDataType(THREE.FloatType).loadAsync(base + 'sky_1k.hdr'),
+    loadRGBEPng(base + 'sky_rgbe.png'),
   ]);
   bg.colorSpace = THREE.SRGBColorSpace;
   bg.generateMipmaps = false; bg.minFilter = THREE.LinearFilter; bg.wrapS = THREE.RepeatWrapping;
@@ -79,11 +99,19 @@ export async function createSky(renderer, scene, quality, base = 'assets/sky/') 
   // Scale so the sun lands at a comfortable three.js intensity; the sky keeps its ratio to it.
   const sunMag = Math.max(info.eSun.x, info.eSun.y, info.eSun.z, 1e-6);
   const k = SUN_TARGET_INTENSITY / sunMag;
-  hdr.needsUpdate = true;
-  hdr.mapping = THREE.EquirectangularReflectionMapping;
+  // half floats filter on every WebGL 2 device (full floats need an extension phones lack)
+  const { width: W, height: H, data } = hdr.image;
+  const half = new Uint16Array(data.length);
+  for (let i = 0; i < data.length; i++) half[i] = THREE.DataUtils.toHalfFloat(Math.min(data[i], 60000));
+  const envTex = new THREE.DataTexture(half, W, H, THREE.RGBAFormat, THREE.HalfFloatType);
+  envTex.flipY = true;
+  envTex.magFilter = envTex.minFilter = THREE.LinearFilter;
+  envTex.generateMipmaps = false;
+  envTex.mapping = THREE.EquirectangularReflectionMapping;
+  envTex.needsUpdate = true;
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromEquirectangular(hdr).texture;
-  pmrem.dispose(); hdr.dispose();
+  const env = pmrem.fromEquirectangular(envTex).texture;
+  pmrem.dispose(); envTex.dispose();
   scene.environment = env;
   scene.environmentIntensity = k;
 

@@ -34,10 +34,12 @@ for (const f of jsFiles) {
     check(`import ${m[1]} from ${f.slice(root.length + 1)}`, existsSync(resolve(dirname(f), m[1])));
   }
   for (const m of src.matchAll(/tex\('([a-z_]+)'/g)) check(`texture ${m[1]}.jpg`, existsSync(join(root, 'assets/tex', `${m[1]}.jpg`)));
-  for (const m of src.matchAll(/'(assets\/[^']+\.(?:gltf|hdr|jpg))'/g)) check(`asset ${m[1]}`, existsSync(join(root, m[1])));
+  for (const m of src.matchAll(/'(assets\/[^']+\.(?:json|png|jpg))'/g)) check(`asset ${m[1]}`, existsSync(join(root, m[1])));
 }
 check('sky photo', existsSync(join(root, 'assets/sky/sky_bg.jpg')));
-check('sky HDR', existsSync(join(root, 'assets/sky/sky_1k.hdr')));
+check('sky HDR (RGBE PNG)', existsSync(join(root, 'assets/sky/sky_rgbe.png')));
+// every asset is a type a static web host serves
+for (const f of walk(join(root, 'assets'))) check(`served type: ${f.slice(root.length + 1)}`, /\.(jpg|png|json)$/.test(f));
 check('main script referenced', html.includes('js/main.js'));
 
 // ---- driving ----

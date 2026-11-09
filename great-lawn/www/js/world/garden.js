@@ -270,7 +270,7 @@ export async function buildGarden({ scene, quality, house }) {
     kit.add(stone, B(s.x - 0.85, s.x + 0.85, y0 + 0.3, y0 + 2.1, s.z - 0.85, s.z + 0.85));
     kit.add(stone, B(s.x - 1.0, s.x + 1.0, y0 + 2.1, y0 + 2.32, s.z - 1.0, s.z + 1.0));
     try {
-      const gltf = await new GLTFLoader().loadAsync('assets/models/horse/horse.gltf');
+      const gltf = await new GLTFLoader().loadAsync('assets/models/horse/horse.json');
       const bronze = new THREE.MeshStandardMaterial({ color: '#4d5a45', metalness: 0.85, roughness: 0.42 });
       const verdigris = 'diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.32, 0.5, 0.42), smoothstep(0.25, 0.85, vNrmW.y) * 0.55);';
       bronze.onBeforeCompile = (sh) => {
