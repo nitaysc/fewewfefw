@@ -104,9 +104,9 @@ export class Cockpit {
       }
     }
     this.bottleAtLips = new THREE.Object3D();
-    camera.add(this.bottleAtLips);
+    game.headLook.add(this.bottleAtLips);
     this.handAtLips = new THREE.Object3D();
-    camera.add(this.handAtLips);
+    game.headLook.add(this.handAtLips);
     // the cigar in the hand on the wheel: lit end up, leaning out to the right and forward
     {
       setWorld(this.rightRig, this.rightWheel.matrixWorld);
@@ -158,13 +158,14 @@ export class Cockpit {
   get swapping() { return this.swapT >= 0; }
 
   update(dt, ctl, playing) {
-    const H = this.hands, cam = this.game.camera;
+    const H = this.hands, cam = this.game.headLook;
     cam.updateMatrixWorld(true);
     this.game.mowerRoot.updateMatrixWorld(true);
     const fill = this.bottle.fill;
 
     // ---------------- the ale ----------------
     const wantDrink = playing && ctl.drink && fill > 0 && !this.swapping;
+    this.wantDrink = wantDrink;
     if (this.swapping) {
       this.swapT += dt / 0.95;
       if (this.swapT >= 1 && !this.refilled) { this.refilled = true; this.bottle.fill = 1; this.bottle.foam = 1; this.bottle.cold = 1; this.bottles++; this.events.push({ type: 'opened' }); }
@@ -210,6 +211,7 @@ export class Cockpit {
 
     // ---------------- the cigar ----------------
     const wantPuff = playing && ctl.puff && this.cigarLeft > 0.02;
+    this.wantPuff = wantPuff;
     const pr = wantPuff ? 1.5 : 1.8;
     this.puffT = clamp(this.puffT + (wantPuff ? dt * pr : -dt * pr), 0, 1);
     const tC = easeInOut(this.puffT);

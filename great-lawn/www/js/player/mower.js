@@ -210,8 +210,9 @@ function buildSteeringWheel(parent, M, RIM) {
 }
 
 export class MowerModel {
-  constructor() {
+  constructor({ paint } = {}) {
     const M = mowerMaterials();
+    if (paint) M.paint.color.set(paint);
     this.M = M;
     this.group = new THREE.Group();
     this.group.name = 'mower';

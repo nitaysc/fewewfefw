@@ -134,7 +134,7 @@ export class Bottle {
     this.group.name = 'bottle';
     const pts = OUTER.map(([r, y]) => new THREE.Vector2(r, y));
     const glassGeo = new THREE.LatheGeometry(pts, 48);
-    const cond = condensationTexture();
+    const cond = (Bottle.cond ||= condensationTexture());
     this.plane = { value: new THREE.Vector4(0, 1, 0, 1) };   // world-space surface: dot(n, p) = w
     this.cold = 1;                       // a fresh bottle from the crate is ice cold
     this.coldU = { value: 1 };
@@ -335,7 +335,7 @@ export class Bottle {
     this.histN = 0;
     this.foam = 0.4;
     // labels
-    const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.0327, 0.0327, 0.072, 48, 1, true, -Math.PI * 0.82, Math.PI * 1.64), new THREE.MeshStandardMaterial({ map: labelTexture(), roughness: 0.75 }));
+    const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.0327, 0.0327, 0.072, 48, 1, true, -Math.PI * 0.82, Math.PI * 1.64), new THREE.MeshStandardMaterial({ map: (Bottle.label ||= labelTexture()), roughness: 0.75 }));
     lab.position.y = 0.074;
     const neckLab = new THREE.Mesh(new THREE.CylinderGeometry(0.0141, 0.0156, 0.016, 32, 1, true), new THREE.MeshStandardMaterial({ color: '#1d3a28', roughness: 0.5, metalness: 0.3 }));
     neckLab.position.y = 0.196;

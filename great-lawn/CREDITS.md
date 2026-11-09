@@ -19,3 +19,6 @@ Licences in `www/fonts/`.
 
 ## Code
 - three.js r170 (MIT) — `www/vendor/`
+- PeerJS 1.5.4 (MIT, Michelle Bu, Eric Zhang and contributors) — `www/vendor/peerjs.mjs`,
+  bundled into one module with esbuild; playing together uses the free PeerJS server to
+  introduce players

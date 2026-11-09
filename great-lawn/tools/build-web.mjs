@@ -17,6 +17,6 @@ const html = await readFile(www + 'index.html', 'utf8');
 const css = (await readFile(www + 'fonts.css', 'utf8')) + '\n' + (await readFile(www + 'style.css', 'utf8'));
 const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
   .replace(/<script type="module" src="js\/main.js"><\/script>/, '<script type="module" src="game.js"></script>');
-const page = `<title>The Great Lawn</title>\n<style>\n${css}\n</style>\n${body.trim()}\n`;
+const page = `<meta charset="utf-8">\n<title>The Great Lawn</title>\n<style>\n${css}\n</style>\n${body.trim()}\n`;
 await writeFile(out + 'index.html', page);
 console.log('dist-web ready:', out);

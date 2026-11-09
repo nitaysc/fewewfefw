@@ -274,10 +274,15 @@ export class Grass {
       lights: true, fog: true, side: THREE.DoubleSide,
     });
     this.lods = [];
-    const counts = [n0, Math.ceil(n0 / 4), Math.ceil(n0 / 16)];
-    const SEGS = quality.grassSegs || [4, 2, 1];
+    // Each level holds a quarter of the blades of the one before, and takes over where the
+    // density fade (uLod.x / d)^2 has fallen to that quarter: at 1, 2 and 4 times the first
+    // radius. Tiles then carry hardly any blades they will not draw.
+    const counts = [n0, Math.ceil(n0 / 4), Math.ceil(n0 / 16), Math.ceil(n0 / 64)];
+    const S0 = quality.grassSegs || [4, 2, 1];
+    const SEGS = [S0[0], S0[1], S0[2], 1];
+    this.edges = [this.R[0], this.R[0] * 2, this.R[0] * 4];
     const maxTiles = Math.ceil((2 * this.R[2] / TILE + 2) ** 2);
-    for (let l = 0; l < 3; l++) {
+    for (let l = 0; l < 4; l++) {
       const g = tileGeometry(counts[l], SEGS[l], n0);
       g.userData.blades = counts[l];
       const tiles = new THREE.InstancedBufferAttribute(new Float32Array(maxTiles * 3), 3);
@@ -322,7 +327,8 @@ export class Grass {
         this.sphere.center.set(x + half, 0.6, z + half);
         this.sphere.radius = half * 1.42 + 1.4;
         if (dn > 2 && !this.frustum.intersectsSphere(this.sphere)) continue;
-        const lod = dn < R[0] ? 0 : dn < R[1] ? 1 : 2;
+        const E = this.edges;
+        const lod = dn < E[0] ? 0 : dn < E[1] ? 1 : dn < E[2] ? 2 : 3;
         const dc = Math.hypot(x + half - cx, z + half - cz) + Math.abs(cy) * 0.01;
         const h = ((i * 73856093) ^ (j * 19349663)) >>> 0;
         this.lods[lod].list.push(dc, x, z, h % 8);

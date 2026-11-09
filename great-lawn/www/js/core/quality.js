@@ -39,10 +39,18 @@ export function forDevice(preset, mobile = isTouchDevice()) {
     ...preset,
     maxDpr: Math.min(preset.maxDpr, 1.6),
     shadowMap: Math.min(preset.shadowMap, 2048),
-    msaa: Math.min(preset.msaa, 2),
-    grassDensity: Math.min(preset.grassDensity, 230),
-    grassR: preset.grassR.map((r, i) => Math.min(r, [14, 40, 85][i])),
+    grassDensity: Math.min(preset.grassDensity, 200),
+    grassR: preset.grassR.map((r, i) => Math.min(r, [13, 36, 80][i])),
+    grassSegs: [3, 2, 1],
     farTrees: Math.min(preset.farTrees, 300),
+    // edge smoothing as a cheap pass: multisampled half-float buffers cost phones bandwidth
+    msaa: 0, fxaa: true,
+    // the hands' skin carries its fine detail in the shader, so the mesh can be lighter
+    handRes: preset.handRes || 0.0019,
+    leafDensity: Math.min(preset.leafDensity, 0.85),
+    // trees and fine stonework keep their baked shadows on the lawn but stop being redrawn
+    // into the sun's shadow map every frame
+    bakedSceneryShadows: true,
   };
 }
 

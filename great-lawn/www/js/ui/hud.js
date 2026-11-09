@@ -156,8 +156,17 @@ export class Hud {
       const c = this.ctx;
       c.drawImage(this.base, 0, 0);
       c.drawImage(this.mown, 0, 0);
+      // other players' mowers, in their own colours
+      const s = 1 / CELL;
+      for (const p of g.net?.players.values() ?? []) {
+        if (!p.s) continue;
+        c.save(); c.translate((p.x - PX0) * s, (p.z - PZ0) * s); c.rotate(-p.h);
+        c.fillStyle = p.info.color; c.strokeStyle = '#f2e9d2'; c.lineWidth = 1.2;
+        c.beginPath(); c.moveTo(0, -6); c.lineTo(4, 4.5); c.lineTo(0, 2.2); c.lineTo(-4, 4.5); c.closePath(); c.fill(); c.stroke();
+        c.restore();
+      }
       // mower
-      const s = 1 / CELL, mx = (v.x - PX0) * s, mz = (v.z - PZ0) * s;
+      const mx = (v.x - PX0) * s, mz = (v.z - PZ0) * s;
       c.save(); c.translate(mx, mz); c.rotate(-v.heading);
       c.fillStyle = '#7a1d14'; c.strokeStyle = '#f2e9d2'; c.lineWidth = 1.5;
       c.beginPath(); c.moveTo(0, -7); c.lineTo(4.5, 5); c.lineTo(0, 2.5); c.lineTo(-4.5, 5); c.closePath(); c.fill(); c.stroke();

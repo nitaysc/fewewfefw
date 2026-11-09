@@ -15,6 +15,9 @@ an AI. Each project has its own notes:
   estate (three.js; SDF-modelled hands, beer and cigar; instanced grass mown into stripes).
   `npm test` and `npm run serve` in `great-lawn/`; `?quality=low|medium|high|ultra`,
   `?autostart` and `?manual` (with `window.__step(n)`) help testing in headless Chromium.
+  Multiplayer (Mow together) uses PeerJS: `?peerhost=127.0.0.1&peerport=9000` points it at a
+  local PeerJS server (`npm i peer`, then `PeerServer({ port: 9000, path: '/', host: '127.0.0.1' })`)
+  so two headless browsers can play together; run them as two separate browser processes.
   Releases: `great-lawn-v1.0.<run number>`.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it

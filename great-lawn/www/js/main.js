@@ -5,6 +5,8 @@ import { Audio } from './core/audio.js';
 import { Hud } from './ui/hud.js';
 import { loadSettings, saveSettings, isTouchDevice } from './core/quality.js';
 import { nextFrame } from './core/util.js';
+import { PAINTS, randomName, cleanCode } from './net/multiplayer.js';
+import { START } from './world/layout.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -23,7 +25,7 @@ const touch = isTouchDevice();
 const SAVE_KEY = 'greatlawn.save.v1';
 
 const show = (id, on = true) => { $(id).hidden = !on; };
-const screens = ['title', 'pause', 'settings', 'done'];
+const screens = ['title', 'pause', 'settings', 'done', 'multi'];
 let settingsReturn = 'title';
 function only(id) { for (const s of screens) show(s, s === id); }
 const stats = { played: 0, doneShown: false, milestones: new Set() };
@@ -34,6 +36,9 @@ function readSave() {
 }
 function writeSave() {
   if (!game.cutmap || !game.cockpit || game.state === 'title' || game.state === 'loading') return;
+  // a guest is mowing someone else's lawn (even after the host has left): keep their own
+  // lawn's save as it was
+  if (game.sharedLawn) return;
   const v = game.vehicle, ck = game.cockpit;
   const data = {
     v: 1, cut: game.cutmap.serialize(), x: v.x, z: v.z, heading: v.heading,
@@ -75,9 +80,9 @@ async function boot() {
     document.body.classList.add('touch');
     input.bindTouch({
       stick: $('stick'), knob: $('stickKnob'), lookZone: $('lookZone'), drink: $('tDrink'), puff: $('tPuff'),
-      blades: $('tBlades'), boost: $('tBoost'), action: $('tAction'), pause: $('tPause'),
+      blades: $('tBlades'), boost: $('tBoost'), action: $('tAction'), pause: $('tPause'), view: $('tView'),
     });
-    $('controlsBlurb').textContent = 'Left thumb drives and steers, right thumb looks about; the buttons drink, smoke and work the blades.';
+    $('controlsBlurb').textContent = 'Left thumb drives and steers, right thumb looks about; the buttons drink, smoke and work the blades. View swaps between the driver\'s seat and a view from behind.';
   }
   $('fps').hidden = !settings.showFps;
   show('loading', false);
@@ -101,7 +106,8 @@ async function boot() {
   } else requestAnimationFrame(loop);
 }
 
-function begin(fromSave) {
+function begin(fromSave, { keepSave = false } = {}) {
+  game.sharedLawn = keepSave;
   audio.start();
   audio.setVolume(settings.volume);
   stats.milestones.clear();
@@ -112,7 +118,7 @@ function begin(fromSave) {
     game.cockpit.bottles = 1; game.cockpit.cigars = 1;
     hud.img.data.fill(0); hud.dirty = true;
     stats.played = 0; stats.doneShown = false;
-    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+    if (!keepSave) try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
   }
   only(null);
   show('hud');
@@ -128,6 +134,11 @@ function begin(fromSave) {
 function pause() {
   if (game.state !== 'playing') return;
   game.state = 'paused';
+  const net = game.net;
+  $('pauseNet').hidden = !net.active;
+  if (net.active) $('pauseNet').innerHTML = `Mowing together · code <b>${net.code}</b> · ${net.count} mower${net.count === 1 ? '' : 's'}`;
+  // the lawn is shared: only one's own lawn can be started afresh
+  $('btnRestart').hidden = net.active;
   input.enabled = false;
   input.releaseLock();
   audio.suspend();
@@ -143,7 +154,76 @@ function resume() {
 }
 input.onUnlock = () => { if (game.state === 'playing' && !touch && !input.dragLook) pause(); };
 
+// ---------------------------------------------------------------- mowing together
+function openMulti() {
+  const sel = $('mpPaint');
+  if (!sel.options.length) for (const p of PAINTS) sel.add(new Option(p.name, p.color));
+  $('mpName').value = settings.netName || randomName();
+  sel.value = settings.netPaint || PAINTS[0].color;
+  $('mpStatus').textContent = '';
+  $('btnMpBegin').hidden = !game.net.active || game.net.role !== 'host';
+  only('multi');
+}
+function me() {
+  const name = ($('mpName').value || '').trim().slice(0, 18) || randomName();
+  const color = $('mpPaint').value || PAINTS[0].color;
+  settings.netName = name; settings.netPaint = color; saveSettings(settings);
+  game.mower.M.paint.color.set(color);
+  return { name, color };
+}
+function netBusy(on) { for (const id of ['btnHost', 'btnJoin', 'btnMpBack']) $(id).disabled = on; }
+function netError(e) {
+  const t = e && e.type;
+  const msg = t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed'
+    ? 'Could not reach the matchmaking service. Check the internet connection and try again.'
+    : t === 'browser-incompatible' ? 'This browser cannot play together, I am afraid.'
+    : (e && e.message) || 'Something went wrong.';
+  $('mpStatus').textContent = msg;
+}
+async function hostLawn() {
+  if (game.net.active) { game.net.leave(); }
+  netBusy(true);
+  $('mpStatus').textContent = 'Opening the lodge gates…';
+  try {
+    const code = await game.net.host(me());
+    $('mpStatus').innerHTML = `Your code is <b>${code}</b>. Friends choose Mow together and enter it; they can join at any time.`;
+    $('btnMpBegin').hidden = false;
+  } catch (e) { netError(e); }
+  netBusy(false);
+}
+async function joinLawn() {
+  const code = cleanCode($('mpCode').value);
+  $('mpCode').value = code;
+  if (code.length !== 4) { $('mpStatus').textContent = 'Codes are four letters and numbers.'; return; }
+  if (game.net.active) game.net.leave();
+  netBusy(true);
+  $('mpStatus').textContent = 'Knocking at the lodge gates…';
+  try {
+    const lawn = await game.net.join(code, me());
+    beginShared(lawn);
+  } catch (e) { netError(e); game.net.leave(); }
+  netBusy(false);
+}
+// a guest starts on the host's lawn, beside the others
+function beginShared(lawn) {
+  begin(false, { keepSave: true });
+  hud.img.data.fill(0);
+  game.cutmap.restore(lawn);
+  hud.dirty = true;
+  stats.milestones.clear();
+  for (const [at] of MILESTONES) if (game.cutmap.progress >= at) stats.milestones.add(at);
+  game.vehicle.reset(START.x + 2.6 * game.net.myId, START.z + 1.5, START.heading);
+  setTimeout(() => hud.toast('You have joined the mowing. The lawn is shared: every stripe counts for all of you.', 5), 600);
+}
+game.net.onEvent = (kind, text) => { if (hud) hud.toast(text, 4); };
+
 // ---------------------------------------------------------------- menus
+$('btnTogether').addEventListener('click', openMulti);
+$('btnHost').addEventListener('click', hostLawn);
+$('btnJoin').addEventListener('click', joinLawn);
+$('mpCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinLawn(); });
+$('btnMpBegin').addEventListener('click', () => begin(!!readSave()));
+$('btnMpBack').addEventListener('click', () => { if (game.state === 'title' && game.net.active) game.net.leave(); only('title'); });
 $('btnBegin').addEventListener('click', () => begin(false));
 $('btnContinue').addEventListener('click', () => begin(true));
 $('btnResume').addEventListener('click', resume);

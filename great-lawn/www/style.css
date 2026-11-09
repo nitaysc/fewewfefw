@@ -194,6 +194,8 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--brass); }
 .tbtns button.held { background: rgba(243, 236, 220, 0.3); }
 .t-action { position: absolute; right: calc(210px + var(--safe-r)); bottom: calc(120px + var(--safe-b)); width: auto; height: auto; border-radius: 3px; padding: 10px 14px; }
 .t-pause { position: absolute; top: calc(12px + var(--safe-t)); left: 50%; margin-left: -24px; width: 48px; height: 48px; font-size: 14px; }
+.t-view { position: absolute; top: calc(12px + var(--safe-t)); left: 50%; margin-left: 34px; width: 48px; height: 48px; border-radius: 50%; padding: 0;
+  font: 400 10px/1 var(--display); letter-spacing: 0.1em; background: rgba(10, 18, 12, 0.35); border-color: rgba(243, 236, 220, 0.55); }
 
 body.touch .hud-bl { display: none; }
 body.touch .hud-br { bottom: auto; top: calc(92px + var(--safe-t)); right: calc(14px + var(--safe-r)); padding: 4px 5px 5px; box-shadow: 0 0 0 2px rgba(232, 222, 198, 0.5); }
@@ -225,3 +227,14 @@ body.touch .tbtns button { width: 66px; height: 66px; font-size: 11.5px; }
   * { transition: none !important; }
 }
 .noscript { position: fixed; inset: 0; display: grid; place-items: center; font-size: 22px; }
+
+/* ---- mowing together ---- */
+#netLabels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+.net-label { position: absolute; left: 0; top: 0; padding: 2px 8px 3px; font: 400 13px/1.2 var(--display); letter-spacing: 0.06em;
+  color: var(--ivory); background: rgba(10, 18, 12, 0.55); border: 1px solid; border-radius: 3px; white-space: nowrap; will-change: transform; }
+.mp-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; margin: 14px 0 6px; }
+.mp-input { font: 17px var(--text); color: var(--ivory); background: #142a1d; border: 1px solid rgba(243, 236, 220, 0.4); padding: 7px 8px; width: 100%; box-sizing: border-box; }
+.mp-join { display: flex; gap: 10px; margin-top: 12px; }
+.mp-code { width: 7.5em; flex: none; text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-family: var(--display); }
+.mp-status { min-height: 1.4em; margin: 12px 0 4px; color: var(--ivory); }
+.mp-status b { font-family: var(--display); letter-spacing: 0.25em; font-size: 1.35em; color: var(--brass); }

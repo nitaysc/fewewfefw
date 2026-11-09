@@ -62,7 +62,7 @@ export class Input {
     const k = e.code;
     if (down) {
       if (!this.keys.has(k)) {
-        const map = { Space: 'blades', KeyF: 'ash', KeyR: 'action', Escape: 'pause', KeyP: 'pause', KeyH: 'hud', KeyM: 'map', KeyV: 'photo' };
+        const map = { Space: 'blades', KeyF: 'ash', KeyR: 'action', Escape: 'pause', KeyP: 'pause', KeyH: 'hud', KeyM: 'map', KeyV: 'view' };
         if (map[k]) this.pressed.add(map[k]);
       }
       this.keys.add(k);
@@ -127,6 +127,7 @@ export class Input {
     const tap = (el, action) => el.addEventListener('touchstart', (e) => { e.preventDefault(); this.pressed.add(action); }, { passive: false });
     hold(els.drink, 'drink'); hold(els.puff, 'puff'); hold(els.boost, 'boost');
     tap(els.blades, 'blades'); tap(els.action, 'action'); tap(els.pause, 'pause');
+    if (els.view) tap(els.view, 'view');
   }
 
   // ---- per-frame state ----
@@ -161,7 +162,7 @@ export class Input {
       lookY += ax(3) * 0.035 * this.sensitivity * (this.invertY ? -1 : 1);
       drink = drink || btn(4); puff = puff || btn(5); boost = boost || btn(10) || btn(1);
       const edge = (i, act) => { if (btn(i) && !this.lastGamepadButtons[i]) this.pressed.add(act); };
-      edge(0, 'blades'); edge(2, 'ash'); edge(3, 'action'); edge(9, 'pause');
+      edge(0, 'blades'); edge(2, 'ash'); edge(3, 'action'); edge(9, 'pause'); edge(8, 'view');
       this.lastGamepadButtons = gp.buttons.map((b) => b.pressed);
       break;
     }

@@ -121,7 +121,8 @@ export function buildHouse({ quality }) {
   const group = new THREE.Group();
   group.name = 'house';
   const stone = stoneMaterial('#fff4dc', 2.2);
-  const rustic = stoneMaterial('#efe0c2', 1.6);
+  const ashlar = stoneMaterial('#fff4dc', 2.2, { joints: 'ashlar' });
+  const rustic = stoneMaterial('#efe0c2', 1.6, { joints: 'rustic' });
   const slate = slateMaterial();
   const white = paintMaterial('#f2efe6', 0.4);
   const glass = glassMaterial();
@@ -140,7 +141,7 @@ export function buildHouse({ quality }) {
     kit.add(rustic, B(m.x0 - 0.05, m.x1 + 0.05, y - 0.04, y + 0.04, m.z0 - 0.05, m.z1 + 0.05));
   }
   kit.add(stone, B(m.x0 - 0.18, m.x1 + 0.18, GF, GF + 0.28, m.z0 - 0.18, m.z1 + 0.18)); // string course
-  kit.add(stone, B(m.x0, m.x1, GF + 0.28, TOP, m.z0, m.z1));                             // upper walls
+  kit.add(ashlar, B(m.x0, m.x1, GF + 0.28, TOP, m.z0, m.z1));                            // upper walls
   kit.add(stone, B(m.x0 - 0.12, m.x1 + 0.12, PN - 0.1, PN + 0.12, m.z0 - 0.12, m.z1 + 0.12)); // sill band
   // cornice round the block
   const cor = (L, x, z, ry) => kit.add(stone, corniceRun(L, 1.1), M4.c(M4.t(x, TOP, z), M4.ry(ry)));
@@ -286,7 +287,7 @@ export function buildHouse({ quality }) {
   const tus = columnGeometry(5.0, 0.55, 'tuscan');
   for (const c of HOUSE.colonnades) {
     const cx = (c.x0 + c.x1) / 2, L = c.x1 - c.x0;
-    kit.add(stone, B(c.x0, c.x1, 0, 6.0, c.z0, c.z0 + 0.7));                // back wall
+    kit.add(ashlar, B(c.x0, c.x1, 0, 6.0, c.z0, c.z0 + 0.7));               // back wall
     kit.add(stone, B(c.x0, c.x1, 0, 0.35, c.z0, c.z1 + 0.3));                // floor
     for (let i = 0; i < 4; i++) {
       // niches in the back wall

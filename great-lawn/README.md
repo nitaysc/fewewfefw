@@ -18,6 +18,11 @@ cut it back into stripes, and take your time over a bottle of estate ale and a C
 - Real sky and light: a photographed CC0 sky with the sun's position and strength measured
   from the HDR, soft shadows, sun glowing through grass and leaves.
 - The engraved *Plan of the Great Lawn* fills in as you go; progress saves automatically.
+- Two views: the driver's seat, or a chase camera behind the mower (the driver has a face,
+  a moustache and a tweed flat cap for it).
+- Mow together: host a lawn and give friends the four-letter code; up to four mowers restore
+  the same lawn, each in its own paint, every stripe shared. Players connect directly
+  (WebRTC); PeerJS's public server only introduces them, so an internet connection is needed.
 - Sounds are synthesised live: engine putter, blades and the crunch of long grass, gravel,
   blackbirds, rooks, gulps, the hiss of a fresh bottle.
 
@@ -32,15 +37,19 @@ cut it back into stripes, and take your time over a bottle of estate ale and a C
 | Smoke (hold) | E or right mouse | Smoke |
 | Tap the ash | F | |
 | Fresh bottle / new cigar | R | the button that appears |
-| Look about | mouse | drag on the right |
+| Look about (or swing the camera, from behind) | mouse | drag on the right |
+| Driver's seat / view from behind | V | View |
 | Pause | Esc | II |
 
 A gamepad works too (sticks, triggers to drive, shoulders to drink and smoke).
 
 ## Picture quality
 
-Low / Medium / High / Ultra in Settings, guessed from the device the first time. Phones start
-on Low or Medium. Resolution also drops by itself if the frame rate sags.
+Automatic, Low, Medium, High or Ultra in Settings. Automatic picks from the graphics chip:
+recent flagship phones start on High, mid-range ones on Medium. On phones each level is
+trimmed where it costs most (shadow-map size, multisampling, grass reach; trees keep baked
+shadows), and if the frame rate sags the game lowers its resolution, then thins the grass a
+little, putting both back when it can.
 
 ## Layout
 

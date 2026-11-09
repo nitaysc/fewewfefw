@@ -10,6 +10,7 @@
 </head>
 <body>
   <canvas id="view" aria-label="The Great Lawn, first-person view from the mower seat"></canvas>
+  <div id="netLabels" aria-hidden="true"></div>
 
   <!-- ===== In-game HUD ===== -->
   <div id="hud" hidden>
@@ -33,6 +34,7 @@
       <span><kbd>Q</kbd> Drink</span>
       <span><kbd>E</kbd> Smoke</span>
       <span><kbd>F</kbd> Tap the ash</span>
+      <span><kbd>V</kbd> View</span>
       <span><kbd>Esc</kbd> Pause</span>
     </div>
 
@@ -58,6 +60,7 @@
     </div>
     <button id="tAction" class="t-action" hidden>New bottle</button>
     <button id="tPause" class="t-pause" aria-label="Pause">II</button>
+    <button id="tView" class="t-view" aria-label="Change view">View</button>
   </div>
 
   <!-- ===== Loading ===== -->
@@ -80,9 +83,36 @@
       <div class="actions">
         <button id="btnBegin" class="primary">Begin mowing</button>
         <button id="btnContinue" class="primary" hidden>Continue mowing</button>
+        <button id="btnTogether">Mow together</button>
         <button id="btnSettings1">Settings</button>
       </div>
       <p class="small" id="controlsBlurb">Mouse to look about. Click the view to capture the mouse.</p>
+    </div>
+  </section>
+
+  <!-- ===== Mowing together ===== -->
+  <section id="multi" class="screen" hidden>
+    <div class="card">
+      <div class="eyebrow">Friends welcome · up to four mowers</div>
+      <h2>Mow together</h2>
+      <div class="mp-grid">
+        <label for="mpName">Your name</label>
+        <input id="mpName" class="mp-input" maxlength="18" autocomplete="off">
+        <label for="mpPaint">Your mower</label>
+        <select id="mpPaint"></select>
+      </div>
+      <div class="actions">
+        <button id="btnHost" class="primary">Host this lawn</button>
+      </div>
+      <div class="mp-join">
+        <input id="mpCode" class="mp-input mp-code" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button id="btnJoin">Join a friend</button>
+      </div>
+      <p class="mp-status" id="mpStatus" aria-live="polite"></p>
+      <div class="actions">
+        <button id="btnMpBegin" class="primary" hidden>Begin mowing</button>
+        <button id="btnMpBack">Back</button>
+      </div>
     </div>
   </section>
 
@@ -91,6 +121,7 @@
     <div class="card">
       <div class="eyebrow">A moment's rest</div>
       <h2>Paused</h2>
+      <p class="mp-status" id="pauseNet" hidden></p>
       <div class="actions">
         <button id="btnResume" class="primary">Resume</button>
         <button id="btnSettings2">Settings</button>
@@ -105,6 +136,7 @@
         <tr><td><kbd>E</kbd> or right mouse</td><td>Draw on the cigar (hold)</td></tr>
         <tr><td><kbd>F</kbd></td><td>Tap the ash off</td></tr>
         <tr><td><kbd>R</kbd></td><td>Fresh bottle · light a new cigar</td></tr>
+        <tr><td><kbd>V</kbd></td><td>Driver's seat · view from behind</td></tr>
         <tr><td><kbd>H</kbd> · <kbd>M</kbd></td><td>Hide the HUD · hide the plan</td></tr>
       </table>
     </div>

@@ -14,6 +14,8 @@ import { Grass } from './world/grass.js';
 import { Vehicle, DIM } from './player/vehicle.js';
 import { MowerModel } from './player/mower.js';
 import { Cockpit } from './player/cockpit.js';
+import { DriverHead } from './player/head.js';
+import { Net } from './net/multiplayer.js';
 import { Smoke, Clippings } from './fx/particles.js';
 import { heightAt } from './world/layout.js';
 import { buildHouse } from './world/house.js';
@@ -21,6 +23,8 @@ import { Trees } from './world/trees.js';
 import { buildGarden } from './world/garden.js';
 import { bakeStaticShadow } from './world/staticshadow.js';
 import { Rooks } from './world/wildlife.js';
+
+const _tgt = new THREE.Vector3(), _pos = new THREE.Vector3();
 
 // Fog: a softer curve than exp2 so the lawn stays crisp and the far hills go blue.
 THREE.ShaderChunk.fog_fragment = /* glsl */`
@@ -42,6 +46,7 @@ export class Game {
     this.state = 'loading';
     this.time = 0;
     this.extras = [];   // systems with update(dt, game)
+    this.net = new Net(this);   // playing together (idle until a lawn is hosted or joined)
   }
 
   async load(step) {
@@ -104,6 +109,14 @@ export class Game {
       const casters = new Set();
       for (const root of [this.house, this.trees.group, this.garden.group]) root.traverse((o) => { if (o.isMesh && o.castShadow !== false && !o.material.transparent) casters.add(o); });
       this.staticShadow = bakeStaticShadow(renderer, scene, casters, { extent: 300, res: Q.shadowMap >= 2048 ? 2048 : 1024 });
+      if (Q.bakedSceneryShadows) {
+        // phones: the baked map already shades the lawn under these; only the house's walls,
+        // columns and steps and the moving things go on casting live shadows
+        this.trees.group.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+        for (const name of ['balusters', 'border', 'ivy']) {
+          this.scene.traverse((o) => { if (o.isMesh && o.name === name) o.castShadow = false; });
+        }
+      }
     }
 
     await step(0.45, 'Fuelling the mower…');
@@ -113,13 +126,22 @@ export class Game {
     this.head = new THREE.Object3D();
     this.head.position.copy(DIM.eye);
     this.mowerRoot.add(this.head);
-    this.head.add(camera);
+    // the driver's head turns here; the first-person camera rides in it, and the bottle and
+    // cigar poses at the lips follow it whichever view is in use
+    this.headLook = new THREE.Object3D();
+    this.head.add(this.headLook);
+    this.headLook.add(camera);
     this.look = { yaw: 0, pitch: -0.2, yawV: 0, pitchV: 0 };
+    this.viewMode = 'first';
+    this.third = { yaw: 0, pitch: 0.3, dist: 4.4, base: null, idle: 0 };
     this.mower = new MowerModel();
     this.mowerRoot.add(this.mower.group);
 
     await step(0.55, 'Washing the gentleman\'s hands…');
     this.cockpit = new Cockpit(this, { tone: this.settings.skinTone });
+    this.driverHead = new DriverHead({ quality: Q, tone: this.settings.skinTone });
+    this.headLook.add(this.driverHead.group);
+    this.driverHead.group.visible = false;
     this.smoke = new Smoke(scene, Q.particles >= 1 ? 500 : 260);
     this.clippings = new Clippings(scene, Math.round(1600 * Q.particles));
     this.emit = { wisp: 0, exhaust: 0 };
@@ -178,6 +200,7 @@ export class Game {
       if (dist > 0.002) {
         const dir = dist > 0.01 ? new THREE.Vector2(dx / dist, dz / dist) : new THREE.Vector2(v.fx, v.fz);
         fresh = this.cutmap.stroke(v.prevDeck, v.deck, DIM.deckR, dir);
+        this.net.stroke(v.prevDeck, v.deck, dir);
       }
     }
     // engine load: fraction of fresh (tall) grass going under the deck
@@ -187,11 +210,17 @@ export class Game {
     this.cutmap.flush();
     this.grass.setMower(v.x, v.z, v.fx, v.fz);
 
-    // ---- head look ----
-    const L = this.look;
+    // ---- head look (first person) or orbit (third person) ----
+    if (playing && ctl.pressed.has('view')) this.setView(this.viewMode === 'first' ? 'third' : 'first');
+    const L = this.look, T = this.third, third = this.viewMode === 'third';
     if (playing) {
-      L.yaw = clamp(L.yaw - ctl.lookX, -2.1, 2.1);
-      L.pitch = clamp(L.pitch - ctl.lookY, -1.15, 0.85);
+      if (third) {
+        T.yaw = Math.atan2(Math.sin(T.yaw - ctl.lookX), Math.cos(T.yaw - ctl.lookX));
+        T.pitch = clamp(T.pitch + ctl.lookY, -0.08, 1.1);
+      } else {
+        L.yaw = clamp(L.yaw - ctl.lookX, -2.1, 2.1);
+        L.pitch = clamp(L.pitch - ctl.lookY, -1.15, 0.85);
+      }
     }
     const ck = this.cockpit;
     // engine shake and bumps through the seat
@@ -199,7 +228,9 @@ export class Game {
     this.head.position.set(DIM.eye.x + Math.sin(this.time * 61) * shake * 0.4, DIM.eye.y + Math.sin(this.time * 47.3) * shake, DIM.eye.z);
     this.head.rotation.set(0, 0, 0);
     const sway = ck.tipsy > 0.4 ? (ck.tipsy - 0.4) * 0.025 : 0;
-    this.camera.rotation.set(L.pitch + ck.headTilt + Math.sin(this.time * 0.6) * sway, L.yaw + Math.sin(this.time * 0.43) * sway * 1.3, Math.sin(this.time * 0.5) * sway * 0.8, 'YXZ');
+    // seen from behind, the driver looks ahead and a little down at the lawn
+    const hp = third ? -0.12 : L.pitch, hy = third ? 0 : L.yaw;
+    this.headLook.rotation.set(hp + ck.headTilt + Math.sin(this.time * 0.6) * sway, hy + Math.sin(this.time * 0.43) * sway * 1.3, Math.sin(this.time * 0.5) * sway * 0.8, 'YXZ');
 
     this.mower.update(dt, v, { bladesOn: this.bladesOn, boost: c.boost, time: this.time, fuel: 0.8 });
     this.mowerRoot.updateMatrixWorld(true);
@@ -217,9 +248,13 @@ export class Game {
       this.camera.position.set(...dv.pos);
       this.camera.lookAt(...dv.target);
       if (dv.fov) { this.camera.fov = dv.fov; this.camera.updateProjectionMatrix(); }
-    } else if (this.camera.parent !== this.head) {
-      this.head.add(this.camera);
+    } else if (third) {
+      if (this.camera.parent !== this.scene) { this.scene.add(this.camera); this.resize(); }
+      this.placeChaseCamera(dt, ctl);
+    } else if (this.camera.parent !== this.headLook) {
+      this.headLook.add(this.camera);
       this.camera.position.set(0, 0, 0);
+      this.camera.rotation.set(0, 0, 0);
       this.resize();
     }
 
@@ -231,6 +266,8 @@ export class Game {
     const focus = camPos.clone().addScaledVector(new THREE.Vector3(fwd.x, 0, fwd.z).normalize(), this.Q.shadowSpan * 0.3);
     this.sky.update(this.camera, focus);
     this.grass.update(this.cameraForCulling());
+    // other players: send ours, move theirs
+    this.net.update(dt);
     // events of this frame, for sound and the HUD
     this.events = [...this.cockpit.events, ...v.events];
     this.cockpit.events.length = 0; v.events.length = 0;
@@ -255,8 +292,8 @@ export class Game {
     }
     for (const e of ck.events) {
       if (e.type === 'exhale') {
-        const camQ = this.camera.getWorldQuaternion(new THREE.Quaternion());
-        const mouth = new THREE.Vector3(0, -0.075, -0.06).applyMatrix4(this.camera.matrixWorld);
+        const camQ = this.headLook.getWorldQuaternion(new THREE.Quaternion());
+        const mouth = new THREE.Vector3(0, -0.075, -0.06).applyMatrix4(this.headLook.matrixWorld);
         const n = Math.round(14 + 22 * e.amount);
         for (let i = 0; i < n; i++) {
           const dir = new THREE.Vector3((Math.random() - 0.5) * 0.5, -0.1 + (Math.random() - 0.3) * 0.3, -1).normalize().applyQuaternion(camQ);
@@ -280,6 +317,37 @@ export class Game {
     }
     this.smoke.update(dt, this.camera.getWorldPosition(new THREE.Vector3()), wind);
     this.clippings.update(dt, heightAt);
+  }
+
+  // 'first': from the driver's seat; 'third': a chase camera behind the mower
+  setView(mode) {
+    this.viewMode = mode;
+    this.driverHead.group.visible = mode === 'third';
+    this.camera.near = mode === 'third' ? 0.1 : 0.05;
+    this.camera.updateProjectionMatrix();
+    if (mode === 'third') Object.assign(this.third, { base: null, yaw: 0, pitch: 0.3, idle: 0 });
+  }
+
+  // The chase camera follows the mower round a moment behind, can be swung about with the
+  // look controls, and drifts back behind the mower when left alone.
+  placeChaseCamera(dt, ctl) {
+    const T = this.third, v = this.vehicle, root = this.mowerRoot;
+    const heading = Math.atan2(v.fx, v.fz);
+    if (T.base === null) T.base = heading;
+    const dh = Math.atan2(Math.sin(heading - T.base), Math.cos(heading - T.base));
+    T.base += dh * (1 - Math.exp(-dt * 2.5));
+    const looking = Math.abs(ctl.lookX || 0) + Math.abs(ctl.lookY || 0) > 1e-5;
+    T.idle = looking ? 0 : T.idle + dt;
+    if (T.idle > 2.5) {
+      const k = 1 - Math.exp(-dt * 1.2);
+      T.yaw -= T.yaw * k; T.pitch += (0.3 - T.pitch) * k;
+    }
+    const ang = T.base + T.yaw, cp = Math.cos(T.pitch), sp = Math.sin(T.pitch);
+    const target = _tgt.set(root.position.x, root.position.y + 1.2, root.position.z);
+    const pos = _pos.set(target.x - Math.sin(ang) * cp * T.dist, target.y + sp * T.dist + 0.25, target.z - Math.cos(ang) * cp * T.dist);
+    pos.y = Math.max(pos.y, heightAt(pos.x, pos.z) + 0.45);
+    this.camera.position.copy(pos);
+    this.camera.lookAt(target);
   }
 
   cameraForCulling() {
