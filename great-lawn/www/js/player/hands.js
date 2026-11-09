@@ -204,8 +204,9 @@ export function buildHandSDF(pose) {
     const len = j0.distanceTo(ch.joints[3]);
     const rr = ch.r[3];
     const ex = new THREE.Vector3().crossVectors(d, u).normalize();
-    const o = j0.clone().addScaledVector(d, len * 0.6).addScaledVector(u, rr * 0.82);
-    nails.push({ o: A3(o), ex: A3(ex), ey: A3(u), ez: A3(d), h: [rr * 0.72, 0.0011, len * 0.42] });
+    // a real nail covers the outer half of the last joint and about 60% of the finger's width
+    const o = j0.clone().addScaledVector(d, len * 0.71).addScaledVector(u, rr * 0.8);
+    nails.push({ o: A3(o), ex: A3(ex), ey: A3(u), ez: A3(d), h: [rr * 0.6, 0.0009, len * 0.25] });
   }
   // dorsal tendons, veins, the wrist bone and the muscle between thumb and index
   const tendons = fingers.slice(0, 4).map((ch, i) => ({ a: [metas[i].a[0] * 0.55, 0.0105, -0.024], b: [ch.joints[0].x, ch.joints[0].y + 0.007, ch.joints[0].z + 0.012], r: 0.0025 }));
@@ -265,10 +266,8 @@ export function buildHandSDF(pose) {
       for (const p of padsByFinger[f]) df = smin(df, orientedEllipsoid(x, y, z, p), 0.0035);
       d = smin(d, df, f === 4 ? 0.013 : 0.006);
     }
-    for (const n of nails) {
-      const dn = orientedRoundBox(x, y, z, n.o, n.ex, n.ey, n.ez, n.h, 0.0009);
-      if (dn < d + 0.003) d = smin(d, dn, 0.0011);
-    }
+    // the nail plate is drawn by the skin shader (per pixel, from each nail's coordinates):
+    // modelled as a raised box it left a stepped ledge at the fingertip
     return smax(d, z - 0.1, 0.004);
   };
   return { sdf, palm, nails, reds, fingers, segs };
@@ -300,16 +299,16 @@ export function skinMaterial(tone) {
           float u = vNail.x, v = vNail.y, w = clamp(vNail.z, 0.0, 1.0);
           vec2 fw = fwidth(vNail.xy) * 0.75 + 1e-4;
           float v2 = v * v;
-          float prox = 0.1 + 0.13 * v2;
-          float tip = 1.0 - 0.09 * v2;
+          float prox = 0.06 + 0.12 * v2;
+          float tip = 1.0 - 0.08 * v2;
           float inP = smoothstep(prox - fw.x, prox + fw.x, u);
-          float side = 0.88 + 0.1 * smoothstep(0.0, 0.6, u);
+          float side = 0.86 + 0.1 * smoothstep(0.0, 0.5, u);
           float inS = 1.0 - smoothstep(side - fw.y, side + fw.y, abs(v));
           float inT = 1.0 - smoothstep(tip - fw.x, tip + fw.x, u);
           gNail = inP * inS * inT * w;
-          float lun = 0.3 - 0.16 * v2;
+          float lun = 0.17 - 0.1 * v2;
           gLun = (1.0 - smoothstep(lun - 0.03 - fw.x, lun + 0.03 + fw.x, u)) * gNail;
-          float smile = 0.905 - 0.1 * v2;
+          float smile = 0.95 - 0.06 * v2;
           gFree = smoothstep(smile - 0.01 - fw.x, smile + 0.01 + fw.x, u) * gNail;
           float behind = prox - u;
           gCut = exp(-pow((behind - 0.035) / 0.035, 2.0)) * (1.0 - smoothstep(1.0, 1.2, abs(v))) * w;
@@ -346,13 +345,14 @@ export function skinMaterial(tone) {
           nailRegions();
           vec3 skin = diffuseColor.rgb;
           // the cuticle and side folds: a little redder and darker
-          skin *= 1.0 - gCut * vec3(0.08, 0.2, 0.2) - gFold * 0.08;
+          skin *= 1.0 - gCut * vec3(0.04, 0.1, 0.1) - gFold * 0.035;
           // the plate shows the pink nail bed through it, paler at the lunula
-          vec3 bed = mix(skin * vec3(1.0, 0.82, 0.82), vec3(0.84, 0.54, 0.52), 0.5);
+          // a man's nail: much the colour of the finger, a little pinker and glossier
+          vec3 bed = mix(skin * vec3(1.05, 0.92, 0.9), vec3(0.86, 0.62, 0.58), 0.12);
           bed *= (1.0 + 0.008 * gRidge) * mix(1.04, 0.96, clamp(vNail.x, 0.0, 1.0));
-          bed = mix(bed, vec3(0.9, 0.76, 0.73), gLun / max(gNail, 1e-3) * 0.5);
-          vec3 freeC = mix(vec3(0.9, 0.86, 0.78), skin, 0.25);
-          vec3 nailC = mix(bed, freeC, gFree / max(gNail, 1e-3) * 0.85);
+          bed = mix(bed, vec3(0.9, 0.78, 0.75), gLun / max(gNail, 1e-3) * 0.3);
+          vec3 freeC = mix(vec3(0.84, 0.8, 0.72), skin * 1.08, 0.5);
+          vec3 nailC = mix(bed, freeC, gFree / max(gNail, 1e-3) * 0.7);
           diffuseColor.rgb = mix(skin, nailC, gNail);
         }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
@@ -363,7 +363,7 @@ export function skinMaterial(tone) {
         {
           float px = max(length(dFdx(vObj)) + length(dFdy(vObj)), 1e-5);
           // the nail plate stands proud of the skin, with fine ridges along it
-          float hgt = skinRelief(px) * (1.0 - gNail) + gNail * (0.12 + 0.007 * gRidge * (1.0 - smoothstep(0.0006, 0.002, px))) - gCut * 0.05;
+          float hgt = skinRelief(px) * (1.0 - gNail) + gNail * (0.05 + 0.006 * gRidge * (1.0 - smoothstep(0.0006, 0.002, px))) - gCut * 0.02;
           vec2 dH = vec2(dFdx(hgt), dFdy(hgt));
           vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
           vec3 vSigmaX = sx / max(length(sx), 1e-9), vSigmaY = sy / max(length(sy), 1e-9);
