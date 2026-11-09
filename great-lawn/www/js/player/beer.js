@@ -1,8 +1,11 @@
-// A bottle of estate ale: flint glass with condensation, a printed label, golden beer and
-// a foam head. The liquid surface stays level however the bottle is tilted: its height is
-// found each frame from sample points spread through the bottle's volume.
+// A bottle of estate ale: flint glass beaded with condensation, a printed label, amber ale
+// and a creamy head. The ale behaves like a liquid: its surface finds its level however the
+// bottle is held (the height comes from sample points spread through the bottle's volume),
+// sloshes on a damped spring when the bottle is moved or the mower bumps, ripples, builds
+// foam when shaken or freshly opened, and streams of bubbles rise up the glass.
 import * as THREE from '../../vendor/three.module.js';
 import { canvasTexture } from '../core/textures.js';
+import { shared } from '../core/shared.js';
 import { rng } from '../core/util.js';
 
 // outer profile [radius, height] (metres); the glass is ~2.5 mm thick
@@ -99,29 +102,102 @@ export class Bottle {
     // neck opening (dark mouth so you can see down into it)
     const mouth = new THREE.Mesh(new THREE.RingGeometry(0.0, 0.0101, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2a1d0c' }));
     mouth.position.y = 0.2306;
-    // liquid: inner volume clipped by a world-space level
+    // liquid: the inner volume, clipped by a plane whose normal sloshes about the vertical
     const inner = [];
-    for (let y = 0.0042; y <= LIQ_TOP; y += 0.002) inner.push(new THREE.Vector2(innerR(y), y));
+    for (let y = 0.0042; y <= LIQ_TOP; y += 0.002) inner.push(new THREE.Vector2(Math.max(0, innerR(y) - 0.0008), y));
     inner.unshift(new THREE.Vector2(0, 0.0042));
     const liqGeo = new THREE.LatheGeometry(inner, 40);
-    this.level = { value: 1 };     // world-space Y of the surface
-    const uni = { uLevel: this.level, uFoam: { value: 0.012 } };
-    const liqMat = new THREE.MeshPhysicalMaterial({ color: '#d99a2b', roughness: 0.25, metalness: 0, side: THREE.DoubleSide, sheen: 0.4, sheenColor: new THREE.Color('#ffcf6a'), emissive: '#3a1c02', clearcoat: 0.6 });
-    liqMat.onBeforeCompile = (s) => {
-      Object.assign(s.uniforms, uni);
-      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+    this.plane = { value: new THREE.Vector4(0, 1, 0, 1) };   // world-space surface: dot(n, p) = w
+    this.level = { value: 1 };
+    this.foamU = { value: 0.008 };
+    this.agitU = { value: 0 };
+    const uni = { uPlane: this.plane, uFoam: this.foamU, uAgit: this.agitU, uTime: shared.uTime, uSunDir: shared.uSunDir, uSunColor: shared.uSunColor };
+    const liqMat = new THREE.MeshPhysicalMaterial({ color: '#c7801c', roughness: 0.2, metalness: 0, side: THREE.DoubleSide, sheen: 0.35, sheenColor: new THREE.Color('#ffcf6a'), emissive: '#2c1402', clearcoat: 0.7, clearcoatRoughness: 0.08 });
+    liqMat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, uni);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;\nuniform float uLevel; uniform float uFoam;')
-        .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vWP.y > uLevel) discard;\nfloat foam = smoothstep(uLevel - uFoam, uLevel - uFoam * 0.6, vWP.y);')
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          varying vec3 vWP;
+          uniform vec4 uPlane; uniform float uFoam; uniform float uAgit; uniform float uTime;
+          uniform vec3 uSunDir; uniform vec3 uSunColor;
+          float bh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }`)
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          float hp = dot(uPlane.xyz, vWP) - uPlane.w;
+          if (hp > 0.0) discard;
+          float foam = smoothstep(-uFoam, -uFoam * 0.5, hp);
+          bool cap = !gl_FrontFacing;`)
         .replace('#include <color_fragment>', `#include <color_fragment>
-          if (!gl_FrontFacing) foam = 1.0;
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.86, 0.7), foam);`)
+          {
+            // fine streams of carbonation in the ale, a creamy head with bubbles in it
+            float streak = step(0.985, bh(vec2(floor(atan(vWP.z, vWP.x) * 60.0), 3.0))) * (0.5 + 0.5 * sin(vWP.y * 900.0 + uTime * 25.0));
+            diffuseColor.rgb *= 1.0 + 0.25 * streak;
+            float pits = bh(floor(vWP.xz * 2600.0)) * 0.12;
+            if (cap) foam = max(foam, 0.8 + 0.2 * smoothstep(0.004, 0.012, uFoam));
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.94, 0.88, 0.74) * (1.0 - pits), foam);
+          }`)
         .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
-          if (!gl_FrontFacing) normal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);`)
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= (1.0 - foam);');
+          if (cap) {
+            vec3 n = uPlane.xyz;
+            float k = 0.06 + uAgit * 0.5;
+            n.x += sin(vWP.x * 320.0 + uTime * 9.0) * k + sin(vWP.z * 410.0 - uTime * 7.0) * k * 0.6;
+            n.z += cos(vWP.z * 350.0 + uTime * 8.0) * k + cos(vWP.x * 280.0 - uTime * 11.0) * k * 0.6;
+            normal = normalize((viewMatrix * vec4(normalize(n), 0.0)).xyz);
+          }`)
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= (1.0 - foam);')
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+          {
+            // the ale glows when the sun is behind it
+            vec3 Lv = normalize((viewMatrix * vec4(uSunDir, 0.0)).xyz);
+            float back = pow(max(dot(-normalize(vViewPosition), Lv), 0.0), 3.0);
+            reflectedLight.directDiffuse += diffuseColor.rgb * vec3(1.0, 0.75, 0.35) * uSunColor * RECIPROCAL_PI * back * (1.0 - foam) * 0.9;
+          }`);
     };
     this.liquid = new THREE.Mesh(liqGeo, liqMat);
     this.liquid.renderOrder = 4;
+    // bubbles rising up the inside of the glass
+    const NB = 80;
+    this.bub = { n: NB, a: new Float32Array(NB), y: new Float32Array(NB), v: new Float32Array(NB), ph: new Float32Array(NB) };
+    const rb = rng(41);
+    for (let i = 0; i < NB; i++) { this.bub.a[i] = rb() * Math.PI * 2; this.bub.y[i] = 0.006 + rb() * 0.12; this.bub.v[i] = 0.01 + rb() * 0.025; this.bub.ph[i] = rb() * 6.28; }
+    const bg = new THREE.BufferGeometry();
+    this.bubPos = new THREE.BufferAttribute(new Float32Array(NB * 3), 3);
+    bg.setAttribute('position', this.bubPos);
+    bg.setAttribute('aSize', new THREE.BufferAttribute(Float32Array.from({ length: NB }, () => 0.0006 + rb() * 0.0011), 1));
+    this.bubScale = { value: 800 };
+    this.bubbles = new THREE.Points(bg, new THREE.ShaderMaterial({
+      uniforms: { uPlane: this.plane, uScale: this.bubScale, uAmb: shared.uAmbUp },
+      vertexShader: /* glsl */`
+        attribute float aSize; uniform float uScale; varying vec3 vWP; varying float vS;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0); vWP = wp.xyz;
+          vec4 mv = viewMatrix * wp;
+          gl_PointSize = max(1.0, aSize * uScale / -mv.z); vS = gl_PointSize;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */`
+        uniform vec4 uPlane; uniform vec3 uAmb; varying vec3 vWP; varying float vS;
+        void main() {
+          if (dot(uPlane.xyz, vWP) - uPlane.w > 0.0) discard;
+          vec2 c = gl_PointCoord - 0.5; float r = length(c) * 2.0;
+          if (r > 1.0) discard;
+          float rim = smoothstep(0.55, 0.95, r) * (1.0 - smoothstep(0.95, 1.0, r));
+          float glint = smoothstep(0.35, 0.0, length(c - vec2(-0.15, -0.15)));
+          float a = (rim * 0.7 + glint * 0.9) * clamp(vS / 3.0, 0.3, 1.0);
+          gl_FragColor = vec4(vec3(1.0, 0.95, 0.85) * (0.6 + uAmb) * a, a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+      transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+    }));
+    this.bubbles.frustumCulled = false;
+    this.bubbles.renderOrder = 4.5;
+    // sloshing state
+    this.slosh = { s: new THREE.Vector2(), v: new THREE.Vector2(), agit: 0 };
+    this.hist = [new THREE.Vector3(), new THREE.Vector3()];
+    this.histN = 0;
+    this.foam = 0.4;
     // labels
     const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.0327, 0.0327, 0.072, 48, 1, true, -Math.PI * 0.82, Math.PI * 1.64), new THREE.MeshStandardMaterial({ map: labelTexture(), roughness: 0.75 }));
     lab.position.y = 0.074;
@@ -129,7 +205,7 @@ export class Bottle {
     neckLab.position.y = 0.196;
     const foil = new THREE.Mesh(new THREE.CylinderGeometry(0.0152, 0.0149, 0.004, 32, 1, true), new THREE.MeshStandardMaterial({ color: '#c9a457', metalness: 1, roughness: 0.25 }));
     foil.position.y = 0.2045;
-    this.group.add(this.liquid, lab, neckLab, foil, mouth, this.glass);
+    this.group.add(this.liquid, this.bubbles, lab, neckLab, foil, mouth, this.glass);
     this.group.traverse((o) => { if (o.isMesh) { o.castShadow = o !== this.glass; o.receiveShadow = true; } });
 
     // volume samples for the level solver
@@ -147,19 +223,66 @@ export class Bottle {
     this.fullFrac = 0.93; // a freshly opened bottle is not full to the brim
   }
 
-  // Find the world-space surface height for the current fill and orientation.
-  updateLevel() {
-    const m = this.group.matrixWorld.elements;
-    // world y of a local point = m[1]*x + m[5]*y + m[9]*z + m[13]
-    const n = this.heights.length;
-    const s = this.samples;
-    for (let i = 0; i < n; i++) this.heights[i] = m[1] * s[i * 3] + m[5] * s[i * 3 + 1] + m[9] * s[i * 3 + 2];
+  // Slosh, foam and bubbles; then find where the surface sits for this fill and tilt.
+  update(dt) {
+    const g = this.group;
+    g.updateMatrixWorld(true);
+    const m = g.matrixWorld.elements;
+    dt = Math.min(Math.max(dt, 1e-3), 0.05);
+    // acceleration of the bottle's middle from its last positions
+    const c = new THREE.Vector3(0, 0.1, 0).applyMatrix4(g.matrixWorld);
+    const [p1, p2] = this.hist;
+    let ax = 0, az = 0;
+    if (this.histN >= 2) {
+      ax = (c.x - 2 * p1.x + p2.x) / (dt * dt); az = (c.z - 2 * p1.z + p2.z) / (dt * dt);
+      const l = Math.hypot(ax, az); if (l > 40) { ax *= 40 / l; az *= 40 / l; }
+    }
+    p2.copy(p1); p1.copy(c); this.histN++;
+    // the surface leans against the acceleration and rings like a damped spring
+    const S = this.slosh, k = 230, damping = 3.2;
+    const tx = -ax / 9.81, tz = -az / 9.81;
+    S.v.x += ((tx - S.s.x) * k - S.v.x * damping) * dt; S.v.y += ((tz - S.s.y) * k - S.v.y * damping) * dt;
+    S.s.x += S.v.x * dt; S.s.y += S.v.y * dt;
+    const len = S.s.length(); if (len > 0.55) S.s.multiplyScalar(0.55 / len);
+    S.agit += (Math.min(1, S.v.length() * 0.18) - S.agit) * Math.min(1, dt * 6);
+    this.foam = Math.min(1, Math.max(0, this.foam - dt / 14 + S.agit * dt * 0.3));
+    this.foamU.value = 0.004 + 0.014 * this.foam;
+    this.agitU.value = S.agit;
+    const n = new THREE.Vector3(S.s.x, 1, S.s.y).normalize();
+    // level: the fill-quantile of the bottle's volume measured along the surface normal
+    const cnt = this.heights.length, smp = this.samples;
+    const nx = n.x * m[0] + n.y * m[1] + n.z * m[2], ny = n.x * m[4] + n.y * m[5] + n.z * m[6], nz = n.x * m[8] + n.y * m[9] + n.z * m[10];
+    for (let i = 0; i < cnt; i++) this.heights[i] = nx * smp[i * 3] + ny * smp[i * 3 + 1] + nz * smp[i * 3 + 2];
     const f = this.fill * this.fullFrac;
-    if (f <= 0.001) { this.level.value = -1e4; return; }
-    const sorted = this.heights.slice().sort();
-    const k = Math.min(n - 1, Math.floor(f * n));
-    this.level.value = sorted[k] + m[13];
+    const off = n.x * m[12] + n.y * m[13] + n.z * m[14];
+    if (f <= 0.001) { this.plane.value.set(n.x, n.y, n.z, -1e4); this.level.value = -1e4; }
+    else {
+      const sorted = this.heights.slice().sort();
+      const d = sorted[Math.min(cnt - 1, Math.floor(f * cnt))] + off;
+      this.plane.value.set(n.x, n.y, n.z, d);
+      this.level.value = d;
+    }
+    // bubbles: rise along the glass, start again at the bottom once they reach the surface
+    const B = this.bub, pos = this.bubPos.array, pl = this.plane.value;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < B.n; i++) {
+      B.y[i] += B.v[i] * dt * (0.6 + 0.4 * Math.min(1, this.fill * 3));
+      const y = B.y[i];
+      const r = Math.max(0.001, innerR(Math.min(y, LIQ_TOP)) - 0.0004);
+      const a = B.a[i] + Math.sin(y * 300 + B.ph[i]) * 0.02;
+      v.set(Math.cos(a) * r, y, Math.sin(a) * r).applyMatrix4(g.matrixWorld);
+      if (y > LIQ_TOP || pl.x * v.x + pl.y * v.y + pl.z * v.z > pl.w) { B.y[i] = 0.005 + Math.random() * 0.01; B.a[i] = Math.random() * Math.PI * 2; }
+      pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = Math.min(B.y[i], LIQ_TOP); pos[i * 3 + 2] = Math.sin(a) * r;
+    }
+    this.bubPos.needsUpdate = true;
   }
+  // Is there ale at the bottle's mouth (it has to reach the neck to be drunk)?
+  reachesMouth(margin = 0.006) {
+    const mw = this.mouthWorld(new THREE.Vector3()), pl = this.plane.value;
+    return pl.x * mw.x + pl.y * mw.y + pl.z * mw.z < pl.w + margin;
+  }
+  // kept for callers that only need an update of the level
+  updateLevel() { this.update(1 / 60); }
   // world position of the mouth of the bottle
   mouthWorld(out = new THREE.Vector3()) { return out.set(0, BOTTLE_H, 0).applyMatrix4(this.group.matrixWorld); }
 }

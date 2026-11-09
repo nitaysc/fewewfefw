@@ -18,6 +18,8 @@ import { heightAt } from './world/layout.js';
 import { buildHouse } from './world/house.js';
 import { Trees } from './world/trees.js';
 import { buildGarden } from './world/garden.js';
+import { bakeStaticShadow } from './world/staticshadow.js';
+import { Rooks } from './world/wildlife.js';
 
 // Fog: a softer curve than exp2 so the lawn stays crisp and the far hills go blue.
 THREE.ShaderChunk.fog_fragment = /* glsl */`
@@ -29,6 +31,8 @@ THREE.ShaderChunk.fog_fragment = /* glsl */`
   #endif
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
 #endif`;
+
+const _v2 = new THREE.Vector2();
 
 export class Game {
   constructor(canvas, settings) {
@@ -50,8 +54,10 @@ export class Game {
     this.qualityName = qName;
     const Q = { ...PRESETS[qName] };
     this.Q = Q;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    // ACES filmic reads best here (AgX available for comparison with ?tm=agx)
+    const tm = new URLSearchParams(location.search).get('tm');
+    renderer.toneMapping = tm === 'agx' ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = tm === 'agx' ? 1.25 : 1.0;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     setMaxAnisotropy(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
@@ -88,8 +94,15 @@ export class Game {
 
     await step(0.43, 'Planting the oaks and the cedar…');
     this.trees = new Trees({ scene, quality: Q, renderer });
+    this.rooks = new Rooks(scene, Q.particles >= 1 ? 9 : 5);
     await step(0.44, 'Clipping the yew hedges…');
     this.garden = await buildGarden({ scene, quality: Q, house: this.house });
+    {
+      // the sun is fixed: bake the estate's shadows once
+      const casters = new Set();
+      for (const root of [this.house, this.trees.group, this.garden.group]) root.traverse((o) => { if (o.isMesh && o.castShadow !== false && !o.material.transparent) casters.add(o); });
+      this.staticShadow = bakeStaticShadow(renderer, scene, casters, { extent: 300, res: Q.shadowMap >= 2048 ? 2048 : 1024 });
+    }
 
     await step(0.45, 'Fuelling the mower…');
     this.vehicle = new Vehicle(this.plan);
@@ -178,10 +191,12 @@ export class Game {
 
     this.mower.update(dt, v, { bladesOn: this.bladesOn, boost: c.boost, time: this.time, fuel: 0.8 });
     this.mowerRoot.updateMatrixWorld(true);
+    ck.bottle.bubScale.value = this.renderer.getDrawingBufferSize(_v2).y / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
     ck.update(dt, c.drink !== undefined ? c : ctl, playing);
     if (playing && ctl.pressed.has('ash')) ck.dropAsh();
     if (playing && ctl.pressed.has('action')) { if (!ck.lightNewCigar()) if (ck.fill <= 0.02) ck.freshBottle(); }
     this.updateEffects(dt, fresh);
+    this.rooks.update(this.time);
     for (const e of this.extras) e.update(dt, this, ctl);
     if (this.debugView) {
       // test hook: look at the scene from a free camera

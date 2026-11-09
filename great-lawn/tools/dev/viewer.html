@@ -34,18 +34,11 @@ if (model === 'hands') {
   const hands = new Hands({ quality: { handRes: +(q.get('res') || 0.0016) } });
   window.__buildMs = performance.now() - t0;
   obj = new THREE.Group();
-  const which = q.get('hand') || 'both';
-  if (which !== 'left') { hands.right.position.set(0.09, 0, 0); obj.add(hands.right); }
-  if (which !== 'right') { hands.left.position.set(-0.09, 0, 0); obj.add(hands.left); }
+  const pose = q.get('pose') || 'wheel';
+  hands.pose('right', pose, pose, 0); hands.pose('left', pose, pose, 0);
+  hands.right.position.set(0.09, 0, 0); hands.left.position.set(-0.09, 0, 0);
+  obj.add(hands.right, hands.left);
   hands.update();
-  if (q.has('grips')) {
-    const gm = new THREE.MeshStandardMaterial({ color: '#888', transparent: true, opacity: 0.55, roughness: 0.4 });
-    const wp = hands.wheelPose.grip, bp = hands.bottleGrip;
-    const rc = new THREE.Mesh(new THREE.CylinderGeometry(wp.R, wp.R, 0.14, 24).rotateZ(Math.PI / 2), gm);
-    rc.position.set(...wp.c); hands.right.add(rc);
-    const lc = new THREE.Mesh(new THREE.CylinderGeometry(bp.R, bp.R, 0.2, 32).rotateZ(Math.PI / 2), gm);
-    lc.position.copy(bp.c); hands.left.add(lc);
-  }
   obj.position.y = 0.25;
 } else if (model === 'mower') {
   const { MowerModel } = await import('/js/player/mower.js');

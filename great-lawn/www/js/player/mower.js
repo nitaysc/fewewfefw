@@ -124,6 +124,91 @@ function hubDisc(r) {
   return g;
 }
 
+// A vintage sports wheel: a lacquered wooden rim with finger grips riveted to three slotted,
+// polished alloy spokes, dished towards a horn push with an enamelled badge.
+function badgeTexture() {
+  return canvasTexture(256, 256, (ctx, w) => {
+    const c = w / 2;
+    const g = ctx.createRadialGradient(c, c * 0.8, 10, c, c, c);
+    g.addColorStop(0, '#1f4a32'); g.addColorStop(1, '#0d2418');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, c, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d9b25e'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(c, c, c - 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c, c, c - 26, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#e9c873'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'italic 700 120px Georgia, serif'; ctx.fillText('H', c, c + 6);
+    ctx.font = '600 20px Georgia, serif';
+    ctx.fillText('HOLLINGMERE', c, c - 82);
+  });
+}
+function buildSteeringWheel(parent, M, RIM) {
+  // rim: elliptical tube, grips moulded into the back where the fingers wrap
+  const NU = 180, NV = 20, a = 0.0128, b = 0.0148;
+  const pos = [], nor = [], uv = [], idx = [];
+  const p = new THREE.Vector3(), q = new THREE.Vector3();
+  const at = (u, v, out) => {
+    const cu = Math.cos(u), su = Math.sin(u), cv = Math.cos(v), sv = Math.sin(v);
+    const back = Math.max(0, -sv) * Math.max(0, 0.4 - cv * 0.6);
+    const grip = 1 + 0.16 * back * Math.pow(0.5 + 0.5 * Math.cos(u * 36), 3);
+    const rr = RIM + a * cv * grip;
+    return out.set(cu * rr, b * sv * grip, su * rr);
+  };
+  for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) {
+    const u = (i / NU) * Math.PI * 2, v = (j / NV) * Math.PI * 2;
+    at(u, v, p);
+    const e = 1e-3;
+    const du = at(u + e, v, new THREE.Vector3()).sub(at(u - e, v, q));
+    const dv = at(u, v + e, new THREE.Vector3()).sub(at(u, v - e, q));
+    const n = new THREE.Vector3().crossVectors(dv, du).normalize();
+    pos.push(p.x, p.y, p.z); nor.push(n.x, n.y, n.z); uv.push((i / NU) * 9, j / NV);
+  }
+  for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) {
+    const k = i * (NV + 1) + j, k2 = k + NV + 1;
+    idx.push(k, k + 1, k2, k + 1, k2 + 1, k2);
+  }
+  const rg = new THREE.BufferGeometry();
+  rg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  rg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  rg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  rg.setIndex(idx);
+  const rim = new THREE.Mesh(rg, M.wood);
+  rim.castShadow = true; rim.receiveShadow = true;
+  parent.add(rim);
+  // spokes: slotted alloy bars dished below the rim
+  const alloy = new THREE.MeshStandardMaterial({ color: '#d9dbdd', metalness: 1, roughness: 0.16 });
+  const kit = new Kit();
+  const r0 = 0.036, r1 = RIM - 0.004, dish = 0.026;
+  const shape = new THREE.Shape();
+  const w0 = 0.017, w1 = 0.011;
+  shape.moveTo(r0, -w0); shape.lineTo(r1, -w1); shape.quadraticCurveTo(r1 + 0.008, 0, r1, w1); shape.lineTo(r0, w0); shape.closePath();
+  for (let k = 0; k < 3; k++) {
+    const x0 = r0 + 0.022 + k * 0.042, x1 = x0 + 0.028, hw = 0.0042 - k * 0.0005;
+    const hole = new THREE.Path();
+    hole.absarc(x0, 0, hw, Math.PI / 2, Math.PI * 1.5, false);
+    hole.lineTo(x1, -hw); hole.absarc(x1, 0, hw, -Math.PI / 2, Math.PI / 2, false); hole.lineTo(x0, hw);
+    shape.holes.push(hole);
+  }
+  const spoke = new THREE.ExtrudeGeometry(shape, { depth: 0.0032, bevelEnabled: true, bevelThickness: 0.0007, bevelSize: 0.0007, bevelSegments: 2, curveSegments: 10 });
+  spoke.rotateX(Math.PI / 2);                          // lie flat in the wheel plane, along +x
+  const tilt = Math.atan2(dish, r1 - r0);
+  spoke.applyMatrix4(new THREE.Matrix4().makeRotationZ(tilt)); // dish: hub end lower
+  spoke.translate(0, -dish - 0.004, 0);
+  const rivet = new THREE.SphereGeometry(0.0028, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  for (const ang of [0, Math.PI, -Math.PI / 2]) {
+    // 3 o'clock, 9 o'clock and 6 o'clock (towards the driver's lap)
+    const m = new THREE.Matrix4().makeRotationY(ang);
+    kit.add(alloy, spoke.clone().applyMatrix4(m));
+    for (const s of [-0.0065, 0.0065]) kit.add(M.chrome, rivet.clone().translate(r1 - 0.006, b * 0.92, s).applyMatrix4(m));
+  }
+  // hub and horn push
+  kit.add(alloy, lathe([[0, -0.05], [0.04, -0.05], [0.042, -0.035], [0.038, -0.022], [0.03, -0.018], [0, -0.018]], 32));
+  kit.add(M.knobBlack, lathe([[0, -0.019], [0.031, -0.019], [0.032, -0.012], [0.028, -0.006], [0.0, -0.004]], 32));
+  kit.add(M.brass, new THREE.TorusGeometry(0.0235, 0.0018, 8, 32).rotateX(Math.PI / 2).translate(0, -0.006, 0));
+  kit.build(parent);
+  const badge = new THREE.Mesh(new THREE.CircleGeometry(0.021, 32).rotateX(-Math.PI / 2), new THREE.MeshPhysicalMaterial({ map: badgeTexture(), roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05 }));
+  badge.position.y = -0.0045;
+  parent.add(badge);
+}
+
 export class MowerModel {
   constructor() {
     const M = mowerMaterials();
@@ -396,21 +481,28 @@ export class MowerModel {
     this.wheelPivot.add(this.steeringWheel);
     const RIM = 0.19;
     this.rimRadius = RIM;
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(RIM, 0.0135, 14, 72).rotateX(Math.PI / 2), M.wood);
-    rim.castShadow = true;
-    this.steeringWheel.add(rim);
-    const spokeKit = new Kit();
-    // three spokes: 3 o'clock, 9 o'clock and 6 o'clock (towards the driver's lap)
-    for (const m of [M4.rz(-Math.PI / 2), M4.rz(Math.PI / 2), M4.rx(Math.PI / 2)]) {
-      const sp = new THREE.CylinderGeometry(0.0055, 0.0085, RIM - 0.035, 8);
-      sp.translate(0, (RIM - 0.035) / 2 + 0.022, 0);
-      sp.applyMatrix4(m);
-      spokeKit.add(M.chrome, sp);
-    }
-    const boss = lathe([[0, -0.02], [0.034, -0.02], [0.036, 0.0], [0.03, 0.014], [0.0, 0.02]], 28);
-    spokeKit.add(M.brass, boss);
-    spokeKit.build(this.steeringWheel);
+    buildSteeringWheel(this.steeringWheel, M, RIM);
     this.group.add(this.wheelPivot);
+
+    // ---- a crate of spare ale on the left footboard ----
+    this.crateAnchor = new THREE.Object3D();
+    this.crateAnchor.position.set(-0.43, 0.37, 0.12);
+    this.group.add(this.crateAnchor);
+    {
+      const cx = -0.43, cz = 0.12, y0 = 0.352;
+      const crateWood = new THREE.MeshStandardMaterial({ map: M.wood.map, color: '#e8c9a0', roughness: 0.8 });
+      for (const [x0, x1, z0, z1] of [[-0.11, 0.11, -0.085, -0.075], [-0.11, 0.11, 0.075, 0.085], [-0.11, -0.1, -0.085, 0.085], [0.1, 0.11, -0.085, 0.085]]) {
+        for (const yy of [0.012, 0.062]) kit.add(crateWood, new THREE.BoxGeometry(x1 - x0, 0.04, z1 - z0).translate(cx + (x0 + x1) / 2, y0 + yy + 0.02, cz + (z0 + z1) / 2));
+      }
+      kit.add(crateWood, new THREE.BoxGeometry(0.22, 0.008, 0.17).translate(cx, y0 + 0.004, cz));
+      const amber = new THREE.MeshPhysicalMaterial({ color: '#4a2a0c', roughness: 0.1, clearcoat: 1, metalness: 0 });
+      const foil = new THREE.MeshStandardMaterial({ color: '#c9a457', metalness: 1, roughness: 0.25 });
+      const neck = new THREE.LatheGeometry([[0, 0], [0.032, 0], [0.032, 0.12], [0.026, 0.15], [0.015, 0.17], [0.0135, 0.21], [0.0148, 0.223], [0, 0.224]].map(([a, b]) => new THREE.Vector2(a, b)), 20);
+      for (const [dx, dz] of [[-0.05, -0.035], [0.05, -0.035], [-0.05, 0.035], [0.05, 0.035]]) {
+        kit.add(amber, neck.clone().translate(cx + dx, y0 + 0.008, cz + dz));
+        kit.add(foil, new THREE.CylinderGeometry(0.0152, 0.0152, 0.03, 16).translate(cx + dx, y0 + 0.008 + 0.21, cz + dz));
+      }
+    }
 
     kit.build(this.group);
     this.group.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; } });

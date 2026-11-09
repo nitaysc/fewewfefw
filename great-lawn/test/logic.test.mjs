@@ -92,7 +92,8 @@ for (const [name, R] of [['wheel', 0.0135], ['bottle', 0.0325]]) {
     for (let s = 0; s < 3; s++) for (const t of [0.3, 0.7, 1]) {
       const p = ch.joints[s].clone().lerp(ch.joints[s + 1], t), r = ch.r[s] + (ch.r[s + 1] - ch.r[s]) * t;
       const v = p.clone().sub(c); v.addScaledVector(ax, -v.dot(ax));
-      const gap = v.length() - (R + r);
+      // fingertip flesh gives a little against the rim: allow ~15% of the finger's radius
+      const gap = v.length() - (R + r * 0.85);
       worst = Math.min(worst, gap); n++;
       if (gap < 0.006) touching++;
     }

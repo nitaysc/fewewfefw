@@ -3,7 +3,7 @@
 import * as THREE from '../../vendor/three.module.js';
 import { MAP, heightAt, normalAt } from './layout.js';
 import { tex } from '../core/textures.js';
-import { shared } from '../core/shared.js';
+import { shared, STATIC_SHADOW_GLSL } from '../core/shared.js';
 
 // Half-float height texture covering the plan, sampled by the grass shader.
 export function makeHeightTexture(res = 512) {
@@ -64,6 +64,7 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
     uMapRect: { value: new THREE.Vector4(MAP.min, MAP.min, MAP.size, 1 / MAP.size) },
     uGrassFar: { value: quality.grassR[2] },
     uCamPos: shared.uCamPos,
+    tStaticShadow: shared.tStaticShadow, uStaticShadowMatrix: shared.uStaticShadowMatrix,
   };
   mat.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, uniforms);
@@ -76,6 +77,7 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
         uniform sampler2D tMask, tCut, tNoise, tSoil, tSoilN, tGravel, tGravelN, tGravelR, tPave, tPaveN, tPaveR;
         uniform vec4 uMapRect; uniform float uGrassFar; uniform vec3 uCamPos;
         vec4 gW; float gRough; vec3 gNormalW;
+        ${STATIC_SHADOW_GLSL}
         vec3 tri(sampler2D t, vec2 uv) { return texture2D(t, uv).rgb; }
       `)
       .replace('#include <map_fragment>', `
@@ -111,6 +113,11 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
         vec3 albedo = grav * gW.x + pave * gW.y + soil * 0.8 * gW.z + grassC * gW.w;
         diffuseColor.rgb *= albedo;
       `)
+      .replace('#include <lights_fragment_begin>', `#include <lights_fragment_begin>
+        {
+          float ss = staticShadow(vWPos);
+          reflectedLight.directDiffuse *= ss; reflectedLight.directSpecular *= ss;
+        }`)
       .replace('#include <roughnessmap_fragment>', `
         float roughnessFactor = roughness;
         float rG = texture2D(tGravelR, uvG * 0.38).g, rP = texture2D(tPaveR, uvG * 0.31).g;

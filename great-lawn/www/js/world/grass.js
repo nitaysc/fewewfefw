@@ -5,7 +5,7 @@
 // blades glow when the sun is behind them, and they receive the scene's shadows.
 import * as THREE from '../../vendor/three.module.js';
 import { MAP } from './layout.js';
-import { shared, LIGHT_GLSL } from '../core/shared.js';
+import { shared, LIGHT_GLSL, STATIC_SHADOW_GLSL } from '../core/shared.js';
 import { GLSL_NOISE } from '../core/util.js';
 
 const TILE = 4;
@@ -189,6 +189,7 @@ const fragmentShader = /* glsl */`
 #include <shadowmask_pars_fragment>
 #include <fog_pars_fragment>
 ${LIGHT_GLSL}
+${STATIC_SHADOW_GLSL}
 uniform vec3 uCamPos;
 varying vec3 vCol;
 varying vec3 vNrm;
@@ -203,7 +204,7 @@ void main() {
   vec3 V = normalize(uCamPos - vWorld);
   N = normalize(mix(N, vec3(0.0, 1.0, 0.0), 0.3));
   vec3 L = uSunDir;
-  float sh = getShadowMask();
+  float sh = min(getShadowMask(), staticShadow(vWorld));
   vec3 albedo = vCol;
   // stripes: blades laid away from you show their pale backs
   float stripe = dot(vMow, normalize(-V.xz + 1e-5));
@@ -247,6 +248,7 @@ export class Grass {
     Object.assign(this.uniforms, {
       uTime: shared.uTime, uWind: shared.uWind, uCamPos: shared.uCamPos,
       uSunDir: shared.uSunDir, uSunColor: shared.uSunColor, uAmbUp: shared.uAmbUp, uAmbDown: shared.uAmbDown,
+      tStaticShadow: shared.tStaticShadow, uStaticShadowMatrix: shared.uStaticShadowMatrix,
     });
     this.material = new THREE.ShaderMaterial({
       uniforms: this.uniforms, vertexShader, fragmentShader,

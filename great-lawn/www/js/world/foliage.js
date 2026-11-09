@@ -86,8 +86,8 @@ function shade(hex, k) {
 }
 
 // Leaf material. `sway` in metres at the crown's edge.
-export function leafMaterial(map, { color = '#ffffff', sway = 0.12, translucency = 0.9, alphaTest = 0.42, a2c = false, roughness = 0.82 } = {}) {
-  const m = new THREE.MeshStandardMaterial({ map, color, alphaTest, side: THREE.DoubleSide, roughness, metalness: 0, alphaToCoverage: a2c });
+export function leafMaterial(map, { color = '#ffffff', sway = 0.12, translucency = 0.9, alphaTest = 0.42, a2c = false, roughness = 0.82, vertexColors = false } = {}) {
+  const m = new THREE.MeshStandardMaterial({ map, color, alphaTest, side: THREE.DoubleSide, roughness, metalness: 0, alphaToCoverage: a2c, vertexColors });
   const patch = (s, depth) => {
     s.uniforms.uTime = shared.uTime;
     s.uniforms.uWind = shared.uWind;

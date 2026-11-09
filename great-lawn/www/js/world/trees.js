@@ -167,8 +167,9 @@ function barkGeometry(segs, minR = 0.025) {
   return g;
 }
 
-function cardGeometry(cards, center) {
-  const pos = [], nor = [], uv = [], idx = [];
+function cardGeometry(cards, center, half) {
+  const pos = [], nor = [], uv = [], idx = [], col = [];
+  const rnd = rng(cards.length * 7 + 1);
   const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), n = new THREE.Vector3();
   const corners = [[-0.5, -0.5, 0, 0], [0.5, -0.5, 1, 0], [0.5, 0.5, 1, 1], [-0.5, 0.5, 0, 1]];
   for (const c of cards) {
@@ -178,10 +179,16 @@ function cardGeometry(cards, center) {
     // soft volumetric shading: normals point out of the crown
     n.subVectors(c.pos, center); n.y *= 0.6; n.normalize();
     if (c.flat) n.lerp(new THREE.Vector3(0, 1, 0), 0.65).normalize();
+    // ambient occlusion: leaves deep inside the crown and on its underside are darker
+    const rx = (c.pos.x - center.x) / half.x, ry = (c.pos.y - center.y) / half.y, rz = (c.pos.z - center.z) / half.z;
+    const depth = Math.min(1, Math.sqrt(rx * rx + ry * ry + rz * rz));
+    const ao = (0.42 + 0.58 * Math.pow(depth, 1.4)) * (0.8 + 0.2 * Math.min(1, Math.max(0, ry * 0.5 + 0.6)));
+    const j = 0.9 + rnd() * 0.2, warm = rnd() * 0.08;
     const b = pos.length / 3;
     for (const [x, y, u, w] of corners) {
       v.set(x * c.size, y * c.size, 0).applyQuaternion(q).add(c.pos);
       pos.push(v.x, v.y, v.z); nor.push(n.x, n.y, n.z); uv.push(u, w);
+      col.push(ao * j * (1 + warm), ao * j, ao * j * (1 - warm));
     }
     idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   }
@@ -189,6 +196,7 @@ function cardGeometry(cards, center) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex(idx);
   return g;
 }
@@ -199,7 +207,8 @@ function makeType(name, seed, detail, mats) {
   const box = new THREE.Box3();
   cards.forEach((c) => box.expandByPoint(c.pos));
   const center = box.getCenter(new THREE.Vector3());
-  return { name, bark: barkGeometry(segs), leaves: cardGeometry(cards, center), height: box.max.y, radius: Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2, mats };
+  const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5).max(new THREE.Vector3(0.5, 0.5, 0.5));
+  return { name, bark: barkGeometry(segs), leaves: cardGeometry(cards, center, half), height: box.max.y, radius: Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2, mats };
 }
 
 export class Trees {
@@ -209,9 +218,9 @@ export class Trees {
     const detail = quality.treeDetail;
     const bark = new THREE.MeshStandardMaterial({ map: tex('bark_diff', { repeat: [1, 1] }), normalMap: tex('bark_nor'), roughnessMap: tex('bark_arm'), color: '#e2d6c2', roughness: 1 });
     const a2c = (quality.msaa || 0) > 0;
-    const oakLeaf = leafMaterial(leafClusterTexture('oak', { seed: 4 }), { a2c, sway: 0.1 });
-    const limeLeaf = leafMaterial(leafClusterTexture('lime', { seed: 8 }), { a2c, sway: 0.13 });
-    const cedarLeaf = leafMaterial(needleTexture({ seed: 2, color: '#26432f', light: '#4a6b4e', density: 1.9 }), { a2c, sway: 0.05, translucency: 0.5, color: '#d6e0d0', alphaTest: 0.38 });
+    const oakLeaf = leafMaterial(leafClusterTexture('oak', { seed: 4 }), { a2c, sway: 0.1, vertexColors: true });
+    const limeLeaf = leafMaterial(leafClusterTexture('lime', { seed: 8 }), { a2c, sway: 0.13, vertexColors: true });
+    const cedarLeaf = leafMaterial(needleTexture({ seed: 2, color: '#26432f', light: '#4a6b4e', density: 1.9 }), { a2c, sway: 0.05, translucency: 0.5, color: '#d6e0d0', alphaTest: 0.38, vertexColors: true });
     this.types = {
       oakA: makeType('oak', 11, detail, { bark, leaf: oakLeaf }),
       oakB: makeType('oak', 23, detail, { bark, leaf: oakLeaf }),
