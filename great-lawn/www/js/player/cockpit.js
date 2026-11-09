@@ -121,6 +121,10 @@ export class Cockpit {
     this.rightRig.position.set(0, 0, 0); this.rightRig.quaternion.identity(); this.rightRig.scale.set(1, 1, 1);
     this.rightRig.updateMatrixWorld(true);
     this.cigarInHand = new THREE.Matrix4().copy(this.rightRig.matrixWorld).invert().multiply(this.cigar.group.matrixWorld);
+    // the cigar at the lips, in the head's frame: held in the right corner of the mouth and
+    // pointing out to the right, the forearm coming up from below and to the right so the hand
+    // stays low and the fingers curl out of the way
+    this.lipsCfg = { lips: new THREE.Vector3(0.012, -0.088, -0.068), axis: new THREE.Vector3(0.45, -0.08, -0.89), fore: new THREE.Vector3(0.75, -0.6, 0.25) };
 
     // ---------------- state ----------------
     this.drinkT = 0;       // 0 on the knee .. 1 at the lips
@@ -192,11 +196,11 @@ export class Cockpit {
     const pr = wantPuff ? 1.5 : 1.8;
     this.puffT = clamp(this.puffT + (wantPuff ? dt * pr : -dt * pr), 0, 1);
     const tC = easeInOut(this.puffT);
-    // at the lips the cigar points out and a little down; the hand hangs below it
-    const axis = new THREE.Vector3(0.34, -0.16, -0.93).normalize();
+    const LC = this.lipsCfg;
+    const axis = LC.axis.clone().normalize();
     const handInCig = this.cigarInHand.clone().invert();
-    const cq = this.rollFor(new THREE.Vector3(0, 0, 1), axis, handInCig, new THREE.Vector3(0.15, -0.95, 0.25));
-    const lipsC = new THREE.Vector3(-0.004, -0.09, -0.07);
+    const cq = this.rollFor(new THREE.Vector3(0, 0, 1), axis, handInCig, LC.fore);
+    const lipsC = LC.lips;
     // the rig's matrix carries the hand scale: rig x cigarInHand = cigar frame (scaled)
     const handM = new THREE.Matrix4().compose(lipsC, cq, new THREE.Vector3(S, S, S)).multiply(handInCig);
     handM.decompose(this.handAtLips.position, this.handAtLips.quaternion, this.handAtLips.scale);

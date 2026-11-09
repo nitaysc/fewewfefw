@@ -149,9 +149,10 @@ export const POSES = {
     spread: { index: -0.06, middle: 0.0, ring: 0.05, little: 0.1 },
     thumb: { a: 0.9, e: 0.3, roll: 0.15, flex: [0.1, 0.15] },
   }),
-  // holding a cigar to the lips: index and middle loosely straight round it, others curled
+  // holding a cigar to the lips: index and middle pinch it at their roots and curl loosely
+  // beyond it, the others tucked in
   cigarLips: () => ({
-    fingers: { index: [0.42, 0.42, 0.22], middle: [0.48, 0.5, 0.28], ring: [1.05, 1.25, 0.85], little: [1.12, 1.25, 0.82] },
+    fingers: { index: [0.42, 1.2, 0.7], middle: [0.48, 1.25, 0.75], ring: [1.05, 1.25, 0.85], little: [1.12, 1.25, 0.82] },
     spread: { index: -0.12, middle: 0.07, ring: 0.03, little: 0.06 },
     thumb: { a: 0.55, e: 0.62, roll: 0.45, flex: [0.25, 0.35] },
   }),
@@ -437,7 +438,11 @@ function creaseAttribute(fingers) {
       const s = dx * best.d.x + dy * best.d.y + dz * best.d.z;
       const side = nx * best.u.x + ny * best.u.y + nz * best.u.z;
       const near = Math.sqrt(bd) < best.r * 2.2 ? 1 : 0;
-      out[0] = s; out[1] = side; out[2] = best.weight * near;
+      // halfway between two knuckles the nearest one changes and s jumps; a triangle across
+      // that line would sweep through s = 0 and draw a false, speckled crease. The real
+      // wrinkles are gone by 7 mm, so fade the weight out before the switch.
+      const a = Math.min(1, Math.max(0, (Math.abs(s) - 0.005) / 0.0025));
+      out[0] = s; out[1] = side; out[2] = best.weight * near * (1 - a * a * (3 - 2 * a));
     },
   };
 }
