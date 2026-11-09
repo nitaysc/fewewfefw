@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><base href="/"><link rel="stylesheet" href="/fonts.css">
+<style>body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Draws the app icon layers and the splash screens (rendered by the dev tools, not shipped).
+const q = new URLSearchParams(location.search);
+const kind = q.get('kind') || 'icon';
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const green = '#173b27', brass = '#d2b06a', ivory = '#f3ecdc';
+function stripes(w, h, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#2f5a2a'; ctx.fillRect(0, 0, w, h);
+  ctx.translate(w / 2, h / 2); ctx.rotate(-0.5);
+  const sw = w / 7;
+  for (let i = -8; i < 8; i++) { ctx.fillStyle = i % 2 ? '#3f7032' : '#2d5627'; ctx.fillRect(i * sw, -w * 2, sw, w * 4); }
+  ctx.restore();
+}
+function roundel(cx, cy, R) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = R * 0.12; ctx.shadowOffsetY = R * 0.04;
+  ctx.fillStyle = green; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  const g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+  g.addColorStop(0, '#f0d48e'); g.addColorStop(0.5, '#c79a45'); g.addColorStop(1, '#8f6a2c');
+  ctx.strokeStyle = g; ctx.lineWidth = R * 0.11; ctx.beginPath(); ctx.arc(cx, cy, R * 0.94, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = brass; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.arc(cx, cy, R * 0.8, 0, Math.PI * 2); ctx.stroke();
+  // three spokes, as on the mower's wheel
+  ctx.strokeStyle = 'rgba(210,176,106,0.5)'; ctx.lineWidth = R * 0.05;
+  for (const a of [Math.PI, 0, Math.PI / 2]) { ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.32, cy + Math.sin(a) * R * 0.32); ctx.lineTo(cx + Math.cos(a) * R * 0.8, cy + Math.sin(a) * R * 0.8); ctx.stroke(); }
+  ctx.fillStyle = ivory; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${Math.round(R * 0.62)}px 'IM Fell English SC'`;
+  ctx.fillText('GL', cx, cy + R * 0.02);
+}
+async function draw() {
+  await document.fonts.load("40px 'IM Fell English SC'");
+  await document.fonts.load("italic 40px 'IM Fell English'");
+  if (kind === 'icon' || kind === 'fg' || kind === 'bg') {
+    c.width = c.height = 1024;
+    if (kind !== 'fg') stripes(1024, 1024);
+    if (kind === 'icon') roundel(512, 512, 330);
+    if (kind === 'fg') roundel(512, 512, 290);
+  } else {
+    const land = kind === 'splash-land';
+    c.width = land ? 1920 : 1280; c.height = land ? 1280 : 1920;
+    const img = new Image(); img.src = '/dev/splash-render.png'; await img.decode();
+    const s = Math.max(c.width / img.width, c.height / img.height);
+    const w = img.width * s, h = img.height * s;
+    ctx.drawImage(img, (c.width - w) / 2, (c.height - h) * 0.45, w, h);
+    const g = ctx.createLinearGradient(0, 0, 0, c.height);
+    g.addColorStop(0, 'rgba(10,20,13,0.1)'); g.addColorStop(0.55, 'rgba(10,20,13,0.25)'); g.addColorStop(1, 'rgba(10,20,13,0.82)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.textAlign = 'center'; ctx.fillStyle = ivory;
+    const base = land ? c.height * 0.82 : c.height * 0.8;
+    ctx.font = `${Math.round(c.width * (land ? 0.075 : 0.11))}px 'IM Fell English SC'`;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 20;
+    ctx.fillText('The Great Lawn', c.width / 2, base);
+    ctx.font = `${Math.round(c.width * (land ? 0.018 : 0.028))}px 'IM Fell English SC'`;
+    ctx.fillStyle = brass;
+    ctx.fillText('Hollingmere Park  ·  Wiltshire', c.width / 2, base + c.width * (land ? 0.04 : 0.06));
+  }
+  window.__done = true;
+}
+draw();
+</script></body></html>

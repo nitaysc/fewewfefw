@@ -420,8 +420,10 @@ export const POSES = {
   },
 };
 
+export const HAND_SCALE = 1.1;   // a gentleman's hands: a touch above the anatomy tables' average
+
 export class Hands {
-  constructor({ quality, tone = '#c68f6e' }) {
+  constructor({ quality, tone = '#b8805c' }) {
     const h = quality.handRes || 0.0016;
     this.skin = skinMaterial(tone);
     const tweed = tweedMaterial(), cuffMat = cuffMaterial();
@@ -481,6 +483,7 @@ export class Hands {
     this.bottleGrip = { c: new THREE.Vector3(-bp.grip.c[0], bp.grip.c[1], bp.grip.c[2]), R: bp.grip.R, ax: new THREE.Vector3(-bp.grip.ax[0], bp.grip.ax[1], bp.grip.ax[2]) };
 
     for (const g of [this.left, this.right]) g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.right.scale.setScalar(HAND_SCALE);
   }
   update() { tickWatch(this.watch); }
 }

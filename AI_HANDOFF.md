@@ -11,6 +11,11 @@ an AI. Each project has its own notes:
   Read it before adding or changing any art; it explains the style, units, cameras,
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
+- `great-lawn/README.md`: **The Great Lawn**, a first-person ride-on mower game on an English
+  estate (three.js; SDF-modelled hands, beer and cigar; instanced grass mown into stripes).
+  `npm test` and `npm run serve` in `great-lawn/`; `?quality=low|medium|high|ultra`,
+  `?autostart` and `?manual` (with `window.__step(n)`) help testing in headless Chromium.
+  Releases: `great-lawn-v1.0.<run number>`.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still

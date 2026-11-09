@@ -1,0 +1,61 @@
+name: Build The Great Lawn APK
+
+on:
+  push:
+    paths:
+      - 'great-lawn/**'
+      - '.github/workflows/build-great-lawn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: great-lawn
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: great-lawn/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and sync web code into Android
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Check the game logic
+        run: npm test
+
+      - name: Build APK
+        working-directory: great-lawn/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../great-lawn.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: great-lawn-apk
+          path: great-lawn/great-lawn.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "great-lawn-v1.0.${{ github.run_number }}" great-lawn.apk \
+            --target "${{ github.sha }}" \
+            --title "The Great Lawn v1.0.${{ github.run_number }}" \
+            --notes "Download: tap great-lawn.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false

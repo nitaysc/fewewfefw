@@ -98,7 +98,7 @@ kbd {
   text-shadow: none;
 }
 .hud-br figcaption { font-family: var(--display); font-size: 12.5px; letter-spacing: 0.2em; text-align: center; margin-bottom: 5px; }
-#planCanvas { display: block; width: 240px; height: 172px; }
+#planCanvas { display: block; width: 220px; height: auto; }
 
 #toast {
   position: absolute; left: 50%; bottom: calc(22% + var(--safe-b)); transform: translateX(-50%);
@@ -196,9 +196,12 @@ input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--brass); }
 .t-pause { position: absolute; top: calc(12px + var(--safe-t)); left: 50%; margin-left: -24px; width: 48px; height: 48px; font-size: 14px; }
 
 body.touch .hud-bl { display: none; }
-body.touch .hud-br { bottom: auto; top: calc(150px + var(--safe-t)); right: calc(14px + var(--safe-r)); padding: 6px 7px 7px; }
-body.touch #planCanvas { width: 170px; height: 122px; }
-body.touch .hud-br figcaption { font-size: 10px; }
+body.touch .hud-br { bottom: auto; top: calc(92px + var(--safe-t)); right: calc(14px + var(--safe-r)); padding: 4px 5px 5px; box-shadow: 0 0 0 2px rgba(232, 222, 198, 0.5); }
+body.touch #planCanvas { width: 112px; height: auto; }
+body.touch .hud-br figcaption { font-size: 8.5px; letter-spacing: 0.12em; margin-bottom: 3px; }
+body.touch .tbtns { grid-template-columns: repeat(2, 66px); gap: 10px; }
+body.touch .tbtns button { width: 66px; height: 66px; font-size: 11.5px; }
+@media (min-height: 520px) { body.touch .hud-br { top: calc(110px + var(--safe-t)); } body.touch #planCanvas { width: 150px; } }
 
 @media (max-width: 900px), (max-height: 500px) {
   body { font-size: 16px; }

@@ -193,6 +193,7 @@ export class Game {
     } else if (this.camera.parent !== this.head) {
       this.head.add(this.camera);
       this.camera.position.set(0, 0, 0);
+      this.resize();
     }
 
     // ---- world systems that follow the camera ----

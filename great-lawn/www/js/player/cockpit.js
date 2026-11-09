@@ -3,7 +3,7 @@
 // raises it to drink, tilting further as the bottle empties, and fetches a fresh one from
 // the crate when it is finished.
 import * as THREE from '../../vendor/three.module.js';
-import { Hands } from './hands.js';
+import { Hands, HAND_SCALE } from './hands.js';
 import { Bottle, BOTTLE_H } from './beer.js';
 import { Cigar, CIGAR_LEN } from './cigar.js';
 import { clamp, damp, easeInOut, smoothstep } from '../core/util.js';
@@ -40,7 +40,7 @@ export class Cockpit {
     L.matrixAutoUpdate = false;
     // rest: bottle on the left knee; mouth: neck at the lips (camera space)
     this.leftRest = new THREE.Object3D();
-    this.leftRest.position.set(-0.215, 0.975, -0.085);
+    this.leftRest.position.set(-0.245, 1.0, -0.12);
     this.leftRest.rotation.set(0.1, 0.25, 0.2);
     mowerRoot.add(this.leftRest);
     mowerRoot.updateMatrixWorld(true);
@@ -58,7 +58,9 @@ export class Cockpit {
         const r = new THREE.Vector3(Math.cos(gamma), 0, Math.sin(gamma));
         // index knuckle at the top (thumb towards the neck), little finger below
         const X = new THREE.Vector3(0, -1, 0), Z = new THREE.Vector3().crossVectors(X, r);
-        const M = new THREE.Matrix4().makeTranslation(0, 0.09, 0).multiply(basis(X, r, Z)).multiply(handFrameInv).multiply(new THREE.Matrix4().makeTranslation(-bg.c.x, -bg.c.y, -bg.c.z));
+        const M = new THREE.Matrix4().makeTranslation(0, 0.09, 0).multiply(basis(X, r, Z)).multiply(handFrameInv)
+          .multiply(new THREE.Matrix4().makeTranslation(-bg.c.x * HAND_SCALE, -bg.c.y * HAND_SCALE, -bg.c.z * HAND_SCALE))
+          .multiply(new THREE.Matrix4().makeScale(HAND_SCALE, HAND_SCALE, HAND_SCALE));
         const W = restM.clone().multiply(M);
         const wrist = new THREE.Vector3(0, 0, 0.06).applyMatrix4(W);
         const fore = new THREE.Vector3(0, 0, 1).transformDirection(W);
@@ -104,7 +106,7 @@ export class Cockpit {
     let bestB = 0, bestS = -2;
     const make = (beta) => new THREE.Matrix4().makeTranslation(rimP.x, rimP.y, rimP.z)
       .multiply(basis(T, N, B)).multiply(new THREE.Matrix4().makeRotationX(beta)).multiply(handFrameInv)
-      .multiply(new THREE.Matrix4().makeTranslation(-grip.c[0], -grip.c[1], -grip.c[2]));
+      .multiply(new THREE.Matrix4().makeTranslation(-grip.c[0] * HAND_SCALE, -grip.c[1] * HAND_SCALE, -grip.c[2] * HAND_SCALE));
     for (let k = 0; k < 120; k++) {
       const beta = (k / 120) * Math.PI * 2 - Math.PI;
       const W = wheelW.clone().multiply(make(beta));
@@ -201,7 +203,7 @@ export class Cockpit {
     const anchor = this.hands.cigarAnchor;
     anchor.updateMatrix();
     this.cigar.group.updateMatrix();
-    const cigInHand = anchor.matrix.clone().multiply(this.cigar.group.matrix);   // cigar -> hand
+    const cigInHand = new THREE.Matrix4().makeScale(HAND_SCALE, HAND_SCALE, HAND_SCALE).multiply(anchor.matrix).multiply(this.cigar.group.matrix);   // cigar -> rig
     const handInCig = cigInHand.clone().invert();
     const axis = new THREE.Vector3(0.2, -0.2, -0.96).normalize();
     const cq = this.rollFor(new THREE.Vector3(0, 0, 1), axis, handInCig, new THREE.Vector3(0.45, -0.75, 0.45));

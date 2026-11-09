@@ -81,6 +81,55 @@ function grow(spec, seed, detail = 1) {
   return { segs, cards };
 }
 
+function growCedar(seed, detail = 1) {
+  const r = rng(seed);
+  const segs = [], cards = [];
+  const tube = (pts, r0, r1, depth) => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const t0 = i / (pts.length - 1), t1 = (i + 1) / (pts.length - 1);
+      segs.push({ a: pts[i], b: pts[i + 1], r0: r0 + (r1 - r0) * t0, r1: r0 + (r1 - r0) * t1, depth });
+    }
+  };
+  const curve = (a, b, bend, n = 6) => {
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      pts.push(a.clone().lerp(b, t).add(new THREE.Vector3(0, Math.sin(t * Math.PI) * bend, 0)));
+    }
+    return pts;
+  };
+  const plate = (c, rad, n) => {
+    for (let k = 0; k < n * detail; k++) {
+      const a = r() * Math.PI * 2, d = Math.sqrt(r()) * rad;
+      const p = c.clone().add(new THREE.Vector3(Math.cos(a) * d, (r() - 0.5) * 0.45 - d * 0.08, Math.sin(a) * d * 0.85));
+      cards.push({ pos: p, size: 1.5 + r() * 0.9, rot: r() * Math.PI * 2, tilt: r(), flat: true });
+    }
+  };
+  const base = new THREE.Vector3(0, 0, 0), top = new THREE.Vector3(0.3, 3.4, 0.2);
+  tube(curve(base, top, 0, 3), 1.05, 0.85, 0);
+  const limbs = 4 + Math.floor(r() * 2);
+  for (let l = 0; l < limbs; l++) {
+    const a = (l / limbs) * Math.PI * 2 + r() * 0.6;
+    const out = 3.5 + r() * 4.5, up = 9 + r() * 9;
+    const end = top.clone().add(new THREE.Vector3(Math.cos(a) * out, up, Math.sin(a) * out));
+    const pts = curve(top, end, 0.6, 7);
+    tube(pts, 0.55, 0.16, 1);
+    // tiers of near-horizontal branches carrying flat plates of foliage
+    const tiers = 3 + Math.floor(r() * 3);
+    for (let t = 0; t < tiers; t++) {
+      const f = 0.3 + (t / tiers) * 0.7;
+      const at = pts[Math.min(pts.length - 1, Math.round(f * (pts.length - 1)))];
+      const ba = a + (r() - 0.5) * 1.6;
+      const len = (6.5 - f * 3.5) * (0.7 + r() * 0.5);
+      const tip = at.clone().add(new THREE.Vector3(Math.cos(ba) * len, -0.4 + r() * 0.8, Math.sin(ba) * len));
+      tube(curve(at, tip, 0.3, 4), 0.2 * (1 - f * 0.5), 0.05, 2);
+      plate(tip.clone().lerp(at, 0.3), 2.2 + (1 - f) * 2.2, 26 + (1 - f) * 22);
+    }
+    plate(end, 2.4, 30);
+  }
+  return { segs, cards };
+}
+
 function barkGeometry(segs, minR = 0.025) {
   const pos = [], nor = [], uv = [], idx = [];
   const tmp = new THREE.Vector3(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
@@ -146,7 +195,7 @@ function cardGeometry(cards, center) {
 
 function makeType(name, seed, detail, mats) {
   const spec = SPECS[name];
-  const { segs, cards } = grow(spec, seed, detail);
+  const { segs, cards } = name === 'cedar' ? growCedar(seed, detail) : grow(spec, seed, detail);
   const box = new THREE.Box3();
   cards.forEach((c) => box.expandByPoint(c.pos));
   const center = box.getCenter(new THREE.Vector3());
@@ -158,11 +207,11 @@ export class Trees {
     this.group = new THREE.Group();
     this.group.name = 'trees';
     const detail = quality.treeDetail;
-    const bark = new THREE.MeshStandardMaterial({ map: tex('bark_diff', { repeat: [1, 1] }), normalMap: tex('bark_nor'), roughnessMap: tex('bark_arm'), color: '#b9ab96', roughness: 1 });
+    const bark = new THREE.MeshStandardMaterial({ map: tex('bark_diff', { repeat: [1, 1] }), normalMap: tex('bark_nor'), roughnessMap: tex('bark_arm'), color: '#e2d6c2', roughness: 1 });
     const a2c = (quality.msaa || 0) > 0;
     const oakLeaf = leafMaterial(leafClusterTexture('oak', { seed: 4 }), { a2c, sway: 0.1 });
     const limeLeaf = leafMaterial(leafClusterTexture('lime', { seed: 8 }), { a2c, sway: 0.13 });
-    const cedarLeaf = leafMaterial(needleTexture({ seed: 2, color: '#203a2a', light: '#3f5d44', density: 1.2 }), { a2c, sway: 0.05, translucency: 0.5, color: '#c9d4c4' });
+    const cedarLeaf = leafMaterial(needleTexture({ seed: 2, color: '#26432f', light: '#4a6b4e', density: 1.9 }), { a2c, sway: 0.05, translucency: 0.5, color: '#d6e0d0', alphaTest: 0.38 });
     this.types = {
       oakA: makeType('oak', 11, detail, { bark, leaf: oakLeaf }),
       oakB: makeType('oak', 23, detail, { bark, leaf: oakLeaf }),
@@ -174,7 +223,7 @@ export class Trees {
     // the generated trees are about 60% of a mature parkland tree: scale them up
     const put = (type, x, z, s = 1, rot = r() * Math.PI * 2) => this.placements[type].push({ x, z, s: s * (type === 'cedar' ? 1.0 : 1.45), rot });
     // specimen trees on the lawn
-    put('cedar', FEATURES.cedar.x, FEATURES.cedar.z, 1.6, 0.4);
+    put('cedar', FEATURES.cedar.x, FEATURES.cedar.z, 1.15, 0.4);
     put('oakA', FEATURES.oak.x, FEATURES.oak.z, 1.6, 1.2);
     // belts beyond the hedges
     for (let z = -20; z < 125; z += 13 + r() * 6) {

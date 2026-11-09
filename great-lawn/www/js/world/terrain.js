@@ -104,8 +104,8 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
         lawn *= 1.0 + 0.32 * stripe;
         float nearBlades = 1.0 - smoothstep(uGrassFar * 0.55, uGrassFar * 0.95, dCam);
         // under standing blades near the camera the ground is shaded thatch
-        vec3 thatch = mix(soil * vec3(0.55, 0.6, 0.4), vec3(0.06, 0.075, 0.025), 0.6);
-        vec3 tallGround = mix(meadow, thatch, nearBlades);
+        vec3 thatch = mix(soil * vec3(0.6, 0.68, 0.42), meadow * 0.6, 0.55);
+        vec3 tallGround = mix(meadow, thatch, nearBlades * 0.8);
         vec3 cutGround = mix(lawn, soil * vec3(0.5, 0.6, 0.35) * 0.8 + lawn * 0.5, nearBlades * 0.35);
         vec3 grassC = mix(tallGround, cutGround, smoothstep(0.1, 0.9, ct.r));
         vec3 albedo = grav * gW.x + pave * gW.y + soil * 0.8 * gW.z + grassC * gW.w;
