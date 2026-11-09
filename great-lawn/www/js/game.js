@@ -1,4 +1,5 @@
 // The game: builds the world, runs the frame loop and ties the systems together.
+import './core/hdrsafe.js';   // first: guards every shader compiled after it
 import * as THREE from '../vendor/three.module.js';
 import { PRESETS, guessQuality } from './core/quality.js';
 import { shared } from './core/shared.js';
@@ -130,18 +131,27 @@ export class Game {
     this.bladesOn = false;
     this.cutLoad = 0;
     await step(1, 'Ready.');
+    this.ready = true;
   }
 
   resize() {
     const w = innerWidth, h = innerHeight;
     const Q = this.Q;
-    const dpr = Math.min(devicePixelRatio || 1, Q.maxDpr) * Q.renderScale * (this.dynScale || 1);
+    const dpr = Math.min(devicePixelRatio || 1, Q.maxDpr) * Q.renderScale;
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.fov = w / h < 1 ? 80 : 66;
     this.camera.updateProjectionMatrix();
-    if (this.post) this.post.setSize();
+    if (this.post) this.post.setSize(this.dynScale || 1);
+    // resizing clears the canvas: draw straight away so a blank frame is never shown
+    if (this.post && this.ready) this.render();
+  }
+  // Dynamic resolution: only the internal buffers change size; the canvas (and what is on
+  // screen) is left alone, so a change never flashes a blank frame.
+  setDynScale(s) {
+    this.dynScale = s;
+    if (this.post) this.post.setSize(s);
   }
 
   // ---------------------------------------------------------------- frame
@@ -191,7 +201,7 @@ export class Game {
 
     this.mower.update(dt, v, { bladesOn: this.bladesOn, boost: c.boost, time: this.time, fuel: 0.8 });
     this.mowerRoot.updateMatrixWorld(true);
-    ck.bottle.bubScale.value = this.renderer.getDrawingBufferSize(_v2).y / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
+    ck.bottle.bubScale.value = (this.post ? this.post.height : this.renderer.getDrawingBufferSize(_v2).y) / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2));
     ck.update(dt, c.drink !== undefined ? c : ctl, playing);
     if (playing && ctl.pressed.has('ash')) ck.dropAsh();
     if (playing && ctl.pressed.has('action')) { if (!ck.lightNewCigar()) if (ck.fill <= 0.02) ck.freshBottle(); }

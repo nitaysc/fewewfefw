@@ -254,8 +254,8 @@ function loop(now) {
     if (game.state === 'playing') {
       dynTimer++;
       const ds = game.dynScale || 1;
-      if (fps < target && ds > 0.55) { game.dynScale = Math.max(0.55, ds - 0.1); game.resize(); dynTimer = 0; }
-      else if (fps > target + 14 && ds < 1 && dynTimer > 4) { game.dynScale = Math.min(1, ds + 0.05); game.resize(); dynTimer = 0; }
+      if (fps < target && ds > 0.55 && dynTimer > 1) { game.setDynScale(Math.max(0.55, ds - 0.1)); dynTimer = 0; }
+      else if (fps > target + 14 && ds < 1 && dynTimer > 4) { game.setDynScale(Math.min(1, ds + 0.05)); dynTimer = 0; }
     }
   }
   saveTimer -= dt;

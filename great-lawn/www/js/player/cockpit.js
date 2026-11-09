@@ -6,6 +6,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { Hands, HAND_SCALE } from './hands.js';
 import { Bottle, BOTTLE_H } from './beer.js';
 import { Cigar, CIGAR_LEN } from './cigar.js';
+import { Body } from './body.js';
 import { clamp, damp, easeInOut } from '../core/util.js';
 
 const _p = new THREE.Vector3(), _p2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _s2 = new THREE.Vector3();
@@ -41,6 +42,8 @@ export class Cockpit {
     scene.add(this.leftRig, this.rightRig, this.bottle.group);
     this.leftRig.add(H.left); this.rightRig.add(H.right);
     H.left.scale.setScalar(1); H.right.scale.setScalar(1);  // the rig carries the scale
+    // the driver: seated body, and sleeves from the wrists to the shoulders
+    this.body = new Body(game);
     // the cigar rides on the right index finger: anchor +Z runs head -> lit end
     H.cigarAnchor.add(this.cigar.group);
     this.cigar.group.position.set(0, 0, -0.034);
@@ -115,16 +118,30 @@ export class Cockpit {
       const pq = anchor.parent.getWorldQuaternion(new THREE.Quaternion());
       anchor.quaternion.copy(pq.invert().multiply(qw));
       anchor.updateMatrixWorld(true);
+      this.cigarQWheel = anchor.quaternion.clone();
     }
-    // the cigar's frame in hand space when held at the lips
-    H.rightRig.setPose(H.poses.cigarLips);
-    this.rightRig.position.set(0, 0, 0); this.rightRig.quaternion.identity(); this.rightRig.scale.set(1, 1, 1);
-    this.rightRig.updateMatrixWorld(true);
-    this.cigarInHand = new THREE.Matrix4().copy(this.rightRig.matrixWorld).invert().multiply(this.cigar.group.matrixWorld);
+    // At the lips the fingers turn the cigar square through the gap between them, out of the
+    // back of the hand and leaning a little to the fingertips, so the hand can sit flat in
+    // front of the mouth with the forearm dropping away to the elbow.
+    {
+      H.rightRig.setPose(H.poses.cigarLips);
+      this.rightRig.position.set(0, 0, 0); this.rightRig.quaternion.identity(); this.rightRig.scale.set(1, 1, 1);
+      this.rightRig.updateMatrixWorld(true);
+      const anchor = H.cigarAnchor;
+      const want = new THREE.Vector3(0, 0.95, -0.3).normalize();   // hand space: +y the back of the hand, -z the fingers
+      const qw = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), want);
+      const pq = anchor.parent.getWorldQuaternion(new THREE.Quaternion());
+      this.cigarQLips = pq.invert().multiply(qw);
+      anchor.quaternion.copy(this.cigarQLips);
+      this.rightRig.updateMatrixWorld(true);
+      // the cigar's frame in hand space when held at the lips
+      this.cigarInHand = new THREE.Matrix4().copy(this.rightRig.matrixWorld).invert().multiply(this.cigar.group.matrixWorld);
+      anchor.quaternion.copy(this.cigarQWheel);
+    }
     // the cigar at the lips, in the head's frame: held in the right corner of the mouth and
-    // pointing out to the right, the forearm coming up from below and to the right so the hand
-    // stays low and the fingers curl out of the way
-    this.lipsCfg = { lips: new THREE.Vector3(0.012, -0.088, -0.068), axis: new THREE.Vector3(0.45, -0.08, -0.89), fore: new THREE.Vector3(0.75, -0.6, 0.25) };
+    // pointing out to the right; the hand lies across the mouth with the wrist by the right
+    // cheek and the forearm dropping down and out to the elbow
+    this.lipsCfg = { lips: new THREE.Vector3(0.012, -0.088, -0.068), axis: new THREE.Vector3(0.45, -0.08, -0.89), fore: new THREE.Vector3(0.51, -0.8, 0.3) };
 
     // ---------------- state ----------------
     this.drinkT = 0;       // 0 on the knee .. 1 at the lips
@@ -150,7 +167,7 @@ export class Cockpit {
     const wantDrink = playing && ctl.drink && fill > 0 && !this.swapping;
     if (this.swapping) {
       this.swapT += dt / 0.95;
-      if (this.swapT >= 1 && !this.refilled) { this.refilled = true; this.bottle.fill = 1; this.bottle.foam = 1; this.bottles++; this.events.push({ type: 'opened' }); }
+      if (this.swapT >= 1 && !this.refilled) { this.refilled = true; this.bottle.fill = 1; this.bottle.foam = 1; this.bottle.cold = 1; this.bottles++; this.events.push({ type: 'opened' }); }
       if (this.swapT >= 2) { this.swapT = -1; this.refilled = false; }
     } else {
       const rate = wantDrink ? 1.25 : 1.6;
@@ -207,6 +224,7 @@ export class Cockpit {
     this.handAtLips.updateMatrixWorld(true);
     blendInto(this.rightRig, this.rightWheel.matrixWorld, this.handAtLips.matrixWorld, tC, 0.07);
     H.pose('right', 'wheelCigar', 'cigarLips', clamp((tC - 0.15) / 0.7));
+    H.cigarAnchor.quaternion.slerpQuaternions(this.cigarQWheel, this.cigarQLips, easeInOut(clamp((tC - 0.1) / 0.75)));
 
     const atLips = this.puffT > 0.97;
     this.draw = damp(this.draw, atLips ? 1 : 0, atLips ? 2.2 : 5, dt);
@@ -229,6 +247,7 @@ export class Cockpit {
     const tD = this.swapping ? 0 : easeInOut(this.drinkT);
     this.headTilt = damp(this.headTilt, tD * (0.12 + (1 - fill) * 0.3) - tC * 0.06, 4, dt);
     H.update();
+    this.body.update(this.rightRig, this.leftRig);
   }
 
   // Orientation that points `localAxis` along `worldAxis`, rolled about it so the forearm of

@@ -3,6 +3,8 @@
 //  - the mower drives, turns and stops at walls the way the game expects
 //  - the hands really hold the wheel and the bottle (no fingers through them)
 //  - mowing a strip counts the right amount of lawn
+//  - the arms reach the hands from the shoulders with the right bone lengths
+//  - nothing can write an out-of-range colour (the cause of black flashes on phones)
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +13,8 @@ import { Vehicle, DIM } from '../www/js/player/vehicle.js';
 import { POSES, buildHandSDF } from '../www/js/player/hands.js';
 import { CutMap, GRID } from '../www/js/world/cutmap.js';
 import { MAP, heightAt, LAWN } from '../www/js/world/layout.js';
+import { solveElbow, ARM } from '../www/js/player/body.js';
+import { HDR_MAX } from '../www/js/core/hdrsafe.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../www');
 let failed = 0, passed = 0;
@@ -133,6 +137,45 @@ console.log('mowing');
     maxSlope = Math.max(maxSlope, Math.abs(heightAt(x + 1, z) - h), Math.abs(heightAt(x, z + 1) - h));
   }
   check('the Great Lawn is nearly level', maxH < 0.5 && maxSlope < 0.08, `max height ${maxH.toFixed(2)} m, slope ${maxSlope.toFixed(3)}`);
+}
+
+// ---- arms ----
+console.log('arms');
+{
+  const S = new THREE.Vector3(0.185, 1.17, 0.34), down = new THREE.Vector3(0.65, -1, 0.15).normalize();
+  // the hand on the wheel rim, forearm running back towards the body
+  const W = new THREE.Vector3(0.077, 1.034, -0.109), F = new THREE.Vector3(-0.19, -0.6, 0.78).normalize();
+  const E = solveElbow(S, W, F, down);
+  check('upper arm keeps its length', Math.abs(E.distanceTo(S) - ARM.UPPER) < 1e-3, E.distanceTo(S).toFixed(4));
+  check('forearm keeps its length', Math.abs(E.distanceTo(W) - ARM.FORE) < 1e-3, E.distanceTo(W).toFixed(4));
+  check('the elbow hangs below the hand and shoulder', E.y < Math.min(S.y, W.y), E.y.toFixed(3));
+  // a hand raised to the lips: the elbow stays low and out to the side
+  const W2 = new THREE.Vector3(0.078, 1.14, 0.2), F2 = new THREE.Vector3(0.3, -0.77, 0.56).normalize();
+  const E2 = solveElbow(S, W2, F2, down);
+  check('raised hand: elbow below the wrist', E2.y < W2.y, E2.y.toFixed(3));
+  check('raised hand: elbow out to the side', E2.x > W2.x, E2.x.toFixed(3));
+  // out of reach (the crate on the footboard): the arm runs straight towards it
+  const W3 = new THREE.Vector3(-0.43, 0.45, 0.12), S3 = new THREE.Vector3(-0.185, 1.17, 0.34);
+  const E3 = solveElbow(S3, W3, new THREE.Vector3(0, 1, 0), down);
+  const onLine = E3.clone().sub(S3).cross(W3.clone().sub(S3)).length() < 1e-6;
+  check('out of reach: elbow on the line to the hand', onLine && Math.abs(E3.distanceTo(S3) - W3.distanceTo(S3) * ARM.UPPER / (ARM.UPPER + ARM.FORE)) < 1e-6);
+}
+
+// ---- out-of-range colours ----
+console.log('render safety');
+{
+  const C = THREE.ShaderChunk;
+  check('every material clamps its colour before it is stored', C.opaque_fragment.includes('hdrSafe( outgoingLight )') && C.common.includes('vec3 hdrSafe('));
+  check('the clamp is far below the half-float limit', HDR_MAX < 65504 / 8);
+  const post = readFileSync(join(root, 'js/core/post.js'), 'utf8');
+  check('the bloom input is clamped and NaN-free', /materialHighPassFilter/.test(post) && /isnan/.test(post));
+  for (const f of jsFiles) {
+    const src = readFileSync(f, 'utf8');
+    if (/gl_FragColor = vec4\(outgoingLight/.test(src)) check(`${f.slice(root.length + 1)} guards its own output`, false, 'raw outgoingLight written');
+  }
+  const main = readFileSync(join(root, 'js/main.js'), 'utf8');
+  const dyn = main.slice(main.indexOf('dynamic resolution'), main.indexOf('saveTimer -= dt'));
+  check('dynamic resolution never resizes the canvas', dyn.includes('setDynScale') && !dyn.includes('resize()'));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -164,7 +164,7 @@ export async function createSky(renderer, scene, quality, base = 'assets/sky/') 
         col += uSunColor * (smoothstep(0.99996, 0.99999, c) * 6.0 + pow(max(c, 0.0), 1400.0) * 0.6 + pow(max(c, 0.0), 60.0) * 0.06);
         float h = 1.0 - smoothstep(-0.02, 0.10, d.y);
         col = mix(col, uHaze, h * 0.75);
-        gl_FragColor = vec4(col, 1.0);
+        gl_FragColor = vec4(min(col, vec3(2048.0)), 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,

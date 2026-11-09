@@ -8,7 +8,7 @@
 // The skin shader adds subsurface glow, knuckle wrinkles and palm creases, pores and nails.
 import * as THREE from '../../vendor/three.module.js';
 import { meshSDF, smin, smax, roundCone, capsule, ellipsoid, orientedRoundBox } from '../core/sdf.js';
-import { tex, canvasTexture } from '../core/textures.js';
+import { canvasTexture } from '../core/textures.js';
 import { shared } from '../core/shared.js';
 
 export const NAMES = ['index', 'middle', 'ring', 'little'];
@@ -286,12 +286,36 @@ export function skinMaterial(tone) {
     s.uniforms.uSunColor = shared.uSunColor;
     s.uniforms.uSSS = { value: new THREE.Color(1.0, 0.27, 0.15) };
     s.vertexShader = s.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aSkin;\nattribute vec3 aCrease;\nvarying vec3 vSkin;\nvarying vec3 vCrease;\nvarying vec3 vObj;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkin = aSkin;\nvCrease = aCrease;\nvObj = position;');
+      .replace('#include <common>', '#include <common>\nattribute vec3 aSkin;\nattribute vec3 aCrease;\nattribute vec3 aNail;\nvarying vec3 vSkin;\nvarying vec3 vCrease;\nvarying vec3 vNail;\nvarying vec3 vObj;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkin = aSkin;\nvCrease = aCrease;\nvNail = aNail;\nvObj = position;');
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vSkin; varying vec3 vCrease; varying vec3 vObj;
+        varying vec3 vSkin; varying vec3 vCrease; varying vec3 vNail; varying vec3 vObj;
         uniform vec3 uSunDir; uniform vec3 uSunColor; uniform vec3 uSSS;
+        // Nails, per pixel from each nail's own coordinates (u: base 0 -> tip 1, v: side to
+        // side -1..1, w: on the back of the finger): the plate with its pale lunula, the
+        // white free edge past the smile line, the cuticle fold behind and the side folds.
+        float gNail, gLun, gFree, gCut, gFold, gRidge;
+        void nailRegions() {
+          float u = vNail.x, v = vNail.y, w = clamp(vNail.z, 0.0, 1.0);
+          vec2 fw = fwidth(vNail.xy) * 0.75 + 1e-4;
+          float v2 = v * v;
+          float prox = 0.1 + 0.13 * v2;
+          float tip = 1.0 - 0.09 * v2;
+          float inP = smoothstep(prox - fw.x, prox + fw.x, u);
+          float side = 0.88 + 0.1 * smoothstep(0.0, 0.6, u);
+          float inS = 1.0 - smoothstep(side - fw.y, side + fw.y, abs(v));
+          float inT = 1.0 - smoothstep(tip - fw.x, tip + fw.x, u);
+          gNail = inP * inS * inT * w;
+          float lun = 0.3 - 0.16 * v2;
+          gLun = (1.0 - smoothstep(lun - 0.03 - fw.x, lun + 0.03 + fw.x, u)) * gNail;
+          float smile = 0.905 - 0.1 * v2;
+          gFree = smoothstep(smile - 0.01 - fw.x, smile + 0.01 + fw.x, u) * gNail;
+          float behind = prox - u;
+          gCut = exp(-pow((behind - 0.035) / 0.035, 2.0)) * (1.0 - smoothstep(1.0, 1.2, abs(v))) * w;
+          gFold = exp(-pow((abs(v) - 1.05) / 0.07, 2.0)) * smoothstep(prox - 0.05, prox + 0.05, u) * (1.0 - smoothstep(tip - 0.1, tip, u)) * w;
+          gRidge = sin(v * 61.0 + sin(u * 9.0) * 0.6) * 0.35 + sin(v * 97.0 + 1.7) * 0.2;
+        }
         float hs(vec3 p) { return fract(sin(dot(p, vec3(17.13, 31.71, 47.37))) * 43758.5453); }
         float vn3(vec3 p) {
           vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -306,7 +330,7 @@ export function skinMaterial(tone) {
           float env = exp(-pow(s / 0.0036, 2.0));
           // fine detail fades out once a pixel covers more skin than the detail is wide
           float fine = 1.0 - smoothstep(0.0006, 0.0022, px);
-          float wr = (sin(s * 3900.0 + sin(vObj.x * 700.0) * 1.1) * 0.5 + 0.5) * env * dors;
+          float wr = (sin(s * 3900.0 + sin(vObj.x * 700.0) * 1.1 + vn3(vObj * 380.0) * 3.2) * 0.5 + 0.5) * env * dors * (0.45 + 0.55 * vn3(vObj * 210.0 + 7.0));
           float crease = exp(-pow(s / 0.0009, 2.0)) * smoothstep(0.15, 0.6, -side) * w;
           float pores = vn3(vObj * 650.0) * 0.6 + vn3(vObj * 260.0 + 3.1) * 0.4;
           return (-wr * 0.32 + pores * 0.14) * fine - crease * 0.6;
@@ -319,24 +343,42 @@ export function skinMaterial(tone) {
           float wr = exp(-pow(s / 0.0036, 2.0)) * smoothstep(0.05, 0.55, side) * w * (0.5 + 0.5 * sin(s * 3900.0));
           float mott = vn3(vObj * 140.0) * 0.6 + vn3(vObj * 55.0) * 0.4;
           diffuseColor.rgb *= (0.94 + 0.12 * mott) * (1.0 - 0.18 * crease - 0.07 * wr);
-          vec3 nailC = vec3(0.93, 0.74, 0.7);
-          nailC = mix(nailC, vec3(0.95, 0.9, 0.84), vSkin.z * 0.4);
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.4 + nailC * 0.6, vSkin.x);
+          nailRegions();
+          vec3 skin = diffuseColor.rgb;
+          // the cuticle and side folds: a little redder and darker
+          skin *= 1.0 - gCut * vec3(0.08, 0.2, 0.2) - gFold * 0.08;
+          // the plate shows the pink nail bed through it, paler at the lunula
+          vec3 bed = mix(skin * vec3(1.0, 0.82, 0.82), vec3(0.84, 0.54, 0.52), 0.5);
+          bed *= (1.0 + 0.008 * gRidge) * mix(1.04, 0.96, clamp(vNail.x, 0.0, 1.0));
+          bed = mix(bed, vec3(0.9, 0.76, 0.73), gLun / max(gNail, 1e-3) * 0.5);
+          vec3 freeC = mix(vec3(0.9, 0.86, 0.78), skin, 0.25);
+          vec3 nailC = mix(bed, freeC, gFree / max(gNail, 1e-3) * 0.85);
+          diffuseColor.rgb = mix(skin, nailC, gNail);
         }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = mix(roughnessFactor, 0.2, vSkin.x);
+        roughnessFactor = mix(roughnessFactor, mix(0.24, 0.4, gFree / max(gNail, 1e-3)), gNail);
+        roughnessFactor = mix(roughnessFactor, 0.66, gCut * 0.6);
         roughnessFactor = mix(roughnessFactor, 0.42, smoothstep(0.3, 0.9, vCrease.z) * smoothstep(0.2, 0.8, vCrease.y) * exp(-pow(vCrease.x / 0.004, 2.0)));`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
           float px = max(length(dFdx(vObj)) + length(dFdy(vObj)), 1e-5);
-          float hgt = skinRelief(px) * (1.0 - vSkin.x);
+          // the nail plate stands proud of the skin, with fine ridges along it
+          float hgt = skinRelief(px) * (1.0 - gNail) + gNail * (0.12 + 0.007 * gRidge * (1.0 - smoothstep(0.0006, 0.002, px))) - gCut * 0.05;
           vec2 dH = vec2(dFdx(hgt), dFdy(hgt));
-          vec3 vSigmaX = normalize(dFdx(-vViewPosition)), vSigmaY = normalize(dFdy(-vViewPosition));
+          vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition);
+          vec3 vSigmaX = sx / max(length(sx), 1e-9), vSigmaY = sy / max(length(sy), 1e-9);
           vec3 R1 = cross(vSigmaY, normal), R2 = cross(normal, vSigmaX);
           float fDet = dot(vSigmaX, R1);
           vec3 vGrad = sign(fDet) * (dH.x * R1 + dH.y * R2);
-          normal = normalize(abs(fDet) * normal - vGrad * 0.0009 / px);
+          vec3 nb = abs(fDet) * normal - vGrad * 0.0009 / px;
+          float nl = length(nb);
+          if (nl > 1e-6) normal = nb / nl;
         }`)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+          material.clearcoat = mix(material.clearcoat, 0.4, gNail * (1.0 - 0.5 * gFree / max(gNail, 1e-3)));
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.12 + geometryRoughness, gNail);
+        #endif`)
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         {
           vec3 Lv = normalize((viewMatrix * vec4(uSunDir, 0.0)).xyz);
@@ -350,20 +392,26 @@ export function skinMaterial(tone) {
   return m;
 }
 
-function nailInfo(nails, x, y, z) {
-  let mask = 0, edge = 0;
+// Each vertex near a nail gets that nail's coordinates: u from the base (0) to the tip (1),
+// v across (-1..1), w how squarely it faces out of the back of the finger. The shader draws
+// the nail from these, so its outline is sharp however coarse the mesh.
+function nailCoords(nails, x, y, z, nx, ny, nz, out) {
+  let best = null, bd = 1.6;
   for (const n of nails) {
     const dx = x - n.o[0], dy = y - n.o[1], dz = z - n.o[2];
     const lx = dx * n.ex[0] + dy * n.ex[1] + dz * n.ex[2];
     const ly = dx * n.ey[0] + dy * n.ey[1] + dz * n.ey[2];
     const lz = dx * n.ez[0] + dy * n.ez[1] + dz * n.ez[2];
-    const sx = Math.min(1, Math.max(0, (n.h[0] * 1.02 - Math.abs(lx)) / (n.h[0] * 0.2)));
-    const sz = Math.min(1, Math.max(0, (n.h[2] * 1.0 - Math.abs(lz)) / (n.h[2] * 0.16)));
-    const sy = ly > -0.0016 ? 1 : 0;
-    const m = sx * sz * sy;
-    if (m > mask) { mask = m; edge = lz > n.h[2] * 0.78 ? 1 : 0; }
+    if (ly < -0.0045) continue;
+    const q = Math.max(Math.abs(lx) / n.h[0], Math.abs(lz) / n.h[2]);
+    if (q < bd) { bd = q; best = { n, lx, lz }; }
   }
-  return [mask, edge];
+  if (!best) { out[0] = -1; out[1] = 0; out[2] = 0; return; }
+  const { n, lx, lz } = best;
+  const facing = nx * n.ey[0] + ny * n.ey[1] + nz * n.ey[2];
+  out[0] = (lz + n.h[2]) / (2 * n.h[2]);
+  out[1] = lx / n.h[0];
+  out[2] = Math.min(1, Math.max(0, (facing - 0.15) / 0.35));
 }
 
 // ------------------------------------------------------------------ rig
@@ -428,11 +476,11 @@ function creaseAttribute(fingers) {
   });
   return {
     size: 3, fn: (x, y, z, nx, ny, nz, out) => {
-      let best = null, bd = Infinity;
+      let best = null, bd = Infinity, bd2 = Infinity;
       for (const J of joints) {
         const dx = x - J.j.x, dy = y - J.j.y, dz = z - J.j.z;
         const dd = dx * dx + dy * dy + dz * dz;
-        if (dd < bd) { bd = dd; best = J; }
+        if (dd < bd) { bd2 = bd; bd = dd; best = J; } else if (dd < bd2) bd2 = dd;
       }
       const dx = x - best.j.x, dy = y - best.j.y, dz = z - best.j.z;
       const s = dx * best.d.x + dy * best.d.y + dz * best.d.z;
@@ -442,7 +490,10 @@ function creaseAttribute(fingers) {
       // that line would sweep through s = 0 and draw a false, speckled crease. The real
       // wrinkles are gone by 7 mm, so fade the weight out before the switch.
       const a = Math.min(1, Math.max(0, (Math.abs(s) - 0.005) / 0.0025));
-      out[0] = s; out[1] = side; out[2] = best.weight * near * (1 - a * a * (3 - 2 * a));
+      // likewise in the valley between two knuckles, where the wrinkles of neighbouring
+      // fingers would meet out of step
+      const b = Math.min(1, Math.max(0, (Math.sqrt(bd2) - Math.sqrt(bd)) / 0.0035));
+      out[0] = s; out[1] = side; out[2] = best.weight * near * (1 - a * a * (3 - 2 * a)) * b * b * (3 - 2 * b);
     },
   };
 }
@@ -507,11 +558,11 @@ function buildHandRig(skin, h, mirror) {
       },
       aSkin: {
         size: 3, fn: (x, y, z, nx, ny, nz, out) => {
-          const [m, e] = nailInfo(model.nails, x, y, z);
           const deep = -sdf(x - nx * 0.012, y - ny * 0.012, z - nz * 0.012);
-          out[0] = m; out[1] = Math.min(1, Math.max(0, 1 - deep / 0.011)); out[2] = e;
+          out[0] = 0; out[1] = Math.min(1, Math.max(0, 1 - deep / 0.011)); out[2] = 0;
         },
       },
+      aNail: { size: 3, fn: (x, y, z, nx, ny, nz, out) => nailCoords(model.nails, x, y, z, nx, ny, nz, out) },
       aCrease: creaseAttribute(model.fingers),
     },
   });
@@ -554,31 +605,12 @@ function tube(r0x, r0y, z0, z1, th, fold = 0, flare = 0) {
     return Math.hypot(Math.max(dr, 0), Math.max(dz, 0)) + Math.min(Math.max(dr, dz), 0) - rr;
   };
 }
-function meshSleeve(h = 0.0022) {
+// the shirt cuff round the wrist; the jacket sleeve over it is drawn by the body (body.js)
+function meshCuff(h = 0.0022) {
   const cuffT = tube(0.0318, 0.0255, 0.043, 0.09, 0.0032, 0.0, 0.05);
-  const sleeveT = tube(0.0445, 0.0385, 0.076, 0.42, 0.0045, 0.045, 0.32);
-  const cuff = meshSDF(cuffT, [-0.05, -0.045, 0.035], [0.05, 0.045, 0.1], h);
-  const slv = meshSDF(sleeveT, [-0.09, -0.085, 0.065], [0.09, 0.085, 0.43], h * 1.4);
-  return { cuff, sleeve: slv };
-}
-function tweedMaterial() {
-  const m = new THREE.MeshStandardMaterial({
-    map: tex('tweed_diff', { repeat: [4, 4] }), normalMap: tex('tweed_nor', { repeat: [4, 4] }),
-    color: '#c7a678', roughness: 0.95, metalness: 0,
-  });
-  m.normalScale.set(1.2, 1.2);
-  return m;
+  return meshSDF(cuffT, [-0.05, -0.045, 0.035], [0.05, 0.045, 0.1], h);
 }
 const cuffMaterial = () => new THREE.MeshPhysicalMaterial({ color: '#f2efe8', roughness: 0.7, sheen: 0.5, sheenColor: new THREE.Color('#ffffff'), sheenRoughness: 0.6 });
-function cylUV(geo, scale) {
-  const p = geo.attributes.position;
-  const uv = new Float32Array(p.count * 2);
-  for (let i = 0; i < p.count; i++) {
-    uv[i * 2] = (Math.atan2(p.getY(i), p.getX(i)) / (Math.PI * 2) + 0.5) * scale * 0.9;
-    uv[i * 2 + 1] = p.getZ(i) * scale * 3.2;
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-}
 
 // ------------------------------------------------------------------ watch and ring
 function watchDial() {
@@ -650,16 +682,15 @@ export class Hands {
   constructor({ quality, tone = '#b8805c' }) {
     const h = quality.handRes || (quality.treeDetail >= 1 ? 0.00135 : quality.treeDetail >= 0.7 ? 0.0016 : 0.002);
     this.skin = skinMaterial(tone);
-    const tweed = tweedMaterial(), cuffMat = cuffMaterial();
-    const { cuff, sleeve } = meshSleeve(h * 1.3);
-    cylUV(sleeve, 1);
+    const cuffMat = cuffMaterial();
+    const cuff = meshCuff(h * 1.3);
     this.poses = {
       wheel: POSES.wheel(), wheelCigar: POSES.wheelCigar(), bottle: POSES.bottle(), open: POSES.open(), cigarLips: POSES.cigarLips(),
     };
     const make = (mirror) => {
       const rig = buildHandRig(this.skin, h, mirror);
       const group = new THREE.Group();
-      group.add(rig.mesh, new THREE.Mesh(cuff, cuffMat), new THREE.Mesh(sleeve, tweed));
+      group.add(rig.mesh, new THREE.Mesh(cuff, cuffMat));
       group.scale.setScalar(HAND_SCALE);
       group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
       return { rig, group };

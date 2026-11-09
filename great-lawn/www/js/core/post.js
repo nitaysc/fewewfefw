@@ -60,6 +60,14 @@ export class Post {
     if (quality.bloom) {
       // only real highlights bloom: the sun, the ember, glints on chrome and glass
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.25, 0.6, 2.2);
+      // never let a stray infinity or NaN into the blur, where it would spread over the screen
+      const hp = this.bloom.materialHighPassFilter;
+      const read = 'vec4 texel = texture2D( tDiffuse, vUv );';
+      if (!hp.fragmentShader.includes(read)) throw new Error('post: bloom high-pass shader changed');
+      hp.fragmentShader = hp.fragmentShader.replace(read, read + `
+        texel.rgb = clamp( texel.rgb, vec3( 0.0 ), vec3( 64.0 ) );
+        if ( any( isnan( texel.rgb ) ) ) texel.rgb = vec3( 0.0 );`);
+      hp.needsUpdate = true;
       this.composer.addPass(this.bloom);
     }
     this.output = new OutputPass();
@@ -73,14 +81,17 @@ export class Post {
     this.composer.addPass(this.grade);
     this.setSize();
   }
-  setSize() {
+  // The scene renders into buffers `scale` times the canvas size; the last pass stretches the
+  // result over the whole canvas, so the canvas itself never has to change size.
+  setSize(scale = this.scale || 1) {
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
-    const pr = this.renderer.getPixelRatio();
+    const w = Math.max(16, Math.round(size.x * scale)), h = Math.max(16, Math.round(size.y * scale));
+    if (w === this.width && h === this.height) return;
+    this.scale = scale; this.width = w; this.height = h;
     this.composer.setPixelRatio(1);
-    this.composer.setSize(size.x, size.y);
-    if (this.fxaa) this.fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
-    this.grade.uniforms.uRes.value.set(size.x, size.y);
-    this.pr = pr;
+    this.composer.setSize(w, h);
+    if (this.fxaa) this.fxaa.material.uniforms.resolution.value.set(1 / w, 1 / h);
+    this.grade.uniforms.uRes.value.set(w, h);
   }
   render(time) {
     this.grade.uniforms.uTime.value = time;
