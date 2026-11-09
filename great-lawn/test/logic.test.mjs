@@ -5,6 +5,7 @@
 //  - mowing a strip counts the right amount of lawn
 //  - the arms reach the hands from the shoulders with the right bone lengths
 //  - nothing can write an out-of-range colour (the cause of black flashes on phones)
+//  - shaders stay inside a phone's limits, and phones get a sensible starting quality
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,7 @@ import { CutMap, GRID } from '../www/js/world/cutmap.js';
 import { MAP, heightAt, LAWN } from '../www/js/world/layout.js';
 import { solveElbow, ARM } from '../www/js/player/body.js';
 import { HDR_MAX } from '../www/js/core/hdrsafe.js';
+import { PRESETS, guessQuality, forDevice } from '../www/js/core/quality.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../www');
 let failed = 0, passed = 0;
@@ -176,6 +178,30 @@ console.log('render safety');
   const main = readFileSync(join(root, 'js/main.js'), 'utf8');
   const dyn = main.slice(main.indexOf('dynamic resolution'), main.indexOf('saveTimer -= dt'));
   check('dynamic resolution never resizes the canvas', dyn.includes('setDynScale') && !dyn.includes('resize()'));
+}
+
+// ---- phones ----
+console.log('phones');
+{
+  // most phone GPUs allow 16 textures per shader; three adds the environment and shadow maps
+  const terr = readFileSync(join(root, 'js/world/terrain.js'), 'utf8');
+  const ground = terr.slice(terr.indexOf('export function createGround'), terr.indexOf('export function createFarTerrain'));
+  const samplers = new Set();
+  for (const m of ground.matchAll(/uniform sampler2D ([^;]+);/g)) for (const n of m[1].split(',')) samplers.add(n.trim());
+  const shared = readFileSync(join(root, 'js/core/shared.js'), 'utf8');
+  if (ground.includes('STATIC_SHADOW_GLSL') && /sampler2D tStaticShadow/.test(shared)) samplers.add('tStaticShadow');
+  check('ground shader fits a phone (16 textures, with three\'s two)', samplers.size + 2 <= 14, `${samplers.size} + 2: ${[...samplers].join(', ')}`);
+  const gl = (name) => ({ getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1 }), getParameter: () => name, RENDERER: 2 });
+  const want = {
+    'Adreno (TM) 740': 'high', 'Adreno (TM) 830': 'high', 'Mali-G715-Immortalis MC11': 'high', 'Mali-G710 MC10': 'high',
+    'Samsung Xclipse 940': 'high', 'Adreno (TM) 650': 'medium', 'Adreno (TM) 619': 'medium', 'Mali-G610 MC6': 'medium',
+    'Mali-G78 MP20': 'medium', 'Mali-G57 MC2': 'medium', 'Adreno (TM) 610': 'low', 'Mali-G52 MC2': 'low',
+    'PowerVR Rogue GE8320': 'low', 'Some New GPU': 'medium',
+  };
+  for (const [name, p] of Object.entries(want)) check(`phone with ${name} starts on ${p}`, guessQuality(gl(name), true).preset === p, guessQuality(gl(name), true).preset);
+  const ph = forDevice(PRESETS.high, true);
+  check('phones keep the high look but cap the costly parts', ph.bloom && ph.shadowMap <= 2048 && ph.msaa <= 2 && ph.maxDpr <= 1.6 && ph.grassR[2] <= 85);
+  check('desktops get the preset untouched', JSON.stringify(forDevice(PRESETS.high, false)) === JSON.stringify(PRESETS.high));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

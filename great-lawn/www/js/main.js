@@ -156,7 +156,7 @@ $('btnDoneRestart').addEventListener('click', () => begin(false));
 document.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { if (audio.ready) audio.ui(); }));
 
 function openSettings() {
-  $('setQuality').value = game.qualityName;
+  $('setQuality').value = settings.quality || 'auto';
   $('setSens').value = settings.sensitivity;
   $('setVolume').value = settings.volume;
   $('setInvert').checked = settings.invertY;
@@ -169,8 +169,9 @@ function closeSettings() {
   settings.volume = +$('setVolume').value; audio.setVolume(settings.volume);
   settings.invertY = $('setInvert').checked; input.invertY = settings.invertY;
   settings.showFps = $('setFps').checked; $('fps').hidden = !settings.showFps;
-  const qChanged = q !== game.qualityName;
-  settings.quality = q;
+  // 'auto' stores nothing, so a better automatic choice in a later version reaches this device
+  settings.quality = q === 'auto' ? null : q;
+  const qChanged = (settings.quality || game.guessedQuality) !== game.qualityName;
   saveSettings(settings);
   if (qChanged) {
     // picture quality is fixed when the world is built: save the lawn and reload
@@ -254,8 +255,20 @@ function loop(now) {
     if (game.state === 'playing') {
       dynTimer++;
       const ds = game.dynScale || 1;
-      if (fps < target && ds > 0.55 && dynTimer > 1) { game.setDynScale(Math.max(0.55, ds - 0.1)); dynTimer = 0; }
-      else if (fps > target + 14 && ds < 1 && dynTimer > 4) { game.setDynScale(Math.min(1, ds + 0.05)); dynTimer = 0; }
+      // too slow: first render fewer pixels (least visible on a dense phone screen), then
+      // thin the grass a little, then fewer pixels again; when there is time to spare, put
+      // the grass back first and then the pixels
+      const gd = game.grass.uniforms.uDensityScale;
+      if (fps < target && dynTimer > 1) {
+        if (ds > 0.7) game.setDynScale(Math.max(0.7, ds - 0.1));
+        else if (gd.value > 0.6) gd.value = Math.max(0.6, gd.value - 0.1);
+        else if (ds > 0.55) game.setDynScale(Math.max(0.55, ds - 0.05));
+        dynTimer = 0;
+      } else if (fps > target + 12 && dynTimer > 4) {
+        if (gd.value < 1 && ds >= 0.7) gd.value = Math.min(1, gd.value + 0.1);
+        else if (ds < 1) game.setDynScale(Math.min(1, ds + 0.05));
+        dynTimer = 0;
+      }
     }
   }
   saveTimer -= dt;

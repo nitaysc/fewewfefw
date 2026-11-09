@@ -4,9 +4,9 @@ export const PRESETS = {
   low: {
     maxDpr: 1.0, renderScale: 0.8,
     grassDensity: 95, grassR: [9, 24, 48], grassLodWidth: 1.25, grassSegs: [3, 2, 1],
-    shadowMap: 1024, shadowSpan: 34, shadowFar: 0, msaa: 0, fxaa: true, bloom: false, grain: false,
-    cutRes: 1024, groundStep: 1.0, leafDensity: 0.45, ivy: false, treeDetail: 0.55,
-    hedgeLeaves: 0.45, farTrees: 120, particles: 0.5,
+    shadowMap: 2048, shadowSpan: 34, shadowFar: 0, msaa: 0, fxaa: true, bloom: true, grain: false,
+    cutRes: 1024, groundStep: 1.0, leafDensity: 0.6, ivy: false, treeDetail: 0.7,
+    hedgeLeaves: 0.6, farTrees: 160, particles: 0.5,
   },
   medium: {
     maxDpr: 1.35, renderScale: 0.9,
@@ -31,25 +31,45 @@ export const PRESETS = {
   },
 };
 
+// On a phone the screen is small and dense, memory is shared and bandwidth is precious: the
+// chosen preset keeps its look but is trimmed where it costs most and shows least.
+export function forDevice(preset, mobile = isTouchDevice()) {
+  if (!mobile) return { ...preset };
+  return {
+    ...preset,
+    maxDpr: Math.min(preset.maxDpr, 1.6),
+    shadowMap: Math.min(preset.shadowMap, 2048),
+    msaa: Math.min(preset.msaa, 2),
+    grassDensity: Math.min(preset.grassDensity, 230),
+    grassR: preset.grassR.map((r, i) => Math.min(r, [14, 40, 85][i])),
+    farTrees: Math.min(preset.farTrees, 300),
+  };
+}
+
 export const isTouchDevice = () =>
   (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad/i.test(navigator.userAgent);
 
 // Guess a preset from the GPU name and the kind of device.
-export function guessQuality(gl) {
+export function guessQuality(gl, mobile = isTouchDevice()) {
   let gpu = '';
   try {
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
   } catch (e) { /* some browsers hide it */ }
   gpu = String(gpu || '');
-  const mobile = isTouchDevice();
   if (/swiftshader|llvmpipe|software/i.test(gpu)) return { preset: 'low', gpu };
   if (mobile) {
-    // Recent flagship phone GPUs can take the medium preset; everything else starts low.
+    // Phones start as high as they can go (the game then adapts its resolution and grass to
+    // hold the frame rate): flagships get the full look, the last few years' mid-range get
+    // medium, and only clearly old GPUs start low.
     const m = gpu.match(/Adreno \(TM\) (\d{3})|Adreno.*?(\d{3})/i);
     const adreno = m ? parseInt(m[1] || m[2], 10) : 0;
-    if (adreno >= 730 || /Mali-G7[1-9][0-9]|Mali-G9|Immortalis|Xclipse|Apple GPU/i.test(gpu)) return { preset: 'medium', gpu };
-    return { preset: 'low', gpu };
+    const mm = gpu.match(/Mali-G(\d{2,3})/i);
+    const mali = mm ? parseInt(mm[1], 10) : 0;
+    if (adreno >= 730 || mali >= 700 || /Immortalis|Xclipse|Apple GPU/i.test(gpu)) return { preset: 'high', gpu };
+    if (adreno >= 618 || mali >= 600 || (mali >= 57 && mali < 100)) return { preset: 'medium', gpu };
+    if (adreno || mali || /PowerVR|Mali-T|Mali-4/i.test(gpu)) return { preset: 'low', gpu };
+    return { preset: 'medium', gpu };
   }
   if (/Intel|UHD|Iris|Mali|Adreno|PowerVR|Apple M1\b/i.test(gpu)) return { preset: 'medium', gpu };
   if (/RTX [34-9]0[6-9]0|RTX 50|RX 7[89]00|RX 9|Apple M[2-9] (Pro|Max|Ultra)/i.test(gpu)) return { preset: 'ultra', gpu };
@@ -58,11 +78,16 @@ export function guessQuality(gl) {
 
 // Settings persisted between sessions (browser storage can be unavailable: always fall back).
 const KEY = 'greatlawn.settings.v1';
+// Bump when the automatic choice gets better: a quality stored by an older version (which
+// saved its own guess whenever the settings were closed) goes back to automatic once.
+const QUALITY_REV = 2;
 export function loadSettings() {
-  const defaults = { quality: null, sensitivity: 1, volume: 0.8, invertY: false, showFps: false };
+  const defaults = { quality: null, sensitivity: 1, volume: 0.8, invertY: false, showFps: false, qualityRev: QUALITY_REV };
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    return s ? { ...defaults, ...s } : defaults;
+    if (!s) return defaults;
+    if ((s.qualityRev || 1) < QUALITY_REV) { s.quality = null; s.qualityRev = QUALITY_REV; }
+    return { ...defaults, ...s };
   } catch (e) { return defaults; }
 }
 export function saveSettings(s) {

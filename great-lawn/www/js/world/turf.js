@@ -1,7 +1,6 @@
 // Textures for mown grass, drawn once at start-up:
 //  turf      - looking down into a freshly cut sward: layers of short blades over dark thatch,
 //              colour in RGB and height in alpha (for parallax and shading)
-//  turfNormal- the same blades as a tangent-space normal map
 //  clippings - the cut tops lying where the mower dropped them: loose strands and small
 //              clumps, colour in RGB, coverage in alpha
 // All tile seamlessly.
@@ -97,20 +96,10 @@ export function turfTextures({ size = 512, seed = 21 } = {}) {
   const col = cx.getImageData(0, 0, size, size).data;
   const hgt = hx.getImageData(0, 0, size, size).data;
   const N = size * size;
-  const turf = new Uint8Array(N * 4), nrm = new Uint8Array(N * 4);
-  const H = new Float32Array(N);
-  for (let i = 0; i < N; i++) H[i] = hgt[i * 4] / 255;
-  const wrap = (v) => (v + size) % size;
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const k = y * size + x;
+  const turf = new Uint8Array(N * 4);
+  for (let k = 0; k < N; k++) {
     turf[k * 4] = col[k * 4]; turf[k * 4 + 1] = col[k * 4 + 1]; turf[k * 4 + 2] = col[k * 4 + 2];
     turf[k * 4 + 3] = hgt[k * 4];
-    const dx = H[y * size + wrap(x + 1)] - H[y * size + wrap(x - 1)];
-    const dy = H[wrap(y + 1) * size + x] - H[wrap(y - 1) * size + x];
-    let nx = -dx * 2.2, ny = -dy * 2.2, nz = 1;
-    const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-    nrm[k * 4] = Math.round((nx * 0.5 + 0.5) * 255); nrm[k * 4 + 1] = Math.round((ny * 0.5 + 0.5) * 255);
-    nrm[k * 4 + 2] = Math.round((nz * 0.5 + 0.5) * 255); nrm[k * 4 + 3] = 255;
   }
 
   // ---- clippings: strands and little clumps, on a transparent ground ----
@@ -139,7 +128,6 @@ export function turfTextures({ size = 512, seed = 21 } = {}) {
   }
   return {
     turf: dataTexture(turf, size, { srgb: true }),
-    turfNormal: dataTexture(nrm, size),
     clippings: dataTexture(clips, size, { srgb: true }),
   };
 }

@@ -1,7 +1,7 @@
 // The game: builds the world, runs the frame loop and ties the systems together.
 import './core/hdrsafe.js';   // first: guards every shader compiled after it
 import * as THREE from '../vendor/three.module.js';
-import { PRESETS, guessQuality } from './core/quality.js';
+import { PRESETS, guessQuality, forDevice } from './core/quality.js';
 import { shared } from './core/shared.js';
 import { noiseTexture, setMaxAnisotropy, waitForTextures } from './core/textures.js';
 import { Post } from './core/post.js';
@@ -51,9 +51,10 @@ export class Game {
     if (!renderer.capabilities.isWebGL2) throw new Error('WebGL 2 is required');
     const guess = guessQuality(renderer.getContext());
     this.gpu = guess.gpu;
+    this.guessedQuality = guess.preset;
     const qName = this.settings.quality || guess.preset;
     this.qualityName = qName;
-    const Q = { ...PRESETS[qName] };
+    const Q = forDevice(PRESETS[qName]);
     this.Q = Q;
     // ACES filmic reads best here (AgX available for comparison with ?tm=agx)
     const tm = new URLSearchParams(location.search).get('tm');
@@ -132,6 +133,7 @@ export class Game {
     this.cutLoad = 0;
     await step(1, 'Ready.');
     this.ready = true;
+    this.frames = 0;
   }
 
   resize() {
@@ -289,5 +291,24 @@ export class Game {
 
   render() {
     this.post.render(this.time);
+    if (++this.frames === 3) this.checkShaders();
+  }
+
+  // A GPU with tighter limits than ours (most phones allow 16 textures per shader) can refuse
+  // a shader outright, and the object then simply vanishes. After the first frames, swap any
+  // refused material for its fallback (or a plain one of the same colour) and report it.
+  checkShaders() {
+    const r = this.renderer, failed = [];
+    this.scene.traverse((o) => {
+      if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
+      const prog = r.properties.get(o.material).currentProgram;
+      if (!prog || !prog.diagnostics || prog.diagnostics.runnable !== false) return;
+      const fb = o.material.userData.fallback;
+      const col = o.material.color ? o.material.color.clone() : new THREE.Color('#808080');
+      o.material = fb ? fb() : new THREE.MeshStandardMaterial({ color: col, roughness: 0.9 });
+      failed.push(o.name || o.type);
+    });
+    if (failed.length) console.warn('[great-lawn] shaders refused by this GPU, using fallbacks for:', failed.join(', '));
+    this.shaderFallbacks = failed;
   }
 }

@@ -60,10 +60,10 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
   const turf = turfTextures();
   const uniforms = {
     tMask: { value: maskTex }, tCut: { value: cutTex }, tNoise: { value: noiseTex },
-    tTurf: { value: turf.turf }, tTurfN: { value: turf.turfNormal }, tClip: { value: turf.clippings },
+    tTurf: { value: turf.turf }, tClip: { value: turf.clippings },
     tSoil: { value: tex('soil_diff') }, tSoilN: { value: tex('soil_nor') },
-    tGravel: { value: tex('gravel_diff') }, tGravelN: { value: tex('gravel_nor') }, tGravelR: { value: tex('gravel_arm') },
-    tPave: { value: tex('paving_diff') }, tPaveN: { value: tex('paving_nor') }, tPaveR: { value: tex('paving_arm') },
+    tGravel: { value: tex('gravel_diff') }, tGravelN: { value: tex('gravel_nor') },
+    tPave: { value: tex('paving_diff') }, tPaveN: { value: tex('paving_nor') },
     uMapRect: { value: new THREE.Vector4(MAP.min, MAP.min, MAP.size, 1 / MAP.size) },
     uGrassFar: { value: quality.grassR[2] },
     uCamPos: shared.uCamPos,
@@ -77,8 +77,10 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', `#include <common>
         varying vec3 vWPos;
-        uniform sampler2D tMask, tCut, tNoise, tSoil, tSoilN, tGravel, tGravelN, tGravelR, tPave, tPaveN, tPaveR;
-        uniform sampler2D tTurf, tTurfN, tClip;
+        // Phones allow 16 textures per shader, and three adds the environment and shadow
+        // maps: keep this list to 12 (the test suite checks it)
+        uniform sampler2D tMask, tCut, tNoise, tSoil, tSoilN, tGravel, tGravelN, tPave, tPaveN;
+        uniform sampler2D tTurf, tClip;
         uniform vec4 uMapRect; uniform float uGrassFar; uniform vec3 uCamPos;
         vec4 gW; float gRough; vec3 gNormalW;
         float gCutW; vec3 gTurfN; float gClipA;
@@ -124,7 +126,10 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
           float h0 = texture2D(tTurf, tuv).a;
           vec2 par = -Vw.xz / max(Vw.y, 0.18) * (h0 - 0.7) * (0.022 / 0.42);
           vec4 tf = texture2D(tTurf, tuv + par);
-          gTurfN = texture2D(tTurfN, tuv + par).xyz * 2.0 - 1.0;
+          // relief of the sward from its height map (no separate normal map: see above)
+          float hR = texture2D(tTurf, tuv + par + vec2(1.0 / 512.0, 0.0)).a;
+          float hU = texture2D(tTurf, tuv + par + vec2(0.0, 1.0 / 512.0)).a;
+          gTurfN = normalize(vec3((tf.a - hR) * 4.4, (tf.a - hU) * 4.4, 1.0));
           // patches: greener where it is damp, yellower where it is dry and thin
           float patchG = texture2D(tNoise, wxz * 0.035).g, patchF = texture2D(tNoise, wxz * 0.31 + 0.5).b;
           vec3 tintP = mix(vec3(0.95, 1.05, 1.0), vec3(1.22, 1.12, 0.82), smoothstep(0.35, 0.85, patchG));
@@ -150,7 +155,7 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
         }`)
       .replace('#include <roughnessmap_fragment>', `
         float roughnessFactor = roughness;
-        float rG = texture2D(tGravelR, uvG * 0.38).g, rP = texture2D(tPaveR, uvG * 0.31).g;
+        float rG = 0.88, rP = 0.72;
         roughnessFactor = rG * gW.x + rP * gW.y + 0.95 * gW.z + mix(0.92, mix(0.7, 0.82, gClipA), gCutW) * gW.w;
       `)
       .replace('#include <normal_fragment_maps>', `
@@ -172,6 +177,8 @@ export function createGround({ maskTex, cutTex, noiseTex, quality }) {
   mesh.receiveShadow = true;
   mesh.frustumCulled = false;
   mesh.name = 'ground';
+  // if a GPU ever refuses the shader above, a plain lawn is better than a hole in the world
+  mat.userData.fallback = () => new THREE.MeshStandardMaterial({ color: '#4d5c2a', roughness: 0.95, metalness: 0 });
   return mesh;
 }
 
