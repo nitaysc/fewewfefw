@@ -193,10 +193,10 @@ export class Cockpit {
     this.puffT = clamp(this.puffT + (wantPuff ? dt * pr : -dt * pr), 0, 1);
     const tC = easeInOut(this.puffT);
     // at the lips the cigar points out and a little down; the hand hangs below it
-    const axis = new THREE.Vector3(0.16, -0.13, -0.98).normalize();
+    const axis = new THREE.Vector3(0.34, -0.16, -0.93).normalize();
     const handInCig = this.cigarInHand.clone().invert();
-    const cq = this.rollFor(new THREE.Vector3(0, 0, 1), axis, handInCig, new THREE.Vector3(0.35, -0.85, 0.35));
-    const lipsC = new THREE.Vector3(0.006, -0.088, -0.066);
+    const cq = this.rollFor(new THREE.Vector3(0, 0, 1), axis, handInCig, new THREE.Vector3(0.15, -0.95, 0.25));
+    const lipsC = new THREE.Vector3(-0.004, -0.09, -0.07);
     // the rig's matrix carries the hand scale: rig x cigarInHand = cigar frame (scaled)
     const handM = new THREE.Matrix4().compose(lipsC, cq, new THREE.Vector3(S, S, S)).multiply(handInCig);
     handM.decompose(this.handAtLips.position, this.handAtLips.quaternion, this.handAtLips.scale);
