@@ -1,0 +1,20 @@
+{
+  "name": "rookwise",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rookwise: play chess against an engine with a coach and full game review",
+  "scripts": {
+    "sync": "cap sync android",
+    "test": "node test/logic.test.js",
+    "serve": "node tools/serve.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.10"
+  }
+}

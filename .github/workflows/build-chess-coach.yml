@@ -1,0 +1,61 @@
+name: Build Rookwise APK
+
+on:
+  push:
+    paths:
+      - 'chess-coach/**'
+      - '.github/workflows/build-chess-coach.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chess-coach
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chess-coach/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install and sync web code into Android
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Check the review and coach logic
+        run: npm test
+
+      - name: Build APK
+        working-directory: chess-coach/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk ../rookwise.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rookwise-apk
+          path: chess-coach/rookwise.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "rookwise-v1.0.${{ github.run_number }}" rookwise.apk \
+            --target "${{ github.sha }}" \
+            --title "Rookwise v1.0.${{ github.run_number }}" \
+            --notes "Download: tap rookwise.apk below. Built from ${{ github.ref_name }}." \
+            --latest=false

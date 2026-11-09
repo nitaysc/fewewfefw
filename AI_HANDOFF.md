@@ -12,6 +12,9 @@ an AI. Each project has its own notes:
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `putt-party/README.md`: 3D minigolf against bots.
+- `chess-coach/README.md`: Rookwise, chess against Stockfish with a live coach and game
+  review. Its look, name and coach character are its own on purpose; do not restyle it after
+  an existing chess site.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.
