@@ -13,8 +13,11 @@ an AI. Each project has its own notes:
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `chess-coach/README.md`: Rookwise, chess against Stockfish with a live coach and game
-  review. Its look, name and coach character are its own on purpose; do not restyle it after
-  an existing chess site.
+  review. Its look, name, coach and opponents are its own on purpose; do not copy an existing
+  chess site's artwork, logo, characters or sounds (the "Tournament" look is a generic green
+  board, which is fine). Phone portrait only. Its android/ folder began as a copy of
+  putt-party's; `npm test` checks the app name, id and orientation so that cannot regress.
+  Board squares use the classes sq/dot/ring/hint/warn/last/sel; never reuse those names elsewhere.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.

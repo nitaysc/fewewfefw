@@ -219,6 +219,7 @@ h2 { font: 700 12.5px var(--body); letter-spacing: .09em; text-transform: upperc
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* board thumbnails */
+.mini, .mini-wrap { display: block; }
 .mini { position: relative; width: 100%; aspect-ratio: 1; border-radius: 7px; overflow: hidden;
   background: repeating-conic-gradient(var(--sq-dark) 0 25%, var(--sq-light) 0 50%) 0 0 / 25% 25%; }
 .mini .pc { will-change: auto; }
@@ -361,14 +362,14 @@ button.opt .chev { width: 18px; height: 18px; }
 .rev-pane.steps { gap: 8px; }
 .rev-pane.scroll { overflow-y: auto; padding-bottom: 20px; overscroll-behavior: contain; }
 #revLoading { justify-content: center; align-items: center; text-align: center; gap: 10px; padding-bottom: 40px; }
-.ring { position: relative; width: 168px; height: 168px; }
-.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring circle { fill: none; stroke-width: 9; }
-.ring .track { stroke: var(--panel-2); }
-.ring .val { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 326.7; stroke-dashoffset: 326.7; transition: stroke-dashoffset .25s; }
-.ring .coach-av { position: absolute; inset: 0; margin: auto; width: 92px; height: 92px; }
-.ring-pct { font: 800 30px var(--display); font-variant-numeric: tabular-nums; }
-.ring-msg { color: var(--muted); max-width: 30ch; }
+.pring { position: relative; width: 168px; height: 168px; }
+.pring > svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pring > svg circle { fill: none; stroke-width: 9; }
+.pring .track { stroke: var(--panel-2); }
+.pring .val { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 326.7; stroke-dashoffset: 326.7; transition: stroke-dashoffset .25s; }
+.pring .coach-av { position: absolute; inset: 0; margin: auto; width: 92px; height: 92px; }
+.pring-pct { font: 800 30px var(--display); font-variant-numeric: tabular-nums; }
+.pring-msg { color: var(--muted); max-width: 30ch; }
 .rev-acts { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; flex: none; padding-bottom: 6px; }
 .rev-acts button { padding: 10px 6px; font-size: 14px; white-space: nowrap; }
 .graph { flex: none; height: 46px; border-radius: 10px; overflow: hidden; background: #2b2f38; touch-action: none; }

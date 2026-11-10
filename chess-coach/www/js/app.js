@@ -194,9 +194,10 @@
       const bub = $('#' + bid), area = s.querySelector('.board-area'), row = area.querySelector('.board-row');
       const cs = getComputedStyle(s);
       const total = s.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      const fixed = total - area.offsetHeight - bub.offsetHeight;
+      const fixed = total - area.getBoundingClientRect().height - bub.getBoundingClientRect().height;
       const want = Math.min(area.clientWidth, 560) - (row.classList.contains('noeval') ? 0 : 18);
-      bub.style.maxHeight = Math.max(80, Math.floor(total - fixed - want)) + 'px';
+      // but never so short that the comment itself is squeezed out (small phones give up a little board instead)
+      bub.style.maxHeight = Math.max(128, Math.floor(total - fixed - want - 0.01)) + 'px';
     }
   }
   window.addEventListener('resize', fit);
@@ -577,6 +578,7 @@
     if (g.over) { set('#resignBtn', 'home', 'Menu'); set('#undoBtn', 'again', 'Rematch'); set('#hintBtn', 'chart', 'Review'); }
     else { set('#resignBtn', 'flag', 'Resign'); set('#undoBtn', 'undo', 'Take back'); set('#hintBtn', 'bulb', 'Hint'); }
     if (!g.over) store.set('game', { sans: g.chess.history(), user: g.user, bot: g.botIdx, id: g.id, fen: g.chess.fen() });
+    fit();
   }
   function flipGame() {
     gBoard.setOrientation(U.other(gBoard.orient));

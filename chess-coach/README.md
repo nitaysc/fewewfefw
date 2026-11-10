@@ -1,36 +1,56 @@
 # Rookwise
 
-A phone-first chess app: play against Stockfish at nine strength levels, get a coach's
-comment on every move as you play, then walk through a full game review.
+A phone-first chess app: play Stockfish at nine strength levels with a coach beside the board,
+then go through the game move by move in a full review.
 
-- **Play**: tap or drag pieces, take back moves, ask for a two-step hint (first the piece, then the move).
-- **Coach**: after each of your moves the engine grades it (brilliant, great, best, excellent, good,
-  book, inaccuracy, mistake, miss, blunder) and the coach explains why in plain words: hanging
-  pieces, missed captures and forks, missed or allowed checkmates, better alternatives.
-- **Game review**: accuracy for both sides, an evaluation graph, move-type counts, a per-phase
-  grade, an estimated game rating, and a move-by-move walkthrough with "show best" and
-  "next key moment".
-- **Review a PGN**: paste any game and review it the same way.
+- **Play tab**: pick one of nine illustrated opponents (400 to 3000+), your color, and go.
+  An unfinished game can be continued from where you left it. Your estimated rating, record
+  and accuracy trend sit underneath.
+- **Coach while you play**: every move gets a grade (brilliant, great, best, excellent, good,
+  book, inaccuracy, mistake, miss, blunder) and a plain explanation: hanging pieces, forks,
+  pins, skewers, missed or allowed mates, opening principles, with a tip after serious slips.
+  It also explains the opponent's replies and warns about threats before you move. After a
+  serious mistake it pauses so you can take the move back. Hints come in three steps (idea,
+  piece, move). The coach can read its comments aloud.
+- **Game review**: accuracy for both sides, an evaluation graph, key moments, one thing to
+  work on next game, phase grades, an estimated game rating and move-quality counts. Step
+  through with "Show best", "Play it out", and "Retry", where you look for the better move
+  yourself and the coach judges the attempt. Reviews are stored, so reopening one is instant.
+- **Games tab**: past games with board thumbnails, results and accuracy; import any PGN.
+- **Settings tab**: four board looks (including a green tournament board), five piece sets,
+  coach, sound, vibration, evaluation bar and review depth.
+- **Sound**: recorded piece and bell sounds, not synthesized.
 
 Everything runs on the device; nothing is sent to a server.
 
 ## Layout
 
-- `www/index.html`, `www/css/app.css`: screens and styling
-- `www/js/engine.js`: Stockfish worker behind a promise queue
+- `www/index.html`, `www/css/app.css`: screens and styling (`data-look` on `<html>` picks the look)
+- `www/js/app.js`: app shell, tabs, sheets, game flow, review screens
+- `www/js/coach.js`: what the coach says (motifs, threats, hints, retry feedback, the owl's faces)
 - `www/js/review.js`: position evaluation, move grading, accuracy, rating estimate
-- `www/js/coach.js`: the coach's explanations
-- `www/js/board.js`: board rendering and input
-- `www/js/openings.js`: small opening book (names and book moves)
-- `www/js/app.js`: game flow and screens
-- `www/vendor/`: Stockfish 19 lite (GPLv3), chess.js 0.10.3 (BSD). Piece images are the
-  "cburnett" set (GPLv2+).
-- `android/`: Capacitor wrapper; `.github/workflows/build-chess-coach.yml` builds the APK on push.
+- `www/js/engine.js`: Stockfish worker behind a promise queue
+- `www/js/board.js`: board rendering and input (tap or drag)
+- `www/js/avatars.js`: the opponents' and player's avatars
+- `www/js/sound.js`, `www/js/sounds-map.js`, `www/sounds/sounds.wav`: recorded sounds
+- `www/js/voice.js`: text to speech (native plugin in the app, browser speech elsewhere)
+- `www/js/openings.js`: opening book with names and a one-line idea per opening
+- `www/css/pieces-*.css`, `www/css/piece-previews.css`: piece sets, built by `tools/make_pieces.py`
+- `www/fonts/`: Inter and Bricolage Grotesque, bundled so the APK works offline
+- `www/vendor/`: Stockfish 19 lite and chess.js 0.10.3
+- `android/`: Capacitor wrapper; `.github/workflows/build-chess-coach.yml` builds the APK on push
+
+## Tools
+
+- `python3 tools/make_sounds.py`: rebuilds the sound sprite from the source recordings
+  (downloaded once, checked by SHA-256). Needs numpy and ffmpeg.
+- `python3 tools/make_pieces.py`: rebuilds the piece-set stylesheets (checked against `tools/pieces.lock`).
+- `python3 tools/make_icons.py`: redraws the launcher icons and splash screens.
 
 ## Run and test
 
 ```sh
-npm test          # logic tests (opening book, grading, coach text)
+npm test          # logic tests (grading, coach findings, threats, hints) and the Android config check
 npm run serve     # http://localhost:8080
 ```
 
@@ -43,3 +63,10 @@ npm run serve     # http://localhost:8080
 - Game rating is a curve fitted to accuracy (about 550 at 59, 1150 at 75, 1650 at 84, 2600 at 95).
   It is an estimate of the strength shown in one game, not a rating you earned. Games under
   10 moves are not rated.
+
+## Credits
+
+Stockfish (GPLv3), chess.js (BSD), piece sounds by Stefan Haack (CC BY 4.0), bell sounds by PWL
+(CC0), piece sets from the lichess-org/lila collection (cburnett and merida GPLv2+, celtic MIT,
+chessnut Apache 2.0, kiwen-suwi CC BY 4.0), fonts under the SIL Open Font License. The owl coach,
+the opponents and the board looks are original. The in-app Credits page lists the same.
