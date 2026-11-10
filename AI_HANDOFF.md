@@ -18,6 +18,10 @@ an AI. Each project has its own notes:
   board, which is fine). Phone portrait only. Its android/ folder began as a copy of
   putt-party's; `npm test` checks the app name, id and orientation so that cannot regress.
   Board squares use the classes sq/dot/ring/hint/warn/last/sel; never reuse those names elsewhere.
+  It has a Puzzles tab (Lichess CC0 puzzles: rated, Puzzle Rush, daily, themes). The board's size
+  must never depend on the coach's text: `fit()` sizes it from the screen; keep it that way (the
+  owner noticed the board "zooming" on every move when it did). Releases are tagged
+  `rookwise-v1.0.<run number>`.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still
   needs testing.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the app's own dark background (Ocean look), so no white flash shows before the page paints -->
+    <color name="rw_background">#121419</color>
+    <color name="rw_accent">#F3B33D</color>
+</resources>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
 <!--head-->
 <title>Rookwise Chess Coach</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -16,6 +16,19 @@ try {
   var saved = JSON.parse(localStorage.getItem('rw.settings') || '{}');
   if (saved.look) document.documentElement.setAttribute('data-look', saved.look);
   if (saved.pieces) document.getElementById('pieceCss').href = 'css/pieces-' + saved.pieces + '.css';
+} catch (e) {}
+// The Android app draws edge to edge and tells the page how big the status and navigation bars are
+// (MainActivity.java). The last sizes are kept so the first paint already leaves room for them.
+window.__rwInsets = function (t, r, b, l, kb) {
+  var st = document.documentElement.style;
+  st.setProperty('--sat', t + 'px'); st.setProperty('--sar', r + 'px'); st.setProperty('--sab', b + 'px');
+  st.setProperty('--sal', l + 'px'); st.setProperty('--kb', (kb || 0) + 'px');
+  try { localStorage.setItem('rw.insets', JSON.stringify([t, r, b, l])); } catch (e) {}
+  if (window.__rw && window.__rw.fit) window.__rw.fit();
+};
+try {
+  var ins = JSON.parse(localStorage.getItem('rw.insets') || 'null');
+  if (ins) window.__rwInsets(ins[0], ins[1], ins[2], ins[3], 0);
 } catch (e) {}
 </script>
 <!--/head-->
@@ -66,6 +79,19 @@ try {
     <div class="cta"><button class="primary big" id="playBtn"><span>Play</span><small id="playSub"></small></button></div>
   </section>
 
+  <!-- Puzzles tab -->
+  <section class="screen tab" id="puzzles" hidden>
+    <header class="topbar">
+      <h1>Puzzles</h1>
+      <span class="lvl" id="pzLvl"></span>
+    </header>
+    <section class="card pzhero" id="pzHero"></section>
+    <div class="pzmodes" id="pzModes"></div>
+    <h2>Practice a theme</h2>
+    <div class="themes" id="pzThemes"></div>
+    <p class="fine pzfoot">Puzzles from real games, from the Lichess puzzle database.</p>
+  </section>
+
   <!-- Games tab -->
   <section class="screen tab" id="games" hidden>
     <header class="topbar">
@@ -84,6 +110,7 @@ try {
 
   <nav class="tabnav" id="tabnav" aria-label="Sections">
     <button data-tab="home"><i data-ic="play"></i>Play</button>
+    <button data-tab="puzzles"><i data-ic="puzzle"></i>Puzzles</button>
     <button data-tab="games"><i data-ic="games"></i>Games</button>
     <button data-tab="prefs"><i data-ic="gear"></i>Settings</button>
   </nav>
@@ -120,6 +147,33 @@ try {
       <button id="undoBtn"></button>
       <button id="hintBtn"></button>
     </nav>
+  </section>
+
+  <!-- Puzzle -->
+  <section class="screen fit" id="puzzle" hidden>
+    <header class="bar">
+      <button class="icon" id="pzBack" aria-label="Back to puzzles" data-ic="back"></button>
+      <span class="bar-title" id="pzTitle">Puzzles</span>
+      <button class="icon" id="pzFlip" aria-label="Flip board" data-ic="flip"></button>
+      <button class="icon" id="pzSettings" aria-label="Settings" data-ic="gear"></button>
+    </header>
+    <div class="pzstrip" id="pzStrip"></div>
+    <div class="board-area">
+      <div class="board-row">
+        <div class="board" id="pBoard"></div>
+      </div>
+    </div>
+    <div class="rushrow" id="pzRushRow" hidden></div>
+    <div class="coach slim">
+      <span class="coach-av" id="pzAv"></span>
+      <div class="bubble" id="pzBubble">
+        <div class="bubble-body">
+          <b id="pzHead"></b><p id="pzText"></p><p class="tip" id="pzTip"></p>
+        </div>
+        <div class="bubble-acts" id="pzActs"></div>
+      </div>
+    </div>
+    <nav class="toolbar" id="pzTools"></nav>
   </section>
 
   <!-- Review -->
@@ -194,6 +248,9 @@ try {
 <script src="js/sound.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/board.js"></script>
+<script src="js/puzzles-data.js"></script>
+<script src="js/puzzles.js"></script>
+<script src="js/puzzle-screen.js"></script>
 <script src="js/app.js"></script>
 <!--/body-->
 </body>

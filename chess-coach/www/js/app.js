@@ -29,7 +29,10 @@
     voice: 'M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11',
     mute: 'M4 9v6h4l5 4V5L8 9H4zM17 9.5l5 5M22 9.5l-5 5',
     play: 'M9.5 4.5a2.5 2.5 0 015 0c0 1-.6 1.8-1.4 2.2L15 11H9l1.9-4.3C10.1 6.3 9.5 5.5 9.5 4.5zM8.5 11h7l1 5h-9zM6 20h12M7.5 16h9l1 4h-11z',
-    games: 'M4 5h16M4 12h16M4 19h10'
+    games: 'M4 5h16M4 12h16M4 19h10',
+    puzzle: 'M9 4h3a2 2 0 114 0h3v5a2 2 0 110 4v6h-6a2 2 0 10-4 0H5v-6a2 2 0 100-4V4h4z',
+    bolt: 'M13 2L4.5 13.5H11L10 22l8.5-11.5H12z', eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 9.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z',
+    skip: 'M5 12h13M12 6l6 6-6 6', check: 'M5 12.5l4.5 4.5L19 7.5', x: 'M6 6l12 12M18 6L6 18', stop: 'M7 7h10v10H7z'
   };
   const icon = (n) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + IC[n] + '"/></svg>';
   const fillIcons = (root) => (root || document).querySelectorAll('[data-ic]').forEach((el) => (el.innerHTML = icon(el.dataset.ic)));
@@ -97,10 +100,8 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', look.bg);
     try {
-      if (Plugins.StatusBar) {
-        Plugins.StatusBar.setBackgroundColor({ color: look.bg }).catch(() => {});
-        Plugins.StatusBar.setStyle({ style: 'DARK' }).catch(() => {});
-      }
+      // the app draws under a transparent status bar (MainActivity.java); keep its icons light
+      if (Plugins.StatusBar) Plugins.StatusBar.setStyle({ style: 'DARK' }).catch(() => {});
     } catch (e) {}
     $('#gEval').hidden = !s.evalbar;
     $('#gRow').classList.toggle('noeval', !s.evalbar);
@@ -114,8 +115,10 @@
   }));
 
   /* ---------- shell: tabs, screens, sheets ---------- */
-  const TABS = ['home', 'games', 'prefs'];
-  const SCREENS = TABS.concat(['game', 'review']);
+  const TABS = ['home', 'puzzles', 'games', 'prefs'];
+  const SCREENS = TABS.concat(['game', 'review', 'puzzle']);
+  // how deep a screen sits, for the direction of the slide when it opens (deeper slides in from the right)
+  const DEPTH = { home: 0, puzzles: 0, games: 0, prefs: 0, game: 1, puzzle: 1, review: 2 };
   let tab = 'home';
   function show(id) {
     const was = SCREENS.find((s) => !$('#' + s).hidden);
@@ -127,18 +130,43 @@
     }
     if (id !== 'prefs') $('#prefsBody').innerHTML = '';
     if (id === 'home') renderHome();
+    if (id === 'puzzles') PZ.render();
     if (id === 'games') renderGames();
     if (id === 'prefs') renderPrefs();
     if (id !== 'review') Voice.stop();
     const el = $('#' + id);
     if (was !== id) {
-      el.classList.remove('in');
+      el.classList.remove('in', 'back');
       void el.offsetWidth;
+      if (was && DEPTH[id] < DEPTH[was]) el.classList.add('back');
       el.classList.add('in');
     }
-    if (TABS.includes(id)) el.scrollTop = 0;
+    if (TABS.includes(id)) { el.scrollTop = 0; raise(el); }
     fit();
   }
+  /* Tab pages: the top bar lifts onto a surface once the page scrolls under it, as in Material apps. */
+  function raise(el) { const bar = el.querySelector('.topbar'); if (bar) bar.classList.toggle('raised', el.scrollTop > 4); }
+  TABS.forEach((t) => $('#' + t).addEventListener('scroll', (e) => raise(e.currentTarget), { passive: true }));
+
+  /* Touch ripples: the ink spreading from the finger that Android buttons have. */
+  const RIPPLE = '.tabnav button, .toolbar button, .icon, button.opt, .hist, .keym, .mode, .theme, .resume, .ghost, .primary, .pill, .bubble-acts button, .seg button';
+  document.addEventListener('pointerdown', (e) => {
+    let el = e.target.closest && e.target.closest(RIPPLE);
+    if (!el || el.disabled) return;
+    if (el.matches('.tabnav button')) el = el.querySelector('i');
+    const r = el.getBoundingClientRect();
+    const size = Math.max(r.width, r.height) * 2.1;
+    const ink = document.createElement('span');
+    ink.className = 'ripple';
+    ink.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - r.left - size / 2) + 'px;top:' + (e.clientY - r.top - size / 2) + 'px';
+    el.appendChild(ink);
+    const done = () => ink.remove();
+    ink.addEventListener('animationend', done);
+    setTimeout(done, 900);
+  }, { passive: true });
+  // no browser long-press menu or image dragging
+  document.addEventListener('contextmenu', (e) => { if (!e.target.closest('textarea, input')) e.preventDefault(); });
+  document.addEventListener('dragstart', (e) => e.preventDefault());
   $('#tabnav').onclick = (e) => {
     const b = e.target.closest('button');
     if (!b || b.dataset.tab === tab) return;
@@ -186,18 +214,40 @@
     });
   })();
 
-  /* The bubble may only take the height the board does not need, so the board stays as wide as the screen. */
+  /* The board's size comes from the screen alone: as wide as the screen, unless the phone is so short that
+     the coach would be left less than a few lines. The coach box takes the height that is left and scrolls
+     inside it, so nothing the coach says (a long comment, the thinking dots, buttons) can resize the board.
+     Before this, the board grew and shrank by a few percent on every move as the comment changed length. */
+  const FIT = [['game', '#game'], ['revSteps', '#review'], ['puzzle', '#puzzle']];
   function fit() {
-    for (const [id, bid] of [['game', 'gBubble'], ['revSteps', 'rBubble']]) {
+    for (const [id, screen] of FIT) {
       const s = $('#' + id);
-      if (s.hidden || (id === 'revSteps' && $('#review').hidden)) continue;
-      const bub = $('#' + bid), area = s.querySelector('.board-area'), row = area.querySelector('.board-row');
+      if (!s || s.hidden || $(screen).hidden) continue;
+      const area = s.querySelector(':scope > .board-area'), coach = s.querySelector(':scope > .coach');
+      if (!area) continue;
+      const row = area.querySelector('.board-row');
       const cs = getComputedStyle(s);
-      const total = s.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      const fixed = total - area.getBoundingClientRect().height - bub.getBoundingClientRect().height;
-      const want = Math.min(area.clientWidth, 560) - (row.classList.contains('noeval') ? 0 : 18);
-      // but never so short that the comment itself is squeezed out (small phones give up a little board instead)
-      bub.style.maxHeight = Math.max(128, Math.floor(total - fixed - want - 0.01)) + 'px';
+      const inner = s.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const gap = parseFloat(cs.rowGap) || 0;
+      let fixed = 0, n = 0;
+      for (const c of s.children) {
+        if (c.hidden || getComputedStyle(c).display === 'none' || getComputedStyle(c).position === 'absolute') continue;
+        n++;
+        if (c !== area && c !== coach) fixed += c.getBoundingClientRect().height;
+      }
+      fixed += gap * Math.max(0, n - 1);
+      const acs = getComputedStyle(area);
+      const width = Math.min(560, area.clientWidth - parseFloat(acs.paddingLeft) - parseFloat(acs.paddingRight));
+      const evalW = row.querySelector('.evalbar:not([hidden])') ? 18 : 0;
+      const coachMin = coach ? (inner < 640 ? 104 : 116) : 0;
+      const full = width - evalW;
+      let side = Math.min(full, inner - fixed - coachMin);
+      // a board a few pixels short of the screen edge looks like a mistake: take them from the coach instead
+      if (full - side <= 14 && inner - fixed - full >= coachMin - 14) side = full;
+      side = Math.floor(Math.max(180, side));
+      const px = side + 'px';
+      if (area.style.height !== px) area.style.height = px;
+      row.style.height = px;
     }
   }
   window.addEventListener('resize', fit);
@@ -240,8 +290,13 @@
     el.classList.remove('pop');
     void el.offsetWidth;
     el.classList.add('pop');
-    el.querySelector('.bubble-body').scrollTop = 0;
+    const body = el.querySelector('.bubble-body');
+    body.scrollTop = 0;
+    if (!body.onscroll) body.onscroll = () => moreFade(body);
+    requestAnimationFrame(() => moreFade(body));
   }
+  // a comment longer than its box fades out at the bottom edge, so it is clear there is more to scroll
+  const moreFade = (body) => body.classList.toggle('more', body.scrollHeight - body.scrollTop - body.clientHeight > 3);
 
   function movesStrip(el, hist, current, classes) {
     let h = '';
@@ -479,6 +534,7 @@
     sheet('<h3>Credits</h3><div class="credits">' +
       '<p><b>Engine</b> Stockfish 19 (lite, WebAssembly build by Nathan Rugg), GPLv3.</p>' +
       '<p><b>Rules</b> chess.js by Jeff Hlywa, BSD 2-Clause.</p>' +
+      '<p><b>Puzzles</b> From the Lichess puzzle database (database.lichess.org), made from real games by lichess.org and its players, CC0.</p>' +
       '<p><b>Piece sounds</b> Chess Console Sounds by Stefan Haack (shaack.com), CC BY 4.0. Levels adjusted and clips trimmed.</p>' +
       '<p><b>Bell sounds</b> Bell dings by PWL on OpenGameArt, CC0.</p>' +
       '<p><b>Pieces</b> Classic: Colin M.L. Burnett, GPLv2+. Merida: Armando Hernandez Marroquin, GPLv2+. Celtic: Maurizio Monge, MIT. Chessnut: Alexis Luengas, Apache 2.0. Bold (kiwen-suwi): neverRare, CC BY 4.0. All taken from the lichess-org/lila collection.</p>' +
@@ -1210,19 +1266,27 @@
     if (e.key === 'ArrowLeft') go(RV.ply - 1);
   });
 
+  /* ---------- puzzles (puzzle-screen.js) ---------- */
+  const PZ = RW.PuzzleScreen({ $, esc, icon, store, sheet, closeSheet, buzz, Snd, setAv, popBubble, fillActs, miniBoard, plural, myLevel, settingsSheet, show });
+
   /* ---------- Android back button ---------- */
   function goBack() {
     if (!$('#scrim').hidden) { closeSheet(); return true; }
+    if (PZ.back()) return true;
     if (!$('#review').hidden) { $('#revBack').click(); return true; }
     if (!$('#game').hidden) { $('#gameBack').click(); return true; }
     if (tab !== 'home') { show('home'); return true; }
     return false;
   }
   try {
-    if (Plugins.App && Plugins.App.addListener) Plugins.App.addListener('backButton', () => { if (!goBack() && Plugins.App.exitApp) Plugins.App.exitApp(); });
+    if (Plugins.App && Plugins.App.addListener) Plugins.App.addListener('backButton', () => {
+      if (goBack()) return;
+      if (Plugins.App.minimizeApp) Plugins.App.minimizeApp().catch(() => Plugins.App.exitApp && Plugins.App.exitApp());
+      else if (Plugins.App.exitApp) Plugins.App.exitApp();
+    });
   } catch (e) {}
 
-  window.__rw = { get G() { return G; }, get RV() { return RV; }, engine, newGame, startReview, go, S, BOTS, fit, show };
+  window.__rw = { get G() { return G; }, get RV() { return RV; }, engine, newGame, startReview, go, S, BOTS, fit, show, PZ };
   applySettings();
   setAv($('#homeAv'), 'happy');
   setAv($('#gAv'), 'neutral');

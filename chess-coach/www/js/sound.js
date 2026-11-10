@@ -95,9 +95,13 @@
     draw() { clip('ding2', { rate: 1, gain: 0.5 }); clip('ding2', { rate: 1, gain: 0.42, delay: 0.22 }); },
     illegal() { clip('move3', { rate: 0.55, gain: 0.55 }); clip('move4', { rate: 0.5, gain: 0.45, delay: 0.1 }); },
     takeback() { clip(vary(MOVES, 'm'), { rate: 0.85, gain: 0.6 }); },
-    tap() { clip('move3', { rate: 1.5, gain: 0.18 }); }
+    tap() { clip('move3', { rate: 1.5, gain: 0.18 }); },
+    // puzzles: a light ting for a right move, a dull knock for a wrong one, two rising tings when solved
+    correct() { clip('ding1', { rate: 1.68, gain: 0.32, delay: 0.06 }); },
+    wrong() { clip('ding3', { rate: 0.5, gain: 0.34, delay: 0.04 }); clip('move4', { rate: 0.6, gain: 0.5, delay: 0.04 }); },
+    solved() { clip('ding1', { rate: 1.26, gain: 0.4, delay: 0.08 }); clip('ding1', { rate: 1.68, gain: 0.36, delay: 0.22 }); }
   };
-  const FALLBACK = { move: [200, 0.07], capture: [150, 0.1], castle: [200, 0.07], check: [700, 0.1], promote: [600, 0.15], start: [520, 0.15], win: [660, 0.3], lose: [300, 0.3], draw: [440, 0.25], illegal: [110, 0.1], takeback: [170, 0.07] };
+  const FALLBACK = { move: [200, 0.07], capture: [150, 0.1], castle: [200, 0.07], check: [700, 0.1], promote: [600, 0.15], start: [520, 0.15], win: [660, 0.3], lose: [300, 0.3], draw: [440, 0.25], illegal: [110, 0.1], takeback: [170, 0.07], correct: [880, 0.12], wrong: [140, 0.16], solved: [990, 0.3] };
 
   function play(ev, o) {
     if (!enabled) return;

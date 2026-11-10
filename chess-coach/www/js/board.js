@@ -3,6 +3,7 @@
   const RW = (g.RW = g.RW || {});
   const U = RW.U;
   const NS = 'http://www.w3.org/2000/svg';
+  const BADGE = { ok: { sym: '✓' }, bad: { sym: '✗' } };
 
   class Board {
     constructor(el) {
@@ -141,8 +142,9 @@
       this.badge = b || null;
       if (!b) { this.badgesEl.innerHTML = ''; return; }
       const [x, y] = this.xy(b.sq);
-      const cls = RW.Review.CLS[b.cls];
-      this.badgesEl.innerHTML = '<span class="badge c-' + b.cls + '" style="left:' + (x + 1) * 12.5 + '%;top:' + y * 12.5 + '%">' + cls.sym + '</span>';
+      // move grades come from the review's classes; puzzles add a plain right (ok) and wrong (bad)
+      const sym = b.sym || (BADGE[b.cls] || (RW.Review && RW.Review.CLS[b.cls]) || {}).sym || '';
+      this.badgesEl.innerHTML = '<span class="badge c-' + b.cls + '" style="left:' + (x + 1) * 12.5 + '%;top:' + y * 12.5 + '%">' + sym + '</span>';
     }
     _sqAt(e) {
       const r = this.el.getBoundingClientRect();
