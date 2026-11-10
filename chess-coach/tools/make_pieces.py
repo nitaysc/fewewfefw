@@ -1,11 +1,17 @@
 """Builds www/css/pieces-<set>.css (one file per piece set, SVGs inlined) and piece-previews.css.
 
-The sets come from the lichess-org/lila repository; only sets with a free licence are used:
+The sets come from the lichess-org/lila repository (licences as listed in its COPYING.md):
+  staunty    sadsnake1                 CC BY-NC-SA 4.0   (the default: a bold, shaded modern set)
+  california Jerry S.                  CC BY-NC-SA 4.0
+  mpchess    Maxime Chupin             GPLv3+
   cburnett   Colin M.L. Burnett        GPLv2+
   merida     Armando Hernandez Marroquin  GPLv2+
   celtic     Maurizio Monge            MIT
   chessnut   Alexis Luengas            Apache 2.0
   kiwen-suwi neverRare                 CC BY 4.0
+staunty and california are NonCommercial: fine for this free app, but if the app is ever sold or
+carries ads, drop those two from SETS (and change the default in app.js) before shipping.
+The SVG files are used unchanged.
 Files are fetched once into tools/.cache and checked against tools/pieces.lock (SHA-256).
 
 Run: python3 tools/make_pieces.py
@@ -18,6 +24,9 @@ LOCK = os.path.join(HERE, 'pieces.lock')
 CSS = os.path.join(HERE, '..', 'www', 'css')
 BASE = 'https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/%s/%s.svg'
 SETS = [
+    ('staunty', 'sadsnake1, CC BY-NC-SA 4.0'),
+    ('california', 'Jerry S., CC BY-NC-SA 4.0'),
+    ('mpchess', 'Maxime Chupin, GPLv3+'),
     ('cburnett', 'Colin M.L. Burnett, GPLv2+'),
     ('merida', 'Armando Hernandez Marroquin, GPLv2+'),
     ('celtic', 'Maurizio Monge, MIT'),

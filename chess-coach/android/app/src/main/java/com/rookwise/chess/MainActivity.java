@@ -25,7 +25,7 @@ import java.util.Locale;
  * so the top bar and the bottom tab bar extend under the system bars on every Android version.
  */
 public class MainActivity extends BridgeActivity {
-    private static final int BACKGROUND = Color.rgb(0x12, 0x14, 0x19);
+    private static final int BACKGROUND = Color.rgb(0x2C, 0x2B, 0x28);
     private String insetsJs = null;
 
     @Override

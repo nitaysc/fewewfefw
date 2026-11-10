@@ -18,23 +18,36 @@
 
   /* ---------- icons ---------- */
   const MARK = '<svg viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#f3b33d"/><path fill="#1d1503" d="M10 8h4v3h2.5V8h3v3H22V8h4v7l-3 2.5V24l3 2v3H10v-3l3-2v-6.5L10 15z"/></svg>';
+  /* Icons: Material Design Icons (pictogrammers.com), Apache 2.0. One filled path each, 24 x 24. */
   const IC = {
-    back: 'M15 5l-7 7 7 7', prev: 'M15 5l-7 7 7 7', next: 'M9 5l7 7-7 7',
-    first: 'M7 5v14M18 5l-8 7 8 7', last: 'M17 5v14M6 5l8 7-8 7',
-    flip: 'M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3',
-    flag: 'M6 21V4M6 4h11l-2 4 2 4H6', undo: 'M8 7L4 11l4 4M4 11h10a5 5 0 010 10h-3',
-    bulb: 'M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z',
-    chart: 'M4 20V10M10 20V4M16 20v-7M21 20H3', home: 'M4 11l8-7 8 7M6 10v10h12V10', again: 'M20 12a8 8 0 11-3-6.2M20 4v5h-5',
-    gear: 'M12 9a3 3 0 100 6 3 3 0 000-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
-    voice: 'M4 9v6h4l5 4V5L8 9H4zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11',
-    mute: 'M4 9v6h4l5 4V5L8 9H4zM17 9.5l5 5M22 9.5l-5 5',
-    play: 'M9.5 4.5a2.5 2.5 0 015 0c0 1-.6 1.8-1.4 2.2L15 11H9l1.9-4.3C10.1 6.3 9.5 5.5 9.5 4.5zM8.5 11h7l1 5h-9zM6 20h12M7.5 16h9l1 4h-11z',
-    games: 'M4 5h16M4 12h16M4 19h10',
-    puzzle: 'M9 4h3a2 2 0 114 0h3v5a2 2 0 110 4v6h-6a2 2 0 10-4 0H5v-6a2 2 0 100-4V4h4z',
-    bolt: 'M13 2L4.5 13.5H11L10 22l8.5-11.5H12z', eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 9.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z',
-    skip: 'M5 12h13M12 6l6 6-6 6', check: 'M5 12.5l4.5 4.5L19 7.5', x: 'M6 6l12 12M18 6L6 18', stop: 'M7 7h10v10H7z'
+    back: 'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z',
+    prev: 'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z',
+    next: 'M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z',
+    first: 'M18.41,16.59L13.82,12L18.41,7.41L17,6L11,12L17,18L18.41,16.59M6,6H8V18H6V6Z',
+    last: 'M5.59,7.41L10.18,12L5.59,16.59L7,18L13,12L7,6L5.59,7.41M16,6H18V18H16V6Z',
+    flip: 'M9,3L5,7H8V14H10V7H13M16,17V10H14V17H11L15,21L19,17H16Z',
+    flag: 'M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z',
+    undo: 'M13.5,7A6.5,6.5 0 0,1 20,13.5A6.5,6.5 0 0,1 13.5,20H10V18H13.5C16,18 18,16 18,13.5C18,11 16,9 13.5,9H7.83L10.91,12.09L9.5,13.5L4,8L9.5,2.5L10.92,3.91L7.83,7H13.5M6,18H8V20H6V18Z',
+    bulb: 'M12,6A6,6 0 0,1 18,12C18,14.22 16.79,16.16 15,17.2V19A1,1 0 0,1 14,20H10A1,1 0 0,1 9,19V17.2C7.21,16.16 6,14.22 6,12A6,6 0 0,1 12,6M14,21V22A1,1 0 0,1 13,23H11A1,1 0 0,1 10,22V21H14M20,11H23V13H20V11M1,11H4V13H1V11M13,1V4H11V1H13M4.92,3.5L7.05,5.64L5.63,7.05L3.5,4.93L4.92,3.5M16.95,5.63L19.07,3.5L20.5,4.93L18.37,7.05L16.95,5.63Z',
+    chart: 'M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3M9 17H7V10H9V17M13 17H11V7H13V17M17 17H15V13H17V17Z',
+    home: 'M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z',
+    again: 'M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z',
+    gear: 'M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z',
+    voice: 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z',
+    mute: 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z',
+    play: 'M19 22H5V20H19V22M16 18H8L10.18 10H8V8H10.72L10.79 7.74C10.1 7.44 9.55 6.89 9.25 6.2C8.58 4.68 9.27 2.91 10.79 2.25C12.31 1.58 14.08 2.27 14.74 3.79C15.41 5.31 14.72 7.07 13.2 7.74L13.27 8H16V10H13.82L16 18Z',
+    games: 'M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3',
+    puzzle: 'M20.5,11H19V7C19,5.89 18.1,5 17,5H13V3.5A2.5,2.5 0 0,0 10.5,1A2.5,2.5 0 0,0 8,3.5V5H4A2,2 0 0,0 2,7V10.8H3.5C5,10.8 6.2,12 6.2,13.5C6.2,15 5,16.2 3.5,16.2H2V20A2,2 0 0,0 4,22H7.8V20.5C7.8,19 9,17.8 10.5,17.8C12,17.8 13.2,19 13.2,20.5V22H17A2,2 0 0,0 19,20V16H20.5A2.5,2.5 0 0,0 23,13.5A2.5,2.5 0 0,0 20.5,11Z',
+    bolt: 'M11 15H6L13 1V9H18L11 23V15Z',
+    eye: 'M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z',
+    skip: 'M16,18H18V6H16M6,18L14.5,12L6,6V18Z',
+    check: 'M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z',
+    x: 'M20 6.91L17.09 4L12 9.09L6.91 4L4 6.91L9.09 12L4 17.09L6.91 20L12 14.91L17.09 20L20 17.09L14.91 12L20 6.91Z',
+    stop: 'M18,18H6V6H18V18Z',
+    info: 'M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z',
+    target: 'M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,10.84 21.79,9.69 21.39,8.61L19.79,10.21C19.93,10.8 20,11.4 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4C12.6,4 13.2,4.07 13.79,4.21L15.4,2.6C14.31,2.21 13.16,2 12,2M19,2L15,6V7.5L12.45,10.05C12.3,10 12.15,10 12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12C14,11.85 14,11.7 13.95,11.55L16.5,9H18L22,5H19V2M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12H16A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8V6Z'
   };
-  const icon = (n) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + IC[n] + '"/></svg>';
+  const icon = (n) => '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + IC[n] + '"/></svg>';
   const fillIcons = (root) => (root || document).querySelectorAll('[data-ic]').forEach((el) => (el.innerHTML = icon(el.dataset.ic)));
   $$('[data-art="mark"]').forEach((el) => (el.innerHTML = MARK));
   fillIcons();
@@ -47,26 +60,35 @@
     { name: 'Juno', elo: 1300, art: 'cat', hue: '#f6b896', depth: 5, mpv: 4, rand: 0.025, temp: 7, line: 'Develop, castle, attack. Simple plan.' },
     { name: 'Bram', elo: 1600, art: 'bear', hue: '#eaa5c8', depth: 7, mpv: 4, rand: 0, temp: 4, line: 'I do not hang pieces. Mostly.' },
     { name: 'Ilse', elo: 1900, art: 'penguin', hue: '#c7aef2', depth: 9, mpv: 3, rand: 0, temp: 2.2, line: 'I can wait. You will crack first.' },
-    { name: 'Corvin', elo: 2200, art: 'raven', hue: '#93d9d2', depth: 11, mpv: 3, rand: 0, temp: 1.1, line: 'Small advantages add up.' },
+    { name: 'Leon', elo: 2200, art: 'lion', hue: '#93d9d2', depth: 11, mpv: 3, rand: 0, temp: 1.1, line: 'Small advantages add up.' },
     { name: 'Sable', elo: 2500, art: 'wolf', hue: '#cfd4de', depth: 13, mpv: 2, rand: 0, temp: 0.4, line: 'I saw this coming ten moves ago.' },
     { name: 'Maximum', elo: 3000, art: 'robot', hue: '#f3b33d', depth: 18, mpv: 1, rand: 0, temp: 0, line: 'Full engine strength. Good luck.' }
   ];
   const botArt = (i) => AV.ART[(BOTS[i] || BOTS[0]).art];
   const eloText = (i) => BOTS[i].elo + (i === BOTS.length - 1 ? '+' : '');
+  // board colours only: the rest of the app looks the same whichever board is picked
+  const BG = '#2c2b28';
   const LOOKS = [
-    { id: 'ocean', name: 'Ocean', light: '#e3e8ef', dark: '#6485a8', bg: '#121419' },
-    { id: 'classic', name: 'Tournament', light: '#efe9cf', dark: '#5b8c5a', bg: '#1d1e1f' },
-    { id: 'walnut', name: 'Walnut', light: '#ead7b5', dark: '#a97a52', bg: '#191513' },
-    { id: 'graphite', name: 'Graphite', light: '#dcdfe4', dark: '#7f8996', bg: '#151618' }
+    { id: 'classic', name: 'Green', light: '#ebecd0', dark: '#749454' },
+    { id: 'ocean', name: 'Blue', light: '#e4e9f0', dark: '#6485a8' },
+    { id: 'walnut', name: 'Wood', light: '#ead7b5', dark: '#a97a52' },
+    { id: 'graphite', name: 'Grey', light: '#dcdfe4', dark: '#7f8996' }
   ];
   const SETS = [
-    { id: 'cburnett', name: 'Classic' }, { id: 'merida', name: 'Merida' }, { id: 'celtic', name: 'Celtic' },
-    { id: 'chessnut', name: 'Chessnut' }, { id: 'kiwen-suwi', name: 'Bold' }
+    { id: 'staunty', name: 'Modern' }, { id: 'california', name: 'California' }, { id: 'mpchess', name: 'Solid' }, { id: 'cburnett', name: 'Classic' },
+    { id: 'merida', name: 'Merida' }, { id: 'chessnut', name: 'Chessnut' }, { id: 'celtic', name: 'Celtic' }, { id: 'kiwen-suwi', name: 'Bold' }
   ];
 
-  const S = { settings: Object.assign({ bot: 2, color: 'w', coach: true, pause: true, voice: false, evalbar: false, sound: true, haptics: true, movetime: 450, look: 'ocean', pieces: 'cburnett' }, store.get('settings', {})) };
-  if (!LOOKS.some((l) => l.id === S.settings.look)) S.settings.look = 'ocean';
-  if (!SETS.some((p) => p.id === S.settings.pieces)) S.settings.pieces = 'cburnett';
+  const S = { settings: Object.assign({ bot: 2, color: 'w', coach: true, pause: true, voice: false, evalbar: false, sound: true, haptics: true, movetime: 450, look: 'classic', pieces: 'staunty' }, store.get('settings', {})) };
+  // the green board and the Modern pieces became the default; switch an existing install over once
+  // (both can be changed back in Settings)
+  if (store.get('style', 0) !== 2) {
+    S.settings.look = 'classic';
+    S.settings.pieces = 'staunty';
+    try { localStorage.setItem('rw.style', '2'); localStorage.setItem('rw.settings', JSON.stringify(S.settings)); } catch (e) {}
+  }
+  if (!LOOKS.some((l) => l.id === S.settings.look)) S.settings.look = 'classic';
+  if (!SETS.some((p) => p.id === S.settings.pieces)) S.settings.pieces = 'staunty';
   if (!BOTS[S.settings.bot]) S.settings.bot = 2;
   const saveSettings = () => store.set('settings', S.settings);
 
@@ -96,9 +118,8 @@
       b.classList.toggle('on', !!s.voice);
       b.setAttribute('aria-pressed', !!s.voice);
     });
-    const look = LOOKS.find((l) => l.id === s.look);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', look.bg);
+    if (meta) meta.setAttribute('content', BG);
     try {
       // the app draws under a transparent status bar (MainActivity.java); keep its icons light
       if (Plugins.StatusBar) Plugins.StatusBar.setStyle({ style: 'DARK' }).catch(() => {});
@@ -149,7 +170,7 @@
   TABS.forEach((t) => $('#' + t).addEventListener('scroll', (e) => raise(e.currentTarget), { passive: true }));
 
   /* Touch ripples: the ink spreading from the finger that Android buttons have. */
-  const RIPPLE = '.tabnav button, .toolbar button, .icon, button.opt, .hist, .keym, .mode, .theme, .resume, .ghost, .primary, .pill, .bubble-acts button, .seg button';
+  const RIPPLE = '.tabnav button, .toolbar button, .icon, button.opt, .hist, .keym, .mode, .theme, .row, .ghost, .primary, .pill, .bubble-acts button, .seg button';
   document.addEventListener('pointerdown', (e) => {
     let el = e.target.closest && e.target.closest(RIPPLE);
     if (!el || el.disabled) return;
@@ -182,8 +203,8 @@
     sh.style.transform = '';
     sh.innerHTML = html;
     fillIcons(sh);
-    sh.scrollTop = 0;
     sc.hidden = false;
+    sh.scrollTop = 0;
     sc.onclick = (e) => { if (e.target.id === 'scrim') { closeSheet(); if (onClose) onClose(); } };
   }
   function closeSheet() {
@@ -389,26 +410,38 @@
   function renderHome(scrollToBot) {
     const s = S.settings, bot = BOTS[s.bot];
     $('#bots').innerHTML = BOTS.map((b, i) => '<button class="bot" role="radio" aria-checked="' + (i === s.bot) + '" data-i="' + i + '" aria-label="' + b.name + ', ' + eloText(i) + '"><span class="avatar">' + AV.ART[b.art] + '</span>' + b.name + '<small>' + eloText(i) + '</small></button>').join('');
-    $('#hero').style.setProperty('--hero-tint', 'color-mix(in srgb, ' + bot.hue + ' 30%, var(--panel))');
     $('#heroAv').innerHTML = AV.ART[bot.art];
     $('#heroName').textContent = bot.name;
-    $('#heroElo').textContent = 'Rated ' + eloText(s.bot);
+    $('#heroElo').textContent = eloText(s.bot);
     $('#botLine').textContent = '“' + bot.line + '”';
     $$('#colorSeg button').forEach((b) => b.setAttribute('aria-checked', b.dataset.v === s.color));
     $('#playSub').textContent = 'vs ' + bot.name + ' · ' + (s.color === 'r' ? 'random color' : 'as ' + (s.color === 'w' ? 'White' : 'Black'));
     const lv = myLevel();
     $('#lvlChip').hidden = !lv;
-    if (lv) {
-      $('#lvlChip').textContent = '≈ ' + lv.elo;
-      $('#homeHello').textContent = 'You are playing at about ' + lv.elo;
-      $('#homeMsg').textContent = 'That is my estimate from your last ' + plural(lv.n, 'reviewed game') + '. Pick an opponent near that level for a fair fight.';
-    }
+    if (lv) $('#lvlChip').textContent = '≈ ' + lv.elo;
     const sv = store.get('game', null);
     const ok = !!(sv && sv.sans && sv.sans.length && BOTS[sv.bot]);
     $('#resumeBtn').hidden = !ok;
     if (ok) {
       $('#resumeInfo').textContent = 'vs ' + BOTS[sv.bot].name + ' · move ' + (Math.floor(sv.sans.length / 2) + 1);
       $('#resumeBoard').innerHTML = miniBoard(finalFen(sv), sv.user);
+    }
+    $('#resumeRows').hidden = !ok;
+    // shortcuts: today's puzzle, and the last game played
+    const d = PZ.dailyInfo();
+    $('#dailyRow').hidden = !d;
+    if (d) {
+      $('#dailyBoard').innerHTML = miniBoard(d.fen, d.orient);
+      $('#dailyInfo').textContent = d.done ? 'Solved today' + (d.streak > 1 ? ' · ' + d.streak + ' day streak' : '')
+        : (d.orient === 'w' ? 'White' : 'Black') + ' to move' + (d.streak > 0 ? ' · ' + d.streak + ' day streak' : '');
+    }
+    const lastG = history()[0];
+    $('#lastRow').hidden = !lastG;
+    if (lastG) {
+      const lb = BOTS[lastG.bot] || BOTS[0];
+      $('#lastBoard').innerHTML = miniBoard(finalFen(lastG), lastG.user);
+      $('#lastInfo').textContent = (lastG.outcome === 'win' ? 'Won' : lastG.outcome === 'loss' ? 'Lost' : 'Drew') + ' vs ' + lb.name +
+        (lastG.acc != null ? ' · accuracy ' + lastG.acc.toFixed(1) : ' · ' + plural(Math.ceil(lastG.sans.length / 2), 'move'));
     }
     $('#homeStats').innerHTML = statsHtml();
     if (scrollToBot !== false) {
@@ -423,12 +456,23 @@
     saveSettings();
     buzz(6);
     renderHome(false);
-    setAv($('#homeAv'), 'happy');
   };
   $('#colorSeg').onclick = (e) => { const b = e.target.closest('button'); if (b) { S.settings.color = b.dataset.v; saveSettings(); renderHome(false); } };
   $('#playBtn').onclick = () => newGame();
   $('#resumeBtn').onclick = () => resumeGame();
+  $('#dailyRow').onclick = () => PZ.open('daily');
+  $('#lastRow').onclick = () => { const x = history()[0]; if (x) openHistory(x, 'home'); };
   $('#pgnBtn').onclick = () => pgnSheet();
+
+  /* Open a finished game from the history in the review. */
+  function openHistory(x, back) {
+    const bi = BOTS[x.bot] ? x.bot : 0;
+    const c = new Chess();
+    for (const s of x.sans) if (!c.move(s)) break;
+    const names = x.user === 'w' ? { w: 'You', b: BOTS[bi].name } : { w: BOTS[bi].name, b: 'You' };
+    const avatars = x.user === 'w' ? { w: AV.you(), b: botArt(bi) } : { w: botArt(bi), b: AV.you() };
+    startReview({ id: x.id, moves: c.history({ verbose: true }), user: x.user, names, coachNames: names, avatars, result: x.result, back });
+  }
 
   /* ---------- games tab ---------- */
   function renderGames() {
@@ -443,18 +487,11 @@
       const b = BOTS[x.bot] || BOTS[0];
       const label = x.outcome === 'win' ? 'Won' : x.outcome === 'loss' ? 'Lost' : 'Draw';
       return '<button class="card hist" data-i="' + i + '"><span class="mini-wrap">' + miniBoard(finalFen(x), x.user) + '<span class="avatar">' + AV.ART[b.art] + '</span></span>' +
-        '<span class="txt"><b>vs ' + b.name + ' <span class="dim">' + b.elo + '</span></b><small>' + esc(x.opening || 'As ' + (x.user === 'w' ? 'White' : 'Black')) + '</small><small>' +
+        '<span class="txt"><b>' + b.name + ' <span class="dim">(' + b.elo + ')</span></b><small>' + esc(x.opening || 'As ' + (x.user === 'w' ? 'White' : 'Black')) + '</small><small>' +
         dateText(x.date) + ' · ' + plural(Math.ceil(x.sans.length / 2), 'move') + '</small></span>' +
         '<span class="side"><span class="res ' + x.outcome + '">' + label + '</span>' + (x.acc != null ? '<em>' + x.acc.toFixed(1) + '</em>' : '<em class="dim">Review</em>') + '</span></button>';
     }).join('');
-    $$('#gameList .hist').forEach((el) => (el.onclick = () => {
-      const x = h[+el.dataset.i], bi = BOTS[x.bot] ? x.bot : 0;
-      const c = new Chess();
-      for (const s of x.sans) if (!c.move(s)) break;
-      const names = x.user === 'w' ? { w: 'You', b: BOTS[bi].name } : { w: BOTS[bi].name, b: 'You' };
-      const avatars = x.user === 'w' ? { w: AV.you(), b: botArt(bi) } : { w: botArt(bi), b: AV.you() };
-      startReview({ id: x.id, moves: c.history({ verbose: true }), user: x.user, names, coachNames: names, avatars, result: x.result, back: 'games' });
-    }));
+    $$('#gameList .hist').forEach((el) => (el.onclick = () => openHistory(h[+el.dataset.i], 'games')));
   }
 
   /* ---------- settings ---------- */
@@ -537,11 +574,48 @@
       '<p><b>Puzzles</b> From the Lichess puzzle database (database.lichess.org), made from real games by lichess.org and its players, CC0.</p>' +
       '<p><b>Piece sounds</b> Chess Console Sounds by Stefan Haack (shaack.com), CC BY 4.0. Levels adjusted and clips trimmed.</p>' +
       '<p><b>Bell sounds</b> Bell dings by PWL on OpenGameArt, CC0.</p>' +
-      '<p><b>Pieces</b> Classic: Colin M.L. Burnett, GPLv2+. Merida: Armando Hernandez Marroquin, GPLv2+. Celtic: Maurizio Monge, MIT. Chessnut: Alexis Luengas, Apache 2.0. Bold (kiwen-suwi): neverRare, CC BY 4.0. All taken from the lichess-org/lila collection.</p>' +
-      '<p><b>Fonts</b> Inter (The Inter Project Authors) and Bricolage Grotesque (The Bricolage Grotesque Project Authors), SIL Open Font License 1.1.</p>' +
-      '<p><b>Characters</b> The owl coach, the opponents and the board looks are original to Rookwise.</p>' +
+      '<p><b>Pieces</b> Modern (staunty): sadsnake1, CC BY-NC-SA 4.0. California: Jerry S., CC BY-NC-SA 4.0. Solid (mpchess): Maxime Chupin, GPLv3+. Classic: Colin M.L. Burnett, GPLv2+. Merida: Armando Hernandez Marroquin, GPLv2+. Chessnut: Alexis Luengas, Apache 2.0. Celtic: Maurizio Monge, MIT. Bold (kiwen-suwi): neverRare, CC BY 4.0. All taken unchanged from the lichess-org/lila collection.</p>' +
+      '<p><b>Pictures</b> The opponents and the coach are Fluent Emoji by Microsoft, MIT licence.</p>' +
+      '<p><b>Icons</b> Material Design Icons by Pictogrammers, Apache 2.0.</p>' +
+      '<p><b>Font</b> Roboto (The Roboto Project Authors), SIL Open Font License 1.1.</p>' +
       '</div><button class="primary" id="cDone">Back</button>');
     $('#cDone').onclick = back;
+  }
+
+  /* ---------- the coach explains a move in full ----------
+     j: a graded move (from live play or a review). o: {user, names, orient, takeback}. */
+  function explainSheet(j, o) {
+    const ex = C.explain(j, o.user, o.names);
+    const mine = !!o.user && j.color === o.user;
+    const who = mine ? 'You' : (o.names && o.names[j.color]) || (j.color === 'w' ? 'White' : 'Black');
+    const pct = (x) => Math.round(Math.max(0, Math.min(100, x))) + '%';
+    const evChip = (ev) => { const t = U.evalText(ev); return t ? '<em' + (U.winPct(ev) >= 50 ? ' class="w"' : '') + '>' + esc(t) + '</em>' : '<em></em>'; };
+    const bad = R.BAD.includes(j.cls);
+    let h = '<div class="exp-head">' + tagHtml(j.cls) + '<div><b>' + esc(ex.title) + '</b><small>Move ' + (Math.floor(j.ply / 2) + 1) + ' · ' + esc(who) + ', playing ' + (j.color === 'w' ? 'White' : 'Black') + '</small></div></div>' +
+      '<p class="exp-text">' + esc(ex.text) + '</p>' +
+      '<div class="exp-board"><div class="board" id="xBoard"></div></div>' +
+      '<p class="fine exp-key">' + (ex.best ? '<i class="k-good"></i>Best: ' + esc(ex.best.san) + '<i class="k-' + (bad ? 'bad' : 'ok') + '"></i>Played: ' + esc(j.san) : '<i class="k-good"></i>' + esc(j.san) + ' was the best move') + '</p>' +
+      '<div class="cmp">' +
+      '<div class="cmp-row"><small>Played</small><span><b>' + esc(j.san) + '</b><span class="ln">' + esc(ex.played.lineText) + '</span></span>' + evChip(j.evAfter) + '</div>' +
+      (ex.best ? '<div class="cmp-row"><small>Best</small><span><b>' + esc(ex.best.san) + '</b><span class="ln">' + esc(ex.best.lineText) + '</span></span>' + evChip(j.evBefore) + '</div>' : '') +
+      '</div>' +
+      '<div class="meter-row"><div class="lbl"><span>' + (mine ? 'Your' : esc(who) + (who.endsWith('s') ? '\'' : '\'s')) + ' winning chances</span><b>' + pct(j.wpB) + ' → ' + pct(j.wpA) + '</b></div>' +
+      '<div class="meter"><i style="width:' + pct(j.wpA) + '"></i></div>' +
+      '<div class="lbl"><span>Before: ' + ex.stand.before + '</span><span>After: ' + ex.stand.after + '</span></div></div>';
+    if (ex.points.length) h += '<ul class="points">' + ex.points.map((p) => '<li' + (p.bad ? ' class="bad"' : '') + '>' + esc(p.text) + '</li>').join('') + '</ul>';
+    if (ex.tip) h += '<div class="exp-tip"><b>Tip.</b> ' + esc(ex.tip) + '</div>';
+    h += o.takeback ? '<div class="row2"><button class="ghost" id="xClose">Close</button><button class="primary" id="xBack">Take back</button></div>' : '<button class="primary" id="xClose">Got it</button>';
+    sheet(h);
+    // the position before the move, with the move played and the better one
+    const xb = new RW.Board($('#xBoard'));
+    xb.setOrientation(o.orient || o.user || 'w');
+    xb.setPosition(new Chess(j.fenBefore), null, false);
+    const arrows = [{ from: j.from, to: j.to, kind: ex.best ? (bad ? 'bad' : 'ok') : 'good' }];
+    if (ex.best) arrows.push({ from: ex.best.from, to: ex.best.to, kind: 'good' });
+    xb.setArrows(arrows);
+    $('#xClose').onclick = closeSheet;
+    if ($('#xBack')) $('#xBack').onclick = () => { closeSheet(); takeback(); };
+    Voice.stop();
   }
 
   /* ---------- game ---------- */
@@ -633,8 +707,28 @@
     const set = (id, ic, label) => ($(id).innerHTML = '<span>' + icon(ic) + '</span>' + label);
     if (g.over) { set('#resignBtn', 'home', 'Menu'); set('#undoBtn', 'again', 'Rematch'); set('#hintBtn', 'chart', 'Review'); }
     else { set('#resignBtn', 'flag', 'Resign'); set('#undoBtn', 'undo', 'Take back'); set('#hintBtn', 'bulb', 'Hint'); }
+    set('#explainBtn', 'info', 'Explain');
+    syncExplain();
     if (!g.over) store.set('game', { sans: g.chess.history(), user: g.user, bot: g.botIdx, id: g.id, fen: g.chess.fen() });
     fit();
+  }
+  /* The last of the player's moves the coach has graded, or null. */
+  function lastJudged() {
+    if (!G) return null;
+    const ks = Object.keys(G.judged).map(Number);
+    return ks.length ? G.judged[Math.max.apply(null, ks)] : null;
+  }
+  function syncExplain() {
+    const b = $('#explainBtn');
+    b.hidden = !S.settings.coach;
+    b.disabled = !lastJudged();
+  }
+  function explainLast() {
+    const g = G, j = lastJudged();
+    if (!j) return;
+    // taking back is offered while that move is still the player's latest
+    const n = g.chess.history().length;
+    explainSheet(j, { user: g.user, names: g.names, orient: gBoard.orient, takeback: !g.over && j.ply >= n - 2 });
   }
   function flipGame() {
     gBoard.setOrientation(U.other(gBoard.orient));
@@ -719,6 +813,7 @@
           const j = Object.assign({}, mv, R.judgeMove({ fenBefore, move: mv, evBefore: evB, evAfter: evA, sans, prev }),
             { ply, fenBefore, fenAfter: g.chess.fen(), evBefore: evB, evAfter: evA, prev, all: h });
           g.judged[ply] = j;
+          syncExplain();
           g.lastAfter = g.lastEv = evA;
           g.lastOpening = j.opening;
           const ex = C.explain(j, g.user, g.names);
@@ -811,6 +906,7 @@
     if (g.resume) { const r = g.resume; g.resume = null; r(); }
     const n = g.chess.history().length;
     Object.keys(g.judged).forEach((k) => { if (+k >= n) delete g.judged[k]; });
+    syncExplain();
     g.lastAfter = null;
     g.badge = null;
     g.streak = 0;
@@ -888,6 +984,9 @@
   $('#gameSettings').onclick = () => settingsSheet();
   $('#undoBtn').onclick = () => (G.over ? newGame() : takeback());
   $('#hintBtn').onclick = () => (G.over ? reviewCurrent() : hint());
+  $('#explainBtn').onclick = explainLast;
+  // tapping the coach's comment opens the full explanation too
+  $('#gBubble').onclick = (e) => { if (!e.target.closest('button') && lastJudged() && S.settings.coach) explainLast(); };
   $('#resignBtn').onclick = () => {
     if (G.over) return show('home');
     sheet('<h3>Resign this game?</h3><p class="sub">You can still review it afterwards.</p><div class="row2"><button class="ghost" id="rNo">Keep playing</button><button class="primary" id="rYes">Resign</button></div>');
@@ -959,6 +1058,11 @@
   }
 
   /* The coach bubble above the review board. */
+  $('#rBubble').onclick = (e) => {
+    const rv = RV;
+    if (e.target.closest('button') || !rv || !rv.data || rv.mode !== 'move' || rv.ply < 1) return;
+    explainSheet(rv.data.moves[rv.ply - 1], { user: rv.src.user, names: rv.src.coachNames, orient: rv.orient });
+  };
   function rSay(o, ev, acts) {
     $('#rEvChip').textContent = ev ? U.evalText(ev) : '';
     $('#rTitle').innerHTML = tagHtml(o.cls) + esc(o.title || '');
@@ -1045,7 +1149,7 @@
       const mine = sd[u];
       const worst = d.moves.filter((m) => m.color === u && ['blunder', 'miss', 'mistake'].includes(m.cls)).sort((a, b) => b.loss - a.loss)[0];
       const bestM = d.moves.find((m) => m.color === u && (m.cls === 'brilliant' || m.cls === 'great'));
-      head = mine.elo ? 'You played like a ' + mine.elo + ' this game' : 'Your accuracy was ' + fmt(mine.acc);
+      head = mine.elo ? 'You played like ' + (/^(8|11|18)/.test(String(mine.elo)) ? 'an ' : 'a ') + mine.elo + ' this game' : 'Your accuracy was ' + fmt(mine.acc);
       mood = mine.acc >= 85 ? 'excited' : mine.acc >= 70 ? 'happy' : 'thinking';
       msg = (mine.acc >= 90 ? 'Very clean chess.' : mine.acc >= 80 ? 'A solid game.' : mine.acc >= 65 ? 'Some good ideas, with a few costly slips.' : 'A rough one, but there is plenty to learn from it.') +
         (worst ? ' The moment to study is move ' + (Math.floor(worst.ply / 2) + 1) + ', ' + worst.san + '.' : ' No serious mistakes from you.') +
@@ -1059,12 +1163,15 @@
     const phase = (p) => '<div class="tr"><span class="v">' + grade(sd.w.phases[p].grade) + '</span><span class="k">' + cap(p) + '</span><span class="v">' + grade(sd.b.phases[p].grade) + '</span></div>';
     const keys = keyMoments(d, u);
     const focus = u ? C.focus(d.moves, u, src.coachNames) : null;
+    const outcome = !u || !src.result ? null : src.result === '1/2-1/2' ? 'draw' : (src.result === '1-0') === (u === 'w') ? 'win' : 'loss';
+    const notes = u ? C.report(d, u, src.coachNames, outcome) : [];
     const who = (c) => '<div class="who"><span class="avatar lg">' + src.avatars[c] + '</span><b>' + esc(src.names[c]) + '</b><span class="accbox ' + c + '">' + fmt(sd[c].acc) + '</span></div>';
     $('#revSummary').innerHTML =
       '<div class="coach"><span class="coach-av">' + C.avatar(mood) + '</span><div class="bubble"><div class="bubble-body"><b>' + esc(head) + '</b><p>' + esc(msg) + '</p></div></div></div>' +
       '<div class="card sumhead">' + who('w') + '<div class="mid"><b>' + esc((src.result || '–').replace('1/2-1/2', '½–½').replace('-', '–')) + '</b><small>Accuracy</small></div>' + who('b') + '</div>' +
       '<div class="graph tall" id="sGraph">' + graphSvg(d) + '</div>' +
       '<button class="primary big" id="sStart">Start Review</button>' +
+      (notes.length ? '<h2>Coach\'s notes</h2><div class="card notes">' + notes.map((n) => '<div class="note-row"><u class="c-' + n.cls + '"></u><p>' + esc(n.text) + '</p></div>').join('') + '</div>' : '') +
       (focus ? '<div class="card focus"><span class="fi">' + icon('bulb') + '</span><div><b>Next game: ' + esc(focus.title.toLowerCase()) + '</b><p>' + esc(focus.text) + '</p></div></div>' : '') +
       (keys.length ? '<h2>Key moments</h2><div class="keys">' + keys.map((m) => '<button class="card keym" data-ply="' + (m.ply + 1) + '"><u class="c-' + m.cls + '">' + R.CLS[m.cls].sym + '</u><span><b>' + moveNo(m) + ' ' + esc(m.san) + '</b><small>' +
         esc(R.CLS[m.cls].label + ' by ' + (u && m.color === u ? 'you' : src.names[m.color])) + '</small></span><span class="chev">' + icon('next') + '</span></button>').join('') + '</div>' : '') +
@@ -1104,7 +1211,7 @@
       rBoard.setPosition(new Chess(d.fens[p - 1]), d.moves[p - 2] || null, false);
       rBoard.setBadge(null);
       rBoard.setArrows([{ from: m.best.slice(0, 2), to: m.best.slice(2, 4) }]);
-      ex = C.explainBest(m);
+      ex = C.explainBest(m, u, names);
       ev = d.evals[p - 1];
       if (ex.line && ex.line.length > 1) acts = [{ label: 'Play it out', fn: playLine }];
     } else if (rv.mode === 'retry' && canImprove(m)) {
@@ -1122,6 +1229,7 @@
       rBoard.setPosition(new Chess(d.fens[p]), m, animate);
       rBoard.setArrows([]);
       rBoard.setBadge(m ? { sq: m.to, cls: m.cls } : null);
+      if (m) acts = [{ label: 'Explain', alt: true, fn: () => explainSheet(m, { user: u, names, orient: rv.orient }) }];
       ex = m ? C.explain(m, u, names) : { title: 'Starting position', mood: 'neutral', text: (d.opening ? 'This game was a ' + d.opening + '. ' : '') + 'Use the arrows to step through, or jump straight to the key moves.' };
       ev = d.evals[p];
     }
@@ -1172,18 +1280,7 @@
   }
 
   /* "12. Nf3 Nc6 13. Bb5" for a line that starts from fen. */
-  function lineText(fen, sans) {
-    const f = fen.split(' ');
-    let no = +f[5] || 1, white = f[1] === 'w', out = '';
-    sans.forEach((s, i) => {
-      if (white) out += no + '. ';
-      else if (i === 0) out += no + '... ';
-      out += s + ' ';
-      if (!white) no++;
-      white = !white;
-    });
-    return out.trim();
-  }
+  const lineText = C.lineText;
   function playLine() {
     const rv = RV, d = rv.data, p = rv.ply, m = d.moves[p - 1];
     stopLine();
@@ -1288,7 +1385,6 @@
 
   window.__rw = { get G() { return G; }, get RV() { return RV; }, engine, newGame, startReview, go, S, BOTS, fit, show, PZ };
   applySettings();
-  setAv($('#homeAv'), 'happy');
   setAv($('#gAv'), 'neutral');
   setAv($('#rAv'), 'neutral');
   show('home');

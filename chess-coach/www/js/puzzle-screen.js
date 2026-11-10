@@ -393,19 +393,7 @@
       board.setPosition(S.chess, lastMove(), false);
     }
 
-    /* "23. Qxg2# 24. Kh1" from fen. */
-    function lineText(fen, sans) {
-      const f = fen.split(' ');
-      let no = +f[5] || 1, white = f[1] === 'w', out = '';
-      sans.forEach((s, i) => {
-        if (white) out += no + '. ';
-        else if (i === 0) out += no + '... ';
-        out += s + ' ';
-        if (!white) no++;
-        white = !white;
-      });
-      return out.trim();
-    }
+    const lineText = RW.Coach.lineText;
 
     /* ---------- Puzzle Rush ---------- */
     const clock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -491,7 +479,6 @@
     function render() {
       const r = rating();
       const tried = st.n;
-      $('#pzLvl').textContent = r;
       const pct = tried ? Math.round((100 * st.ok) / tried) + '%' : '–';
       let spark = '';
       const hs = st.hist.slice(-30);
@@ -506,7 +493,7 @@
       $('#pzHero').innerHTML =
         '<div class="pzh-top"><div class="pzrate"><small>Puzzle rating</small><b>' + r + '</b>' +
         (st.last != null ? '<em class="' + (st.last >= 0 ? 'up' : 'down') + '">' + (st.last >= 0 ? '▲ ' : '▼ ') + Math.abs(st.last) + '</em>' : '<em class="dim">' + (st.rating == null ? 'Your starting rating' : '') + '</em>') +
-        '</div><span class="pzart">' + icon('puzzle') + '</span></div>' + spark +
+        '</div></div>' + spark +
         '<div class="pzstats"><div class="stat"><b>' + st.ok + '</b><small>Solved</small></div><div class="stat"><b>' + pct + '</b><small>Success</small></div><div class="stat"><b>' + st.streak + '</b><small>Streak' + (st.best > st.streak ? ' · best ' + st.best : '') + '</small></div></div>' +
         '<button class="primary big" id="pzGo"><span>' + (tried ? 'Solve puzzles' : 'Start solving') + '</span><small>Rated · puzzles around ' + r + '</small></button>';
       $('#pzModes').innerHTML =
@@ -529,6 +516,12 @@
     $('#pzSettings').onclick = () => A.settingsSheet();
     document.addEventListener('visibilitychange', () => { if (rush && !rush.over) rush.last = performance.now(); });
 
-    return { render, back, open, get state() { return S; }, get rush() { return rush; }, stats: st };
+    /* For the Play tab's shortcut: today's puzzle as it stands when it is your move. */
+    function dailyInfo() {
+      const p = P.daily(P.today());
+      return p ? { fen: after1(p), orient: P.solverColor(p), done: dailyDone(), streak: dailyStreak() } : null;
+    }
+
+    return { render, back, open, dailyInfo, get state() { return S; }, get rush() { return rush; }, stats: st };
   };
 })(window);

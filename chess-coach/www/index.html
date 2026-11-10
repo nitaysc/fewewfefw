@@ -4,18 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
 <!--head-->
-<title>Rookwise Chess Coach</title>
+<title>Rookwise</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#14171d">
+<meta name="theme-color" content="#2c2b28">
 <link rel="stylesheet" href="css/piece-previews.css">
-<link rel="stylesheet" id="pieceCss" href="css/pieces-cburnett.css">
+<link rel="stylesheet" id="pieceCss" href="css/pieces-staunty.css">
 <link rel="stylesheet" href="css/app.css">
 <script>
 // apply the saved look and piece set before the first paint
 try {
   var saved = JSON.parse(localStorage.getItem('rw.settings') || '{}');
-  if (saved.look) document.documentElement.setAttribute('data-look', saved.look);
-  if (saved.pieces) document.getElementById('pieceCss').href = 'css/pieces-' + saved.pieces + '.css';
+  if (localStorage.getItem('rw.style') === '2') {
+    if (saved.look) document.documentElement.setAttribute('data-look', saved.look);
+    if (saved.pieces) document.getElementById('pieceCss').href = 'css/pieces-' + saved.pieces + '.css';
+  }
 } catch (e) {}
 // The Android app draws edge to edge and tells the page how big the status and navigation bars are
 // (MainActivity.java). The last sizes are kept so the first paint already leaves room for them.
@@ -45,27 +47,23 @@ try {
       <span class="lvl" id="lvlChip" hidden></span>
     </header>
 
-    <div class="coach hello">
-      <span class="coach-av" id="homeAv"></span>
-      <div class="bubble"><div class="bubble-body"><b id="homeHello">Ready for a game?</b><p id="homeMsg">Pick an opponent. I'll coach you as you play, then we review the game together.</p></div></div>
+    <div class="rows" id="resumeRows">
+      <button class="row" id="resumeBtn" hidden>
+        <span class="mini-wrap" id="resumeBoard"></span>
+        <span class="row-txt"><b>Continue your game</b><small id="resumeInfo"></small></span>
+        <span class="chev" data-ic="next"></span>
+      </button>
     </div>
-
-    <button class="card resume" id="resumeBtn" hidden>
-      <span class="mini-wrap" id="resumeBoard"></span>
-      <span class="resume-txt"><small>Unfinished game</small><b>Continue your game</b><span id="resumeInfo"></span></span>
-      <span class="chev" data-ic="next"></span>
-    </button>
 
     <section class="card hero" id="hero">
       <div class="hero-top">
         <span class="avatar xl" id="heroAv"></span>
         <div class="hero-id">
-          <small>Opponent</small>
           <b id="heroName"></b>
           <span class="elo" id="heroElo"></span>
+          <p class="quote" id="botLine"></p>
         </div>
       </div>
-      <p class="quote" id="botLine"></p>
       <div class="carousel" id="bots" role="radiogroup" aria-label="Opponent"></div>
       <div class="seg" id="colorSeg" role="radiogroup" aria-label="Your color">
         <button data-v="w" role="radio"><span class="pc wk"></span>White</button>
@@ -73,6 +71,19 @@ try {
         <button data-v="b" role="radio"><span class="pc bk"></span>Black</button>
       </div>
     </section>
+
+    <div class="rows" id="homeRows">
+      <button class="row" id="dailyRow">
+        <span class="mini-wrap" id="dailyBoard"></span>
+        <span class="row-txt"><b>Daily Puzzle</b><small id="dailyInfo"></small></span>
+        <span class="chev" data-ic="next"></span>
+      </button>
+      <button class="row" id="lastRow" hidden>
+        <span class="mini-wrap" id="lastBoard"></span>
+        <span class="row-txt"><b>Review your last game</b><small id="lastInfo"></small></span>
+        <span class="chev" data-ic="next"></span>
+      </button>
+    </div>
 
     <section class="card stats" id="homeStats"></section>
 
@@ -83,13 +94,12 @@ try {
   <section class="screen tab" id="puzzles" hidden>
     <header class="topbar">
       <h1>Puzzles</h1>
-      <span class="lvl" id="pzLvl"></span>
     </header>
     <section class="card pzhero" id="pzHero"></section>
     <div class="pzmodes" id="pzModes"></div>
     <h2>Practice a theme</h2>
     <div class="themes" id="pzThemes"></div>
-    <p class="fine pzfoot">Puzzles from real games, from the Lichess puzzle database.</p>
+    <div class="pzfoot"></div>
   </section>
 
   <!-- Games tab -->
@@ -145,6 +155,7 @@ try {
     <nav class="toolbar">
       <button id="resignBtn"></button>
       <button id="undoBtn"></button>
+      <button id="explainBtn"></button>
       <button id="hintBtn"></button>
     </nav>
   </section>

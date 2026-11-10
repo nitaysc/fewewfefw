@@ -13,9 +13,12 @@ an AI. Each project has its own notes:
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `chess-coach/README.md`: Rookwise, chess against Stockfish with a live coach and game
-  review. Its look, name, coach and opponents are its own on purpose; do not copy an existing
-  chess site's artwork, logo, characters or sounds (the "Tournament" look is a generic green
-  board, which is fine). Phone portrait only. Its android/ folder began as a copy of
+  review. The owner wants it to feel like the big chess apps (green board, bold modern pieces,
+  flat grey interface, green buttons), and that is how it is styled, but with openly licensed
+  art only: do not copy an existing chess site's artwork, logo, characters or sounds. Pieces come
+  from the lichess collection (default "Modern" = staunty, non-commercial licence), pictures from
+  Fluent Emoji, icons from Material Design Icons. Do not go back to pictures drawn in code; the
+  owner found those looked AI-made. Phone portrait only. Its android/ folder began as a copy of
   putt-party's; `npm test` checks the app name, id and orientation so that cannot regress.
   Board squares use the classes sq/dot/ring/hint/warn/last/sel; never reuse those names elsewhere.
   It has a Puzzles tab (Lichess CC0 puzzles: rated, Puzzle Rush, daily, themes). The board's size

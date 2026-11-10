@@ -186,16 +186,75 @@ assert(Coach.focus([], 'w').title, 'a clean game still gets a line');
 const best = Coach.explainBest(j);
 assert(best.title.includes('Nxc7+') && best.line[0] === 'Nxc7+');
 
-// ---------- the coach's face ----------
-const faces = MOODS.map((m) => Coach.avatar(m));
-assert.strictEqual(new Set(faces).size, MOODS.length, 'each mood draws a different face');
-for (const f of faces) assert(f.startsWith('<svg') && f.endsWith('</svg>') && !/\d\.\d00\b|NaN|undefined/.test(f), 'well-formed avatar');
+// ---------- the coach's picture ----------
+assert(/^<img src="img\/av\/coach\.webp"/.test(Coach.avatar('happy')), 'the coach has a picture');
+assert(require('fs').existsSync(path.join(__dirname, '../www/img/av/coach.webp')), 'and the file is there');
 
 // ---------- speech ----------
 assert.strictEqual(Voice.speakable('Nxf3+ was best'), 'knight takes F 3, check was best');
 assert.strictEqual(Voice.speakable('O-O-O'), 'castles queenside');
 assert.strictEqual(Voice.speakable('e8=Q#'), 'E 8 promotes to queen, checkmate');
 assert.strictEqual(Voice.speakable('Good move.'), 'Good move.', 'ordinary words are left alone');
+
+// ---------- the long explanation ----------
+// French Defense, 3. Ba6: the bishop can be taken, and the engine's dxe4 (hitting the knight too) is even stronger
+const french = 'rnbqkbnr/ppp2ppp/4p3/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3';
+const frenchReply = ['d5e4', 'a6e2', 'e4f3', 'e2f3'];
+let afterBa6 = new Chess(french);
+afterBa6.move('Ba6');
+assert.strictEqual(Coach.lineSwing(afterBa6.fen(), frenchReply, 'w', 1), -3, 'a piece that falls after a quiet in-between move is counted');
+j = judge(french, 'Ba6', ev(20, 'e4e5', ['e4e5', 'c7c5', 'c2c3']), { cp: -670, best: 'd5e4', pv: frenchReply });
+let long = Coach.explain(j, 'w');
+assert.strictEqual(long.motif, 'hung-piece', 'the coach says the bishop hangs, not just that a pawn drops');
+assert(/bishop/.test(long.reason) && /a6/.test(long.reason), long.reason);
+assert(long.points.length >= 3 && long.points.some((p) => p.bad) && long.points.some((p) => !p.bad), 'reasons for and against');
+assert(long.points.some((p) => /down a piece/.test(p.text)), 'the cost is spelled out');
+assert.strictEqual(long.best.san, 'e5');
+assert.deepStrictEqual([long.best.from, long.best.to], ['e4', 'e5']);
+assert.strictEqual(long.best.lineText, '3. e5 c5 4. c3');
+assert.strictEqual(long.played.lineText, '3. Ba6 dxe4 4. Be2 exf3 5. Bxf3');
+assert.strictEqual(long.stand.before, 'about level');
+assert.strictEqual(long.stand.after, 'losing');
+assert(!/undefined|NaN|null/.test(JSON.stringify(long)), 'clean long explanation');
+// a good move has no bad points, and no "best" when it was the best
+j = judge(french, 'e5', ev(20, 'e4e5', ['e4e5', 'c7c5', 'c2c3']), { cp: 22, best: 'c7c5', pv: ['c7c5', 'c2c3'] });
+long = Coach.explain(j, 'w');
+assert(long.points.length >= 1 && !long.points.some((p) => p.bad) && long.best === null);
+// move numbers, starting with either side
+assert.strictEqual(Coach.lineText(START, ['e4', 'e5', 'Nf3']), '1. e4 e5 2. Nf3');
+assert.strictEqual(Coach.lineText(e4e5.replace(' w ', ' b '), ['Nc6', 'Nf3']), '2... Nc6 3. Nf3');
+assert.strictEqual(Coach.standWords(50), 'about level');
+assert.strictEqual(Coach.standWords(95), 'winning');
+// a pawn pushed in front of the castled king is named as the problem
+const castled = 'r2q1rk1/ppp1bppp/2np1n2/4p3/2B1P1b1/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 8';
+j = judge(castled, 'g3', ev(20, 'h2h3', ['h2h3', 'g4h5', 'c1e3']), { cp: -60, best: 'a7a6', pv: ['a7a6', 'c1e3', 'f8e8'] });
+assert.strictEqual(Coach.explain(j, 'w').motif, 'king-shelter');
+// a line that stops in the middle of an exchange is not read as a lost piece
+assert.strictEqual(Coach.lineSwing(START, ['e2e4', 'd7d5', 'e4d5'], 'w', 1), 0, 'pawn takes, queen takes back');
+assert.strictEqual(Coach.lineSwing(START, ['e2e4', 'd7d5', 'e4d5', 'd8d5'], 'w', 1), 0);
+// quiet pawn moves get a reason of their own
+const italian = 'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4';
+assert.strictEqual(Coach.idea(italian, new Chess(italian).move('c3'), 6, null).key, 'prepare');
+assert.strictEqual(Coach.idea(castled, new Chess(castled).move('h3'), 14, null).key, 'attack', 'h3 hits the bishop first of all');
+// the written report: needs a few moves, and is clean text
+assert.deepStrictEqual(Coach.report({ moves: [], sides: {} }, 'w', null, 'win'), []);
+const gameMoves = [];
+const gc = new Chess();
+['e4', 'e6', 'Nf3', 'd5', 'Ba6', 'dxe4', 'Be2', 'exf3', 'Bxf3', 'Nf6'].forEach((san, i) => {
+  const fenB = gc.fen();
+  const mv = gc.move(san);
+  const white = i % 2 === 0;
+  const drop = san === 'Ba6';
+  const evB = ev(drop || i > 4 ? (i > 4 ? -670 : 20) : 20, drop ? 'e4e5' : mv.from + mv.to, drop ? ['e4e5', 'c7c5', 'c2c3'] : [mv.from + mv.to]);
+  const evA = { cp: i >= 4 ? -670 : 20, best: 'a7a6', pv: drop ? frenchReply : ['a7a6'] };
+  const jj = Review.judgeMove({ fenBefore: fenB, move: mv, evBefore: evB, evAfter: evA, sans: [], prev: gameMoves[i - 1] || null });
+  gameMoves.push(Object.assign({}, mv, jj, { ply: i, phase: 'opening', fenBefore: fenB, fenAfter: gc.fen(), evBefore: evB, evAfter: evA, prev: gameMoves[i - 1] || null, all: gameMoves }));
+});
+const phases = { opening: { acc: 60 }, middlegame: { acc: null }, endgame: { acc: null } };
+const rep = Coach.report({ moves: gameMoves, sides: { w: { phases }, b: { phases } }, opening: 'French Defense' }, 'w', null, 'loss');
+assert(rep.length >= 2 && rep.every((r) => r.cls && r.text && !/undefined|NaN|null/.test(r.text)), 'a clean report');
+assert(rep.some((r) => /Ba6/.test(r.text)), 'the report names the turning point');
+assert(rep.some((r) => /French Defense/.test(r.text)), 'and the opening');
 
 // ---------- saved reviews ----------
 const packed = Review.pack([{ cp: 31, best: 'e2e4', pv: ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1b5', 'a7a6', 'b5a4', 'g8f6', 'e1g1', 'f8e7'], lines: [{ cp: 31, pv: ['e2e4'] }, { cp: 25, pv: ['d2d4'] }], depth: 14 },

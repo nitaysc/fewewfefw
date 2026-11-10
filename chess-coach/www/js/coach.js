@@ -20,24 +20,55 @@
     return { you: false, subj: n, Subj: n, poss: n + "'s", are: n + ' is', Are: n + ' is', s: 's', opp: o, oppPoss: o === 'you' ? 'your' : o + "'s" };
   }
 
-  /* Play a line and report the material change for pov. Plays at least `min` plies,
-     then keeps going while the line keeps capturing. */
+  /* Play a line and report the material change for pov. Plays at least `min` plies, then keeps going
+     while the line keeps capturing. One quiet move in between (a piece stepping away, say) does not end
+     it, so material that falls a move later is still counted. */
   function lineSwing(fen, pv, pov, min) {
     const c = new g.Chess(fen);
     const start = U.balance(c, pov);
-    let i = 0;
-    for (const u of pv || []) {
+    const bal = [], cap = [], pos = [];
+    for (const u of (pv || []).slice(0, 12)) {
       const m = c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
       if (!m) break;
-      i++;
-      if (i >= min) {
-        const next = pv[i];
-        if (!next) break;
-        if (!c.get(next.slice(2, 4)) && !next[4]) break;
-      }
-      if (i >= 10) break;
+      bal.push(U.balance(c, pov));
+      cap.push(!!m.captured || !!m.promotion);
+      pos.push({ fen: c.fen(), to: m.to });
     }
-    return U.balance(c, pov) - start;
+    if (!bal.length) return 0;
+    let n = Math.min(Math.max(min, 1), bal.length);
+    while (n < bal.length && (cap[n] || (n + 1 < bal.length && cap[n + 1]))) n++;
+    let swing = bal[n - 1] - start;
+    // the line may stop in the middle of an exchange: allow for the recapture it would go on with
+    if (cap[n - 1] && n === bal.length) {
+      const end = new g.Chess(pos[n - 1].fen);
+      const b = U.flat(end), sq = U.idx(pos[n - 1].to), side = end.turn();
+      let back = 0;
+      for (const a of U.attackersOf(b, sq, side)) if (b[a].type !== 'k' || !U.attackersOf(b, sq, U.other(side)).length) back = Math.max(back, U.see(b, a, sq));
+      swing += side === pov ? back : -back;
+    }
+    return swing;
+  }
+
+  const uciMove = (u) => ({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
+  const DOWN = (n) => (n >= 8 ? 'a queen' : n >= 5 ? 'a rook' : n >= 3 ? 'a piece' : n >= 2 ? 'material' : 'a pawn');
+
+  /* "12... Qxb4 13. Nc3 Qxb2" for SAN moves played from fen. */
+  function lineText(fen, sans) {
+    const f = fen.split(' ');
+    let no = +f[5] || 1, white = f[1] === 'w', out = '';
+    sans.forEach((san, i) => {
+      if (white) out += no + '. ';
+      else if (i === 0) out += no + '... ';
+      out += san + ' ';
+      if (!white) no++;
+      white = !white;
+    });
+    return out.trim();
+  }
+
+  /* How a position stands for one side, from its win chance, in a few plain words. */
+  function standWords(wp) {
+    return wp >= 90 ? 'winning' : wp >= 72 ? 'clearly better' : wp >= 58 ? 'a little better' : wp > 42 ? 'about level' : wp > 28 ? 'a little worse' : wp > 10 ? 'clearly worse' : 'losing';
   }
 
   /* What does this move do? Returns {key, text}: a category and a short phrase
@@ -137,7 +168,7 @@
     const homeRank = me === 'w' ? '1' : '8';
     if (ply < 24 && (move.piece === 'n' || move.piece === 'b') && move.from[1] === homeRank) {
       if (move.piece === 'b' && ['g2', 'b2', 'g7', 'b7'].includes(move.to)) return R('develop', 'putting the bishop on the long diagonal');
-      return R('develop', 'developing the ' + piece + ' toward the center');
+      return R('develop', 'developing the ' + piece + ('cdef'.includes(move.to[0]) ? ' toward the center' : ''));
     }
     if (move.piece === 'p' && ply < 16 && ['d4', 'e4', 'd5', 'e5', 'c4', 'c5'].includes(move.to)) return R('center', 'taking space in the center');
     if (move.piece === 'r') {
@@ -150,6 +181,33 @@
     if (move.piece === 'p') {
       const rank = +move.to[1];
       if ((me === 'w' && rank >= 6) || (me === 'b' && rank <= 3)) return R('push', 'pushing the pawn closer to promotion');
+      const mine = (sq) => { const p = b2[U.idx(sq)]; return !!p && p.color === me && p.type === 'p'; };
+      // a pawn lever: the pawn now attacks one of their pawns
+      const dir = me === 'w' ? -1 : 1;
+      for (const df of [-1, 1]) {
+        const tr = (to >> 3) + dir, tf = (to & 7) + df;
+        if (tr < 0 || tr > 7 || tf < 0 || tf > 7) continue;
+        const p = b2[tr * 8 + tf];
+        if (p && p.color === them && p.type === 'p') return R('break', 'challenging the pawn on ' + U.sqName(tr * 8 + tf));
+      }
+      if (ply < 24) {
+        // backing up the center, or getting ready to push there
+        const prep = me === 'w' ? { c3: 'd4', e3: 'd4', d3: 'e4' } : { c6: 'd5', e6: 'd5', d6: 'e5' };
+        const t = prep[move.to];
+        if (t && mine(t)) return R('prepare', 'supporting the pawn on ' + t);
+        if (t && !b2[U.idx(t)] && (mine(t[0] + (me === 'w' ? '2' : '7')) || mine(t[0] + (me === 'w' ? '3' : '6')))) return R('prepare', 'getting ready to push ' + t);
+        // room for a bishop on the long diagonal
+        const fian = me === 'w' ? { g3: 'f1', b3: 'c1' } : { g6: 'f8', b6: 'c8' };
+        const home = fian[move.to];
+        if (home && b2[U.idx(home)] && b2[U.idx(home)].type === 'b' && b2[U.idx(home)].color === me) {
+          return R('prepare', 'making room for the bishop on ' + move.to[0] + (me === 'w' ? '2' : '7'));
+        }
+      }
+      // a rook pawn's small step next to the castled king
+      const kSq = U.sqName(b2.findIndex((p) => p && p.type === 'k' && p.color === me));
+      if ((move.to === (me === 'w' ? 'h3' : 'h6') && ['g', 'h'].includes(kSq[0])) || (move.to === (me === 'w' ? 'a3' : 'a6') && ['a', 'b', 'c'].includes(kSq[0]))) {
+        if (kSq[1] === (me === 'w' ? '1' : '8')) return R('luft', 'giving the king an escape square and keeping pieces off ' + (move.to[0] === 'h' ? 'g' : 'b') + (me === 'w' ? '4' : '5'));
+      }
       return R('improve', (me === 'w' ? rank >= 5 : rank <= 4) ? 'gaining space with the pawn' : 'making a useful pawn move');
     }
     if (move.piece === 'k') return R('king', U.pieceCount(after) <= 6 ? 'bringing the king into the fight' : 'stepping the king to a safer square');
@@ -180,7 +238,10 @@
     'principle-queen': 'In the opening, bring out knights and bishops before the queen.',
     'principle-tempo': 'In the opening, try to move each piece once and get everyone out.',
     'principle-king': 'Castle early so the king is not stuck in the middle.',
-    'principle-rim': 'Knights are strongest near the center, where they reach the most squares.'
+    'principle-rim': 'Knights are strongest near the center, where they reach the most squares.',
+    'king-shelter': 'Think twice before pushing the pawns in front of your castled king.',
+    'trade-behind': 'When you are behind, avoid even trades and keep the game complicated.',
+    passive: 'Put your pieces where they attack something or control the center.'
   };
 
   const MOOD = { brilliant: 'excited', great: 'happy', best: 'happy', excellent: 'happy', good: 'neutral', book: 'neutral', forced: 'neutral', inaccuracy: 'thinking', mistake: 'worried', miss: 'worried', blunder: 'shocked' };
@@ -210,10 +271,89 @@
     return null;
   }
 
+  /* Longer-term drawbacks of a move that no tactic explains: [{motif, text}], the most telling first.
+     board, bAfter: the position before and after; reply: the opponent's best answer, if known. */
+  function drawbacks(j, v, board, bAfter, reply) {
+    const out = [];
+    const me = j.color, them = U.other(me);
+    const from = U.idx(j.from), to = U.idx(j.to);
+    const home = me === 'w' ? 7 : 0;
+    const quiet = !j.captured && !j.san.includes('+');
+    const kIdx = board.findIndex((p) => p && p.type === 'k' && p.color === me);
+    const theirQueen = board.some((p) => p && p.type === 'q' && p.color === them);
+    // a pawn in front of the castled king steps forward
+    if (j.piece === 'p' && quiet && theirQueen && j.ply >= 10 && kIdx >= 0 && (kIdx >> 3) === home && ((kIdx & 7) >= 5 || (kIdx & 7) <= 2)) {
+      const step = me === 'w' ? -1 : 1;
+      if ((from >> 3) === home + step && Math.abs((from & 7) - (kIdx & 7)) <= 1) {
+        out.push({ motif: 'king-shelter', text: 'It loosens the pawns in front of ' + v.poss + ' king, and pawns cannot move back.' });
+      }
+    }
+    // an even trade while behind
+    if (j.captured && j.piece !== 'p' && j.piece !== 'k' && VAL[j.captured] === VAL[j.piece] && U.balance(new g.Chess(j.fenBefore), me) <= -2) {
+      out.push({ motif: 'trade-behind', text: 'Trading pieces while behind in material makes ' + v.oppPoss + ' job easier. The side that is behind wants to keep pieces on the board.' });
+    }
+    // a piece retreats to the back rank with nothing chasing it
+    if ('nbq'.includes(j.piece) && quiet && (to >> 3) === home && (from >> 3) !== home && j.ply < 60) {
+      const chased = U.attackersOf(board, from, them).some((a) => U.see(board, a, from) > 0);
+      if (!chased) out.push({ motif: 'passive', text: 'The ' + NAME[j.piece] + ' retreats to the back rank, where it does very little.' });
+    }
+    // doubled pawns from a capture
+    if (j.piece === 'p' && j.captured) {
+      const f = to & 7;
+      let n = 0;
+      for (let r = 0; r < 8; r++) { const p = bAfter[r * 8 + f]; if (p && p.type === 'p' && p.color === me) n++; }
+      if (n >= 2) out.push({ motif: 'doubled', text: 'It leaves ' + v.poss + ' pawns doubled on the ' + j.to[0] + '-file.' });
+    }
+    // the reply does something concrete
+    if (reply) {
+      const ri = idea(j.fenAfter, reply, j.ply + 1, j);
+      if (['attack', 'fork', 'pin', 'skewer', 'check', 'disc-check', 'discovered', 'threat-mate', 'seventh', 'open-file', 'push', 'win-pawn', 'win-material', 'free-piece'].includes(ri.key)) {
+        out.push({ motif: 'lets-reply', text: 'It lets ' + v.opp + ' play ' + reply.san + ', ' + ri.text + '.' });
+      }
+    }
+    return out;
+  }
+
+  /* A threat against the mover that this move takes care of, as a sentence, or ''. */
+  function parried(j, board, bAfter, what) {
+    const me = j.color;
+    const pass = U.passFen(j.fenBefore);
+    if (pass) {
+      const mate = U.mateInOne(pass);
+      if (mate && !U.mateInOne(j.fenAfter)) return 'It also stops the threat of ' + mate.san + '.';
+    }
+    const before = U.hanging(board, me).filter((h) => h.gain >= 2);
+    if (!before.length) return '';
+    const after = U.hanging(bAfter, me);
+    const self = before.find((h) => h.sq === j.from);
+    if (self && what.key !== 'escape' && !after.some((x) => x.sq === j.to)) return 'It also gets the ' + NAME[self.type] + ' out of danger.';
+    const other = before.find((h) => h.sq !== j.from && !after.some((x) => x.sq === h.sq));
+    const still = other && bAfter[U.idx(other.sq)];
+    if (other && what.key !== 'defend' && still && still.color === me) return 'It also takes care of the ' + NAME[other.type] + ' on ' + other.sq + ', which was under attack.';
+    return '';
+  }
+
+  /* What the mover is aiming for next, read from the engine's line after the move, or ''. */
+  function followUp(j, v) {
+    const pv = j.evAfter && j.evAfter.pv;
+    if (!pv || pv.length < 2) return '';
+    const c = new g.Chess(j.fenAfter);
+    const r = c.move(uciMove(pv[0]));
+    if (!r) return '';
+    const mid = c.fen();
+    const n = c.move(uciMove(pv[1]));
+    if (!n) return '';
+    const ni = idea(mid, n, j.ply + 2, r);
+    if (!['mate', 'fork', 'pin', 'skewer', 'free-piece', 'win-material', 'disc-check', 'discovered', 'threat-mate', 'promote'].includes(ni.key)) return '';
+    return 'If ' + r.san + ', ' + (v.you ? 'you have ' : v.subj + ' has ') + n.san + ', ' + ni.text + '.';
+  }
+
   /* Build the coach's comment for a graded move.
      j: the move merged with Review.judgeMove's result, plus fenBefore, fenAfter, evBefore, evAfter,
         prev (the move before) and optionally all (the full list of moves so far).
-     Returns {title, text, cls, mood, motif, tip}. */
+     Returns {title, text, cls, mood, motif, tip} for the short comment, plus the long version shown when
+     the player asks for an explanation: points [{text, bad}], best {san, from, to, lineText} or null,
+     played {san, lineText}, stand {before, after} and reason. */
   function explain(j, userColor, names) {
     const v = voice(j.color, userColor, names);
     const cls = RW.Review.CLS[j.cls];
@@ -222,6 +362,7 @@
     const me = j.color;
     const what = idea(j.fenBefore, j, j.ply, j.prev);
     const out = { cls: j.cls, mood: MOOD[j.cls] || 'neutral', motif: null, tip: '' };
+    const X = { reason: '', reply: null, playedSwing: 0 };
     out.title = j.san.includes('#') ? j.san + ' is checkmate' : j.san + ' is ' + cls.phrase;
 
     let bestMove = null, bestIdea = null;
@@ -302,6 +443,9 @@
             reason = guarded ? cap(v.poss) + ' ' + mover + ' is attacked more times than it is defended on ' + j.to + ', so ' + reply.san + ' wins material.'
               : pick(['That leaves ' + v.poss + ' ' + mover + ' on ' + j.to + ' hanging. ' + reply.san + ' simply takes it.',
                 cap(v.poss) + ' ' + mover + ' has no protection on ' + j.to + ', and ' + reply.san + ' wins it.'], 9);
+          } else if (j.piece !== 'p' && U.hanging(bAfter, me).some((h) => h.sq === j.to && h.gain >= 2)) {
+            out.motif = 'hung-piece';
+            reason = cap(v.poss) + ' ' + mover + ' can simply be taken on ' + j.to + '. ' + reply.san + ' first is even stronger for ' + v.opp + '.';
           } else if (reply.captured) {
             const lost = NAME[reply.captured], sq = reply.to;
             const wasHanging = U.hanging(board, me).some((h) => h.sq === sq);
@@ -337,7 +481,9 @@
           stand = true;
         } else {
           const p = principle(j, v, board);
+          const d = p ? null : drawbacks(j, v, board, bAfter, reply)[0];
           if (p) { out.motif = p.motif; reason = p.text; }
+          else if (d) { out.motif = d.motif; reason = d.text; }
           else {
             out.motif = 'positional';
             reason = j.cls === 'inaccuracy' ? 'It is playable, but it lets some of the advantage slip.'
@@ -349,24 +495,69 @@
         out.text = lead + ' ' + reason + better + (stand ? ' ' + standing(j.wpA, v) : '');
         if (v.you && j.cls !== 'inaccuracy' && TIPS[out.motif]) out.tip = TIPS[out.motif];
         else if (v.you && TIPS[out.motif] && out.motif.startsWith('principle')) out.tip = TIPS[out.motif];
+        X.reason = reason;
+        X.reply = reply;
+        X.playedSwing = playedSwing;
       }
     }
+
+    // ----- the long version, shown when the player asks the coach to explain -----
+    const good = !RW.Review.BAD.includes(j.cls);
+    const over = j.san.includes('#');
+    const boardB = U.flat(new g.Chess(j.fenBefore)), boardA = U.flat(new g.Chess(j.fenAfter));
+    const replyLine = !over && j.evAfter && j.evAfter.pv ? U.pvToSan(j.fenAfter, j.evAfter.pv, 4) : [];
+    const bestLine = j.evBefore && j.evBefore.pv ? U.pvToSan(j.fenBefore, j.evBefore.pv, 5) : [];
+    const pts = [];
+    const add = (text, bad) => { if (text && !pts.some((p) => p.text === text)) pts.push({ text, bad: !!bad }); };
+    if (j.cls === 'forced') add('It was the only legal move.');
+    else if (good) add(v.Are + ' ' + what.text + '.');
+    else if (what.key !== 'improve') add('The idea of ' + j.san + ' was ' + what.text + '.');
+    if (good) {
+      const par = parried(j, boardB, boardA, what), next = over ? '' : followUp(j, v);
+      // the short comment gets the most useful of the two as well
+      if (['best', 'great', 'excellent', 'good'].includes(j.cls) && !over && (par || next)) out.text += ' ' + (par || next);
+      add(par);
+      add(next);
+      if (j.captured && j.piece !== 'p' && VAL[j.captured] === VAL[j.piece] && U.balance(new g.Chess(j.fenBefore), me) >= 2) {
+        add('Trading pieces while ahead in material is the simple way to bring the win home.');
+      }
+      if (bestMove && j.bestSan && j.cls !== 'book') add('The engine\'s first choice was ' + j.bestSan + ', ' + bestIdea.text + ', but the difference is small.');
+      if (replyLine.length) add('The game could go on ' + lineText(j.fenAfter, replyLine) + '.');
+    } else {
+      add(X.reason, true);
+      if (replyLine.length) {
+        add('The strongest answer is ' + lineText(j.fenAfter, replyLine) + (X.playedSwing <= -1 ? ', and that leaves ' + (v.you ? 'you' : v.subj) + ' down ' + DOWN(-X.playedSwing) : '') + '.', true);
+      }
+      for (const d of drawbacks(j, v, boardB, boardA, X.reply)) {
+        if (d.motif === 'lets-reply' && X.reply && X.reason.includes(X.reply.san)) continue;
+        add(d.text, true);
+      }
+      if (bestMove && j.bestSan) add('Best was ' + j.bestSan + ', ' + bestIdea.text + '.' + (bestLine.length > 1 ? ' It could go ' + lineText(j.fenBefore, bestLine) + '.' : ''));
+    }
+    out.reason = X.reason;
+    out.points = pts;
+    out.best = bestMove && j.bestSan ? { san: j.bestSan, from: bestMove.from, to: bestMove.to, lineText: lineText(j.fenBefore, bestLine) } : null;
+    out.played = { san: j.san, lineText: lineText(j.fenBefore, [j.san].concat(replyLine)) };
+    out.stand = { before: standWords(j.wpB), after: standWords(j.wpA) };
     return out;
   }
 
   /* Follow-up when the player asks to see the best move. */
-  function explainBest(j) {
+  function explainBest(j, userColor, names) {
     const none = { title: 'No better move found', text: '', cls: null, mood: 'neutral', line: [] };
     if (!j.best) return none;
     const c = new g.Chess(j.fenBefore);
     const m = c.move({ from: j.best.slice(0, 2), to: j.best.slice(2, 4), promotion: j.best[4] });
     if (!m) return none;
+    const v = voice(j.color, userColor, names);
     const line = U.pvToSan(j.fenBefore, j.evBefore.pv, 6);
     const what = idea(j.fenBefore, m, j.ply, j.prev);
-    return {
-      title: m.san + ' was best', cls: 'best', mood: 'happy', line,
-      text: cap(what.text) + ' was the idea.' + (line.length > 1 ? ' A likely continuation is ' + line.join(' ') + '.' : '')
-    };
+    let text = cap(what.text) + ' was the idea.' + (line.length > 1 ? ' A likely continuation is ' + lineText(j.fenBefore, line) + '.' : '');
+    if (j.wpB != null && j.wpA != null) {
+      const a = standWords(j.wpB), b = standWords(j.wpA);
+      if (a !== b) text += ' That would have left ' + (v.you ? 'you' : v.subj) + ' ' + a + ' instead of ' + b + '.';
+    }
+    return { title: m.san + ' was best', cls: 'best', mood: 'happy', line, text };
   }
 
   /* One sentence about the opponent's reply, for live play. */
@@ -458,7 +649,10 @@
     seventh: 'A rook deep in their position causes trouble.',
     push: 'You have a pawn that wants to run.',
     king: 'Think about your king.',
-    improve: 'Which of your pieces is doing the least? Find it a better square.'
+    improve: 'Which of your pieces is doing the least? Find it a better square.',
+    break: 'One of your pawns can challenge theirs. Which pawn move opens the position for you?',
+    prepare: 'A quiet pawn move sets up your next step in the center.',
+    luft: 'Is your king short of air? A small pawn move can fix that.'
   };
   function hint(fen, bestUci, ply, prev, stage) {
     const c = new g.Chess(fen);
@@ -490,7 +684,7 @@
     for (const m of moves) {
       if (m.color !== userColor || !['mistake', 'miss', 'blunder', 'inaccuracy'].includes(m.cls)) continue;
       const ex = explain(m, userColor, names);
-      if (!ex.motif || ex.motif === 'positional') continue;
+      if (!ex.motif || ['positional', 'doubled', 'lets-reply'].includes(ex.motif)) continue;
       const key = ex.motif.startsWith('principle') ? 'principle' : ['hung-other', 'ignored-threat', 'hung-pawn'].includes(ex.motif) ? 'hung-piece' : ex.motif === 'missed-capture' ? 'missed-tactic' : ex.motif;
       tally[key] = (tally[key] || 0) + (m.cls === 'inaccuracy' || ex.motif === 'hung-pawn' ? 0.5 : 1);
       n++;
@@ -504,47 +698,66 @@
       'missed-tactic': ['Hunt for loose pieces', 'You passed up a chance to win material ' + times(top) + '. Each move, scan for their undefended pieces first.'],
       'allowed-mate': ['Guard your king', 'Your king got caught ' + times(top) + '. When things heat up, give it an escape square.'],
       'missed-mate': ['Finish the game', 'There was a forced checkmate you did not play. When their king is exposed, calculate every check.'],
-      principle: ['Opening basics', 'In the opening: bring out knights and bishops, castle, and leave the queen at home until later.']
+      principle: ['Opening basics', 'In the opening: bring out knights and bishops, castle, and leave the queen at home until later.'],
+      'king-shelter': ['Keep your king covered', 'You pushed pawns in front of your castled king ' + times(top) + '. Leave them where they are unless you have to move one.'],
+      'trade-behind': ['Keep pieces on when behind', 'You traded pieces while behind in material ' + times(top) + '. Trades help the side that is ahead.'],
+      passive: ['Keep your pieces active', 'A piece went back to a passive square ' + times(top) + '. Look for squares where each piece attacks something.']
     };
     return { title: T[top][0], text: T[top][1] };
   }
 
-  /* The coach's face. An original owl; the expression follows the mood. */
-  function avatar(mood) {
-    const ink = '#14171d';
-    let eyes, extra = '';
-    const pupils = (x1, y1, x2, y2, r) => '<circle cx="' + x1 + '" cy="' + y1 + '" r="' + r + '" fill="' + ink + '"/><circle cx="' + x2 + '" cy="' + y2 + '" r="' + r + '" fill="' + ink + '"/>' +
-      '<circle cx="' + (x1 + 1.3) + '" cy="' + (y1 - 1.4) + '" r="' + (r * 0.32).toFixed(2) + '" fill="#fff"/><circle cx="' + (x2 + 1.3) + '" cy="' + (y2 - 1.4) + '" r="' + (r * 0.32).toFixed(2) + '" fill="#fff"/>';
-    const brow = (d) => '<path d="' + d + '" stroke="' + ink + '" stroke-width="2.4" stroke-linecap="round" fill="none"/>';
-    let beak = '<path fill="#f3b33d" d="M32 34l-3.5 4.5L32 43l3.5-4.5z"/>';
-    switch (mood) {
-      case 'happy':
-        eyes = brow('M18 32q5-7 10 0') + brow('M36 32q5-7 10 0');
-        break;
-      case 'excited':
-        eyes = pupils(24, 30, 40, 30, 5);
-        extra = '<path fill="#f3b33d" d="M56 6l1.4 3.6L61 11l-3.6 1.4L56 16l-1.4-3.6L51 11l3.6-1.4zM7 9l1 2.5L10.5 12.5 8 13.5 7 16l-1-2.5L3.5 12.5 6 11.5z"/>';
-        beak = '<path fill="#f3b33d" d="M32 34l-4 4 4 6 4-6z"/><path fill="#a8651a" d="M29.5 39.5h5L32 43.5z"/>';
-        break;
-      case 'thinking':
-        eyes = pupils(26, 28, 42, 28, 3.6) + brow('M36 19l10-2.5');
-        extra = '<circle cx="55" cy="14" r="2.2" fill="#bfe6dd"/><circle cx="59" cy="8" r="3" fill="#bfe6dd"/>';
-        break;
-      case 'worried':
-        eyes = pupils(23.5, 32.5, 40.5, 32.5, 3.2) + brow('M15 22l11-4') + brow('M49 22l-11-4');
-        break;
-      case 'shocked':
-        eyes = pupils(23, 30, 41, 30, 2.4) + brow('M16 18.5l9-1.5') + brow('M48 18.5l-9-1.5');
-        beak = '<path fill="#f3b33d" d="M32 33.5l-4 4.5 4 7 4-7z"/><ellipse cx="32" cy="40.5" rx="1.8" ry="2.6" fill="#7a3d10"/>';
-        extra = '<path fill="#9ad8f0" d="M54 20c2 3 3 4.6 3 6a3 3 0 01-6 0c0-1.4 1-3 3-6z"/>';
-        break;
-      default:
-        eyes = pupils(24, 31, 40, 31, 4);
+  /* A short written report on the coached side's game, for the review summary.
+     d: the analysed game (Review.analyzeGame); outcome: 'win', 'loss', 'draw' or null. Returns [{cls, text}]. */
+  function report(d, userColor, names, outcome) {
+    const u = userColor, out = [];
+    const mine = u ? d.moves.filter((m) => m.color === u) : [];
+    if (mine.length < 3) return out;
+    const num = (m) => Math.floor(m.ply / 2) + 1;
+    const no = (m) => num(m) + (m.color === 'w' ? '. ' : '... ') + m.san;
+    const times = (c) => (c === 1 ? 'once' : c === 2 ? 'twice' : c + ' times');
+    const book = mine.filter((m) => m.cls === 'book').length;
+    if (d.opening) out.push({ cls: 'book', text: 'Opening: ' + d.opening + '.' + (book >= 2 ? ' You stayed in known theory for ' + book + ' moves.' : '') });
+    const star = mine.find((m) => m.cls === 'brilliant') || mine.find((m) => m.cls === 'great');
+    if (star) out.push({ cls: star.cls, text: 'Your best moment was ' + no(star) + (star.cls === 'brilliant' ? ', a sacrifice that works.' : ', the only move that kept things on track.') });
+    const bad = mine.filter((m) => ['blunder', 'miss', 'mistake'].includes(m.cls)).sort((a, b) => b.loss - a.loss);
+    if (bad.length) {
+      const ex = explain(bad[0], u, names);
+      out.push({ cls: bad[0].cls, text: 'The biggest swing was ' + no(bad[0]) + '. ' + ex.reason });
     }
-    return ('<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#2c8c84" d="M13 14l9 6h20l9-6-3 14c3 4 4 8 4 13 0 12-9 19-20 19S12 53 12 41c0-5 1-9 4-13z"/>' +
-      '<ellipse cx="32" cy="46" rx="11" ry="10" fill="#bfe6dd"/><circle cx="23" cy="30" r="9" fill="#fff"/><circle cx="41" cy="30" r="9" fill="#fff"/>' +
-      eyes + beak + '<path fill="#f3b33d" d="M22 60h7v-3h-5zM35 57v3h7l-2-3z"/>' + extra + '</svg>');
+    // how the lead went
+    const firstWin = mine.find((m) => m.wpA >= 85), firstLost = mine.find((m) => m.wpA <= 15);
+    if (outcome === 'win' && firstLost) out.push({ cls: 'great', text: 'You were in real trouble around move ' + num(firstLost) + ' and still turned it around.' });
+    else if (outcome === 'win' && firstWin && !mine.some((m) => m.ply > firstWin.ply && m.wpA < 60)) out.push({ cls: 'best', text: 'You were winning from move ' + num(firstWin) + ' and never let go.' });
+    else if (outcome && outcome !== 'win' && firstWin) {
+      const slip = mine.find((m) => m.ply > firstWin.ply && m.wpA < 55 && m.loss >= 10);
+      out.push({ cls: 'miss', text: 'You had a winning position by move ' + num(firstWin) + (slip ? ', and it slipped away with ' + no(slip) + '.' : ', but could not bring it home.') });
+    }
+    // material lost and chances missed
+    let hung = 0, missed = 0;
+    for (const m of mine) {
+      if (!RW.Review.BAD.includes(m.cls)) continue;
+      const mo = explain(m, u, names).motif;
+      if (['hung-piece', 'hung-other', 'ignored-threat', 'allowed-tactic', 'allowed-mate'].includes(mo)) hung++;
+      if (['missed-tactic', 'missed-capture', 'missed-mate'].includes(mo)) missed++;
+    }
+    if (hung) out.push({ cls: 'blunder', text: 'You lost material or allowed a mating attack ' + times(hung) + '.' });
+    if (missed) out.push({ cls: 'miss', text: 'You passed up a chance to win material or give mate ' + times(missed) + '.' });
+    if (!hung && !missed && !bad.length) out.push({ cls: 'best', text: 'Nothing lost to tactics and no serious mistakes. A clean game.' });
+    // strongest and weakest phase
+    const ph = d.sides[u].phases;
+    const have = ['opening', 'middlegame', 'endgame'].filter((k) => ph[k].acc != null && mine.filter((m) => m.phase === k).length >= 4)
+      .sort((a, b) => ph[a].acc - ph[b].acc);
+    if (have.length >= 2) {
+      const lo = have[0], hi = have[have.length - 1];
+      if (ph[hi].acc - ph[lo].acc >= 8) out.push({ cls: 'inaccuracy', text: 'Your ' + hi + ' was your strongest phase (accuracy ' + ph[hi].acc.toFixed(0) + ') and your ' + lo + ' the weakest (' + ph[lo].acc.toFixed(0) + ').' });
+    }
+    return out;
   }
 
-  RW.Coach = { explain, explainBest, describe, idea, lineSwing, voice, opponentNote, threats, hint, retry, focus, avatar, TIPS };
+  /* The coach's picture (an owl, from tools/make_avatars.py). The mood is shown by the comment itself. */
+  function avatar() {
+    return '<img src="img/av/coach.webp" alt="" draggable="false">';
+  }
+
+  RW.Coach = { explain, explainBest, describe, idea, lineSwing, lineText, standWords, drawbacks, voice, opponentNote, threats, hint, retry, focus, report, avatar, TIPS };
 })(typeof window !== 'undefined' ? window : globalThis);
