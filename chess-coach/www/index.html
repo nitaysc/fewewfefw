@@ -7,64 +7,94 @@
 <title>Rookwise Chess Coach</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#14171d">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="css/pieces.css">
+<link rel="stylesheet" href="css/piece-previews.css">
+<link rel="stylesheet" id="pieceCss" href="css/pieces-cburnett.css">
 <link rel="stylesheet" href="css/app.css">
+<script>
+// apply the saved look and piece set before the first paint
+try {
+  var saved = JSON.parse(localStorage.getItem('rw.settings') || '{}');
+  if (saved.look) document.documentElement.setAttribute('data-look', saved.look);
+  if (saved.pieces) document.getElementById('pieceCss').href = 'css/pieces-' + saved.pieces + '.css';
+} catch (e) {}
+</script>
 <!--/head-->
 </head>
 <body>
 <!--body-->
 <div id="app">
 
-  <!-- Home -->
-  <section class="screen" id="home">
-    <header class="brand">
+  <!-- Play tab -->
+  <section class="screen tab" id="home">
+    <header class="topbar">
       <span class="mark" data-art="mark"></span>
       <h1>Rookwise</h1>
       <span class="lvl" id="lvlChip" hidden></span>
     </header>
 
-    <div class="coach">
-      <span class="coach-av" data-art="coach"></span>
-      <div class="bubble"><b id="homeHello">Ready for a game?</b><p id="homeMsg">Pick an opponent. I'll comment on your moves as you play, then we review the whole game together.</p></div>
+    <div class="coach hello">
+      <span class="coach-av" id="homeAv"></span>
+      <div class="bubble"><div class="bubble-body"><b id="homeHello">Ready for a game?</b><p id="homeMsg">Pick an opponent. I'll coach you as you play, then we review the game together.</p></div></div>
     </div>
 
-    <button class="resume" id="resumeBtn" hidden><span>Continue your game</span><small id="resumeInfo"></small></button>
+    <button class="card resume" id="resumeBtn" hidden>
+      <span class="mini-wrap" id="resumeBoard"></span>
+      <span class="resume-txt"><small>Unfinished game</small><b>Continue your game</b><span id="resumeInfo"></span></span>
+      <span class="chev" data-ic="next"></span>
+    </button>
 
-    <h2>Opponent</h2>
-    <div class="bots" id="bots" role="radiogroup" aria-label="Opponent strength"></div>
-
-    <h2>Play as</h2>
-    <div class="seg" id="colorSeg" role="radiogroup" aria-label="Your color">
-      <button data-v="w"><span class="pc wk"></span>White</button>
-      <button data-v="r"><span class="dice">?</span>Random</button>
-      <button data-v="b"><span class="pc bk"></span>Black</button>
-    </div>
-
-    <h2>Options</h2>
-    <div class="opts">
-      <label class="opt"><span><b>Coach comments</b><small>Feedback after each of your moves</small></span><input type="checkbox" id="optCoach"></label>
-      <label class="opt"><span><b>Evaluation bar</b><small>Show who is ahead while you play</small></span><input type="checkbox" id="optEval"></label>
-      <label class="opt"><span><b>Sound</b><small>Move and capture sounds</small></span><input type="checkbox" id="optSound"></label>
-      <div class="opt"><span><b>Review depth</b><small>Deeper is more accurate but slower</small></span>
-        <div class="seg small" id="depthSeg"><button data-v="200">Fast</button><button data-v="450">Normal</button><button data-v="1200">Deep</button></div>
+    <section class="card hero" id="hero">
+      <div class="hero-top">
+        <span class="avatar xl" id="heroAv"></span>
+        <div class="hero-id">
+          <small>Opponent</small>
+          <b id="heroName"></b>
+          <span class="elo" id="heroElo"></span>
+        </div>
       </div>
-    </div>
+      <p class="quote" id="botLine"></p>
+      <div class="carousel" id="bots" role="radiogroup" aria-label="Opponent"></div>
+      <div class="seg" id="colorSeg" role="radiogroup" aria-label="Your color">
+        <button data-v="w" role="radio"><span class="pc wk"></span>White</button>
+        <button data-v="r" role="radio"><span class="dice"></span>Random</button>
+        <button data-v="b" role="radio"><span class="pc bk"></span>Black</button>
+      </div>
+    </section>
 
-    <button class="primary big" id="playBtn">Play</button>
-    <div class="row2">
-      <button class="ghost" id="historyBtn">Past games</button>
-      <button class="ghost" id="pgnBtn">Review a PGN</button>
-    </div>
-    <p class="fine">Engine: Stockfish, running on your device. Ratings shown are estimates from move quality.</p>
+    <section class="card stats" id="homeStats"></section>
+
+    <div class="cta"><button class="primary big" id="playBtn"><span>Play</span><small id="playSub"></small></button></div>
   </section>
+
+  <!-- Games tab -->
+  <section class="screen tab" id="games" hidden>
+    <header class="topbar">
+      <h1>Games</h1>
+      <button class="pill" id="pgnBtn">Import PGN</button>
+    </header>
+    <section class="card stats" id="gamesStats"></section>
+    <div class="list" id="gameList"></div>
+  </section>
+
+  <!-- Settings tab -->
+  <section class="screen tab" id="prefs" hidden>
+    <header class="topbar"><h1>Settings</h1></header>
+    <div class="prefs" id="prefsBody"></div>
+  </section>
+
+  <nav class="tabnav" id="tabnav" aria-label="Sections">
+    <button data-tab="home"><i data-ic="play"></i>Play</button>
+    <button data-tab="games"><i data-ic="games"></i>Games</button>
+    <button data-tab="prefs"><i data-ic="gear"></i>Settings</button>
+  </nav>
 
   <!-- Game -->
   <section class="screen fit" id="game" hidden>
     <header class="bar">
       <button class="icon" id="gameBack" aria-label="Back to menu" data-ic="back"></button>
       <span class="bar-title" id="gameTitle">Game</span>
-      <button class="icon" id="gameFlip" aria-label="Flip board" data-ic="flip"></button>
+      <button class="icon voice-btn" aria-label="Coach voice"></button>
+      <button class="icon" id="gameSettings" aria-label="Settings" data-ic="gear"></button>
     </header>
     <div class="player" id="gTop"></div>
     <div class="board-area">
@@ -74,15 +104,21 @@
       </div>
     </div>
     <div class="player" id="gBot"></div>
-    <div class="coach slim" id="gCoach">
-      <span class="coach-av" data-art="coach"></span>
-      <div class="bubble"><b id="gCoachTitle"></b><p id="gCoachText"></p><div class="bubble-acts" id="gCoachActs"></div></div>
+    <div class="coach slim">
+      <span class="coach-av" id="gAv"></span>
+      <div class="bubble" id="gBubble">
+        <div class="bubble-body">
+          <b id="gTitle"></b><p id="gText"></p>
+          <p class="note" id="gNote"></p><p class="warn" id="gWarn"></p><p class="tip" id="gTip"></p>
+        </div>
+        <div class="bubble-acts" id="gActs"></div>
+      </div>
     </div>
     <div class="moves" id="gMoves"></div>
-    <nav class="tabbar">
-      <button id="resignBtn"><span data-ic="flag"></span>Resign</button>
-      <button id="undoBtn"><span data-ic="undo"></span>Take back</button>
-      <button id="hintBtn"><span data-ic="bulb"></span>Hint</button>
+    <nav class="toolbar">
+      <button id="resignBtn"></button>
+      <button id="undoBtn"></button>
+      <button id="hintBtn"></button>
     </nav>
   </section>
 
@@ -91,24 +127,32 @@
     <header class="bar">
       <button class="icon" id="revBack" aria-label="Back" data-ic="back"></button>
       <span class="bar-title">Game Review</span>
+      <button class="icon voice-btn" aria-label="Coach voice"></button>
       <button class="icon" id="revSummaryBtn" aria-label="Summary" data-ic="chart"></button>
     </header>
 
     <div class="rev-pane" id="revLoading">
-      <div class="coach">
-        <span class="coach-av" data-art="coach"></span>
-        <div class="bubble"><b>Reviewing your game</b><p id="revLoadMsg">I'm checking every move with the engine.</p></div>
+      <div class="ring" id="revRing">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="60" r="52"/><circle class="val" id="revRingVal" cx="60" cy="60" r="52"/></svg>
+        <span class="coach-av" id="lAv"></span>
       </div>
-      <div class="progress"><div id="revProg"></div></div>
-      <p class="fine" id="revPct">0%</p>
+      <b class="ring-pct" id="revPctNum">0%</b>
+      <p class="ring-msg" id="revLoadMsg">I'm checking every move with the engine.</p>
+      <p class="fine" id="revPct"></p>
     </div>
 
     <div class="rev-pane scroll" id="revSummary" hidden></div>
 
     <div class="rev-pane steps" id="revSteps" hidden>
       <div class="coach slim">
-        <span class="coach-av" data-art="coach"></span>
-        <div class="bubble"><span class="ev-chip" id="rEvChip"></span><b id="rTitle"></b><p id="rText"></p></div>
+        <span class="coach-av" id="rAv"></span>
+        <div class="bubble" id="rBubble">
+          <div class="bubble-body">
+            <span class="ev-chip" id="rEvChip"></span><b id="rTitle"></b><p id="rText"></p>
+            <p class="tip" id="rTip"></p>
+          </div>
+          <div class="bubble-acts" id="rActs"></div>
+        </div>
       </div>
       <div class="board-area">
         <div class="board-row">
@@ -119,10 +163,11 @@
       <div class="graph" id="rGraph"></div>
       <div class="moves" id="rMoves"></div>
       <div class="rev-acts">
+        <button class="ghost" id="rRetry">Retry</button>
         <button class="ghost" id="rBest">Show best</button>
-        <button class="primary" id="rNextKey">Next key moment</button>
+        <button class="primary" id="rNextKey">Next key move</button>
       </div>
-      <nav class="tabbar nav5">
+      <nav class="toolbar nav5">
         <button id="rFirst" aria-label="First move" data-ic="first"></button>
         <button id="rPrev" aria-label="Previous move" data-ic="prev"></button>
         <button id="rFlip" aria-label="Flip board" data-ic="flip"></button>
@@ -144,6 +189,10 @@
 <script src="js/engine.js"></script>
 <script src="js/review.js"></script>
 <script src="js/coach.js"></script>
+<script src="js/avatars.js"></script>
+<script src="js/sounds-map.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/voice.js"></script>
 <script src="js/board.js"></script>
 <script src="js/app.js"></script>
 <!--/body-->

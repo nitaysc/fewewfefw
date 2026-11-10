@@ -14,6 +14,7 @@
       this.interactive = false;
       this.getMoves = null; // (square) => verbose legal moves
       this.onMove = null; // (from, to, promotion, dragged)
+      this.onIllegal = null; // () => void, when a dragged piece is dropped on a square it cannot go to
       el.innerHTML = '<div class="sqs"></div><svg class="arrows" viewBox="0 0 8 8"></svg><div class="pieces"></div><div class="badges"></div><div class="promo" hidden></div>';
       this.sqs = el.querySelector('.sqs');
       this.arrowsEl = el.querySelector('.arrows');
@@ -64,6 +65,9 @@
       this.sel = null;
       this.targets = [];
       this.hint = null;
+      this.warn = null;
+      this.drag = null;
+      this.promoEl.hidden = true;
       this._renderPieces(animate && move ? move : null);
       this._marks();
     }
@@ -105,12 +109,20 @@
         d.classList.toggle('sel', this.sel === k);
         d.classList.toggle('chk', this.check === k);
         d.classList.toggle('hint', this.hint === k);
+        d.classList.toggle('warn', this.warn === k);
         const t = this.targets.find((m) => m.to === k);
         d.classList.toggle('dot', !!t && !t.captured);
         d.classList.toggle('ring', !!t && !!t.captured);
       }
     }
     setHint(sq) { this.hint = sq; this._marks(); }
+    setWarn(sq) { this.warn = sq; this._marks(); }
+    /* Turn input on or off; `outline` marks the board as waiting for a move (used in review). */
+    setInteractive(on, outline) {
+      this.interactive = !!on;
+      this.el.classList.toggle('live', !!on && !!outline);
+      if (!on) { this.sel = null; this.targets = []; this._marks(); }
+    }
     setArrows(list) {
       this.arrows = list || [];
       let h = '';
@@ -178,6 +190,7 @@
       const sq = this._sqAt(e);
       if (sq && this.targets.some((m) => m.to === sq)) { this._try(d.sq, sq, true); return; }
       this._snap(d);
+      if (sq && sq !== d.sq && this.onIllegal) this.onIllegal();
     }
     _snap(d) {
       if (!d.el) return;

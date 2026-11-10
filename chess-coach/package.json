@@ -5,13 +5,15 @@
   "description": "Rookwise: play chess against an engine with a coach and full game review",
   "scripts": {
     "sync": "cap sync android",
-    "test": "node test/logic.test.js",
+    "test": "node test/logic.test.js && node test/android.test.js",
     "serve": "node tools/serve.js"
   },
   "dependencies": {
+    "@capacitor-community/text-to-speech": "^6.1.0",
     "@capacitor/android": "^7.6.10",
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6"
   },
   "devDependencies": {

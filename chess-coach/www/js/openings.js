@@ -174,9 +174,76 @@
     if (!v.name) v.name = 'Opening';
   }
 
+  // One plain sentence on what each opening family is trying to do.
+  const IDEAS = {
+    "King's Pawn Opening": 'It opens lines for the queen and bishop and claims the center.',
+    "King's Pawn Game": 'Both sides have a pawn in the center, so fast development comes next.',
+    "King's Knight Opening": 'The knight comes out with a threat against the e5 pawn.',
+    'Italian Game': 'The bishop takes aim at f7, the softest square in Black\'s camp.',
+    'Two Knights Defense': 'Black counterattacks e4 instead of defending quietly.',
+    'Ruy Lopez': 'The bishop leans on the knight that defends e5.',
+    'Scotch Game': 'White opens the center at once to free the pieces.',
+    'Scotch Gambit': 'White gives a pawn for a lead in development.',
+    'Four Knights Game': 'Calm, sound development with all four knights out.',
+    'Petrov Defense': 'Black answers the attack on e5 with a counterattack on e4.',
+    'Philidor Defense': 'Black props up e5 with a pawn: solid, if a little passive.',
+    'Vienna Game': 'White develops first and keeps the f-pawn push in reserve.',
+    "Bishop's Opening": 'The bishop goes straight to its most active diagonal.',
+    "King's Gambit": 'White offers a pawn to rip open the f-file and the center.',
+    "King's Gambit Accepted": 'Black takes the pawn and has to weather the attack.',
+    "King's Gambit Declined": 'Black declines the pawn and develops instead.',
+    'Center Game': 'White opens the center early, though the queen comes out with it.',
+    'Danish Gambit': 'White gives up pawns for open lines and fast development.',
+    'Sicilian Defense': 'Black fights for d4 from the side and gets an unbalanced game.',
+    'French Defense': 'Black builds a solid pawn chain and will hit the center with ...d5 and ...c5.',
+    'Caro-Kann Defense': 'Black prepares ...d5 while keeping the light-squared bishop free.',
+    'Scandinavian Defense': 'Black challenges e4 at once, at the cost of a little time.',
+    'Pirc Defense': 'Black lets White build a center and plans to attack it later.',
+    'Modern Defense': 'Black lets White build a center and plans to attack it later.',
+    'Alekhine Defense': 'Black tempts the pawns forward, hoping they turn into targets.',
+    "Queen's Pawn Opening": 'A center pawn that is protected by the queen from the start.',
+    "Queen's Pawn Game": 'A closed center, where plans matter more than quick tactics.',
+    "Queen's Gambit": 'White offers the c-pawn to pull Black\'s d-pawn away from the center.',
+    "Queen's Gambit Accepted": 'Black takes the pawn and gives up the center for easy development.',
+    "Queen's Gambit Declined": 'Black holds the d5 strongpoint and develops behind it.',
+    'Slav Defense': 'Black supports d5 without shutting in the light-squared bishop.',
+    'Semi-Slav Defense': 'A very solid triangle of pawns guarding d5.',
+    'London System': 'White sets up the same sturdy shape against almost anything.',
+    'Jobava London System': 'A sharper London, with the knight heading for b5.',
+    'Colle System': 'White builds quietly, aiming for a later e4 break.',
+    'Indian Defense': 'Black controls e4 with a piece instead of a pawn.',
+    "King's Indian Defense": 'Black lets White take the center, then strikes back at it.',
+    'Grünfeld Defense': 'Black hits the center with ...d5 and uses the long diagonal.',
+    'Nimzo-Indian Defense': 'The pin on the knight is a fight for the e4 square.',
+    "Queen's Indian Defense": 'The bishop on b7 will watch over e4.',
+    'Bogo-Indian Defense': 'A developing check that asks White how to block.',
+    'Catalan Opening': 'The bishop on g2 presses down the long diagonal.',
+    'Benoni Defense': 'Black accepts less space in return for active pieces.',
+    'Benko Gambit': 'Black gives a pawn for lasting pressure on the queenside files.',
+    'Budapest Gambit': 'Black gives a pawn to chase quick piece activity.',
+    'Trompowsky Attack': 'The bishop comes out early to bother the knight.',
+    'Dutch Defense': 'Black grabs e4 with the f-pawn and looks toward the kingside.',
+    'Old Benoni Defense': 'Black challenges d4 immediately.',
+    'Englund Gambit': 'A risky pawn offer that sets a few traps.',
+    'English Opening': 'White controls d5 from the side and keeps the center flexible.',
+    'Réti Opening': 'White develops first and decides on the center later.',
+    'Zukertort Opening': 'A flexible start that can become almost any queen\'s pawn opening.',
+    "King's Indian Attack": 'White builds a compact setup and attacks on the kingside later.',
+    "Bird's Opening": 'White controls e5 with the f-pawn.',
+    'Nimzowitsch-Larsen Attack': 'The bishop will go to b2 and aim down the long diagonal.',
+    "King's Fianchetto Opening": 'The bishop will go to g2 and aim down the long diagonal.',
+    'Nimzowitsch Defense': 'Black develops a knight first and keeps the pawns flexible.',
+    "Owen's Defense": 'The bishop heads for b7 to press on e4.'
+  };
+
   const clean = (san) => san.replace(/[!?]+$/, '');
   RW.Openings = {
     LINES,
+    /* What the opening is about, or '' if there is no note for it. */
+    idea(name) {
+      if (!name) return '';
+      return IDEAS[name] || IDEAS[name.split(':')[0]] || '';
+    },
     /* Is the game still in book after these SAN moves? Returns {name} or null. */
     lookup(sans) {
       if (!sans.length || sans.length > 20) return null;

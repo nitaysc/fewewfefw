@@ -72,7 +72,7 @@
       // a sound sacrifice of real material
       if (move.piece !== 'p' && move.piece !== 'k' && exchange <= -2 && wpA >= 50 && wpB <= 97 && !move.san.includes('#')) {
         cls = 'brilliant';
-      } else if (cls === 'best' && evBefore.lines && evBefore.lines.length > 1 && !recapture) {
+      } else if (cls === 'best' && evBefore.lines && evBefore.lines.length > 1 && !recapture && !move.san.includes('#')) {
         // the only move that holds the evaluation
         const second = U.povPct(evBefore.lines[1], me);
         const obviousCapture = move.captured && exchange >= 2;
@@ -136,13 +136,17 @@
       c.move({ from: m.from, to: m.to, promotion: m.promotion });
       fens.push(c.fen());
     }
-    const evals = [];
-    for (let i = 0; i < fens.length; i++) {
-      if (alive && !alive()) return null;
-      const ev = await evalPosition(engine, fens[i], { movetime: movetime || 450, depth: 18, multipv: 2 });
-      if (!ev) return null;
-      evals.push(ev);
-      if (onProgress) onProgress((i + 1) / fens.length);
+    // evaluations saved from an earlier review of the same game can be reused as they are
+    let evals = o.cached && o.cached.length === fens.length ? o.cached : null;
+    if (!evals) {
+      evals = [];
+      for (let i = 0; i < fens.length; i++) {
+        if (alive && !alive()) return null;
+        const ev = await evalPosition(engine, fens[i], { movetime: movetime || 450, depth: 18, multipv: 2 });
+        if (!ev) return null;
+        evals.push(ev);
+        if (onProgress) onProgress((i + 1) / fens.length, i, fens.length - 1);
+      }
     }
     const out = [];
     const sans = [];
@@ -154,10 +158,25 @@
       if (j.cls !== 'book') inBook = false;
       const pos = new g.Chess(fens[i]);
       const phase = i < 16 && (inBook || i < 12) ? 'opening' : U.pieceCount(pos) <= 6 ? 'endgame' : 'middlegame';
-      out.push(Object.assign({}, m, j, { ply: i, phase, fenBefore: fens[i], fenAfter: fens[i + 1], evBefore: evals[i], evAfter: evals[i + 1], prev: out[i - 1] }));
+      out.push(Object.assign({}, m, j, { ply: i, phase, fenBefore: fens[i], fenAfter: fens[i + 1], evBefore: evals[i], evAfter: evals[i + 1], prev: out[i - 1], all: out }));
     }
     return { fens, evals, moves: out, sides: summarize(out, fens), opening: RW.Openings.nameFor(moves.map((m) => m.san)) };
   }
 
-  RW.Review = { CLS, ORDER, BAD, evalPosition, judgeMove, analyzeGame, moveAccuracy, gameAccuracy, estimateElo, gradeFor };
+  /* A compact copy of the evaluations, small enough to keep in storage. */
+  function pack(evals) {
+    const trim = (l) => { const x = { pv: (l.pv || []).slice(0, 8) }; if (l.mate != null) x.mate = l.mate; else x.cp = l.cp; return x; };
+    return evals.map((e) => {
+      const x = {};
+      if (e.mate != null) x.mate = e.mate; else x.cp = e.cp;
+      if (e.won) x.won = e.won;
+      if (e.terminal) x.terminal = true;
+      if (e.best) x.best = e.best;
+      x.pv = (e.pv || []).slice(0, 8);
+      x.lines = (e.lines || []).map(trim);
+      return x;
+    });
+  }
+
+  RW.Review = { CLS, ORDER, BAD, evalPosition, judgeMove, analyzeGame, moveAccuracy, gameAccuracy, estimateElo, gradeFor, pack };
 })(typeof window !== 'undefined' ? window : globalThis);

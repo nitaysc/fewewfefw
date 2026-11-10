@@ -137,5 +137,72 @@
     return out;
   }
 
-  RW.U = { VAL, NAME, FILES, idx, sqName, other, uci, flat, attackersOf, see, balance, pieceCount, winPct, povPct, evalText, pvToSan };
+  /* Pieces of `color` that the other side can capture and come out ahead.
+     Returns [{sq, type, gain, by}] with the most valuable loss first. */
+  function hanging(b, color) {
+    const out = [];
+    const them = other(color);
+    for (let i = 0; i < 64; i++) {
+      const p = b[i];
+      if (!p || p.color !== color || p.type === 'k') continue;
+      let best = 0, by = -1;
+      for (const a of attackersOf(b, i, them)) {
+        const s = see(b, a, i);
+        if (s > best) { best = s; by = a; }
+      }
+      if (best > 0) out.push({ sq: sqName(i), type: p.type, gain: best, by: sqName(by) });
+    }
+    return out.sort((x, y) => y.gain - x.gain);
+  }
+
+  /* What a bishop, rook or queen on `from` is lined up against: the first enemy piece on a
+     ray and the enemy piece right behind it. Returns [{front, back}] as board indices. */
+  function lineUps(b, from) {
+    const p = b[from];
+    if (!p || !'brq'.includes(p.type)) return [];
+    const dirs = p.type === 'b' ? DIAG : p.type === 'r' ? ORTH : ORTH.concat(DIAG);
+    const out = [];
+    for (const [dr, df] of dirs) {
+      let r = (from >> 3) + dr, f = (from & 7) + df, front = -1;
+      while (r >= 0 && r <= 7 && f >= 0 && f <= 7) {
+        const q = b[r * 8 + f];
+        if (q) {
+          if (q.color === p.color) break;
+          if (front < 0) front = r * 8 + f;
+          else { out.push({ front, back: r * 8 + f }); break; }
+        }
+        r += dr; f += df;
+      }
+    }
+    return out;
+  }
+
+  /* The same position with the other side to move (a "pass"), or null if that is not legal. */
+  function passFen(fen) {
+    const c = new g.Chess(fen);
+    if (c.in_check()) return null;
+    const p = fen.split(' ');
+    p[1] = p[1] === 'w' ? 'b' : 'w';
+    p[3] = '-';
+    const out = p.join(' ');
+    const t = new g.Chess();
+    return t.load(out) ? out : null;
+  }
+
+  /* A move that mates on the spot for the side to move, as a verbose move, or null. */
+  function mateInOne(fen) {
+    const c = new g.Chess(fen);
+    const ms = c.moves({ verbose: true });
+    for (const m of ms) if (m.san.includes('#')) return m;
+    return null;
+  }
+
+  /* Small stable hash, for picking the same phrasing every time a given move is shown. */
+  function hash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  RW.U = { VAL, NAME, FILES, idx, sqName, other, uci, flat, attackersOf, see, balance, pieceCount, winPct, povPct, evalText, pvToSan, hanging, lineUps, passFen, mateInOne, hash };
 })(typeof window !== 'undefined' ? window : globalThis);
