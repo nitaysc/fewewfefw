@@ -11,6 +11,8 @@ an AI. Each project has its own notes:
   Read it before adding or changing any art; it explains the style, units, cameras,
   anchors and exactly how to add a character, cat, furniture piece, drink or dish.
 - `whiskers-coffee/DEVELOPMENT.md`: milestone checklist and technical decisions.
+- `mindgames/README.md`: MINDGAMES, a daily brain-game app (Close Enough, Perception, Odd One
+  Out). React + TypeScript + Vite, packaged with Capacitor. Read its README before changing it.
 - `putt-party/README.md`: 3D minigolf against bots.
 - `redeclipse-android/README.md`: unofficial Android port of Red Eclipse 2. Parked: it
   reached the engine starting on the phone; image loading was just fixed and still

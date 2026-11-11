@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- MINDGAMES is dark-only: near-black window, light system-bar icons. -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/mgBackground</item>
+        <item name="colorPrimaryDark">@color/mgBackground</item>
+        <item name="colorAccent">@color/mgLime</item>
+        <item name="android:windowBackground">@color/mgBackground</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <item name="android:windowBackground">@color/mgBackground</item>
+        <item name="android:statusBarColor">@color/mgBackground</item>
+        <item name="android:navigationBarColor">@color/mgBackground</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/mgBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:statusBarColor">@color/mgBackground</item>
+        <item name="android:navigationBarColor">@color/mgBackground</item>
+    </style>
+</resources>

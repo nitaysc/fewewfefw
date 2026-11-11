@@ -1,0 +1,70 @@
+/* MINDGAMES design tokens — one source of truth for colour, type, spacing and motion. */
+:root {
+  /* surfaces */
+  --bg: #0d0d0f;
+  --bg-raise: #131316;
+  --card: #17171b;
+  --card-2: #1e1e23;
+  --card-3: #26262c;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  /* ink */
+  --ink: #f3f3f6;
+  --ink-2: #a8a8b3;
+  --ink-3: #6c6c78;
+  --ink-inverse: #10130a;
+
+  /* brand + game accents */
+  --lime: #bdf26d;
+  --lime-dim: rgba(189, 242, 109, 0.14);
+  --lav: #aba6ff;
+  --amber: #f4d98b;
+  --aqua: #7fd8f0;
+  --red: #ff7a6e;
+  --red-dim: rgba(255, 122, 110, 0.14);
+  --accent: var(--lav);
+
+  /* radii */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+
+  /* spacing (4pt grid) */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+  --s10: 40px;
+  --gutter: 20px;
+
+  /* type */
+  --font-display: 'Bebas Neue', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Manrope Variable', 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast: 140ms;
+  --t-med: 260ms;
+  --t-slow: 420ms;
+
+  --nav-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-game='close-enough'] {
+  --accent: var(--amber);
+}
+[data-game='perception'] {
+  --accent: var(--lav);
+}
+[data-game='odd-one-out'] {
+  --accent: var(--aqua);
+}
